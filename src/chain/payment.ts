@@ -59,8 +59,9 @@ export interface ExecutedStealthPayment {
 }
 
 /**
- * Step 2 (writes, Sepolia only): send the ETH and emit the EIP-5564
- * announcement so the recipient can discover the payment.
+ * Step 2 (writes): send the ETH and emit the EIP-5564 announcement so the
+ * recipient can discover the payment. Sepolia by default; a mainnet payment
+ * requires the build's mainnet opt-in AND `mainnetConfirmed: true`.
  */
 export async function executeStealthPayment(args: {
   walletClient: PaymentWallet;
@@ -68,9 +69,12 @@ export async function executeStealthPayment(args: {
   /** Address (browser wallet) or a local viem Account (scripts/tests). */
   account: Address | Account;
   plan: StealthPaymentPlan;
+  /** Explicit per-action confirmation, required for a mainnet payment. */
+  mainnetConfirmed?: boolean;
 }): Promise<ExecutedStealthPayment> {
-  assertWritableNetwork(args.chain.id);
-  assertWritableNetwork(await args.walletClient.getChainId());
+  const guard = { mainnetConfirmed: args.mainnetConfirmed };
+  assertWritableNetwork(args.chain.id, guard);
+  assertWritableNetwork(await args.walletClient.getChainId(), guard);
 
   const { derivation, amountWei } = args.plan;
   const paymentTx = await args.walletClient.sendTransaction({
