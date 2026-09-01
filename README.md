@@ -199,9 +199,19 @@ v2 names.
   that injects a production key server-side (the key never ships in the
   client). Reinforces the core story: this is the exposure GhostName removes
   from future payments.
-- Swarm deployment / encrypted testnet recovery capsule: in progress.
+- **Swarm encrypted recovery capsule: ENABLED.** `/create` can encrypt the
+  local identity into a passphrase-locked capsule (AES-256-GCM + PBKDF2) that
+  is safe to store on Swarm — no plaintext key material ever leaves the
+  device (proven by `tests/capsule.test.ts`). Testnet only.
+- **Swarm static deployment: scripted** (`scripts/swarm-deploy.mjs`,
+  `SWARM.md`). Uploading `dist/` to Swarm needs a Bee node and a funded
+  postage stamp (xBZZ), so it is a one-command step you run with your own /
+  the venue booth's stamp rather than done automatically — GhostName's own
+  safety rules keep the agent from spending assets on your behalf.
 
 (Each is only claimed here if actually working; see commit history.)
+
+See [SWARM.md](SWARM.md) for both.
 
 ## Standards
 

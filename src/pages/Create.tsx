@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { sepolia } from 'viem/chains';
 import { saveIdentity, useIdentity } from '../state/identity';
 import type { StealthKeys } from '../crypto/stealth';
+import { encryptCapsule } from '../swarm/capsule';
 import { useWallet } from '../state/wallet';
 import { publishStealthRecord } from '../ens/write';
 import { getSepoliaClient } from '../chain/clients';
@@ -15,6 +16,8 @@ export default function Create() {
   const wallet = useWallet();
   const [ensName, setEnsName] = useState('');
   const [importJson, setImportJson] = useState('');
+  const [capsulePass, setCapsulePass] = useState('');
+  const [capsuleMsg, setCapsuleMsg] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [publishTx, setPublishTx] = useState<string | null>(null);
   const [verified, setVerified] = useState<string | null>(null);
@@ -68,6 +71,28 @@ export default function Create() {
     a.download = 'ghostname-identity.json';
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function downloadEncryptedCapsule() {
+    if (!identity) return;
+    setCapsuleMsg(null);
+    try {
+      const capsule = await encryptCapsule(
+        { ...identity, network: 'testnet' },
+        capsulePass,
+      );
+      const blob = new Blob([JSON.stringify(capsule, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ghostname-capsule.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      setCapsuleMsg('Encrypted capsule downloaded — safe to store on Swarm (testnet only).');
+      setCapsulePass('');
+    } catch (err) {
+      setCapsuleMsg(err instanceof Error ? err.message : String(err));
+    }
   }
 
   return (
@@ -148,6 +173,30 @@ export default function Create() {
             >
               Discard identity
             </button>
+          </div>
+
+          <div className="card inset">
+            <span className="label">Encrypted recovery capsule (Swarm-ready, testnet only)</span>
+            <p className="small dim" style={{ marginTop: 0 }}>
+              Encrypts this identity locally (AES-256-GCM, passphrase-derived key) so it can be
+              stored on Swarm without exposing keys. The passphrase never leaves this device.
+            </p>
+            <div className="row">
+              <input
+                type="text"
+                value={capsulePass}
+                onChange={(e) => setCapsulePass(e.target.value)}
+                placeholder="passphrase (min 8 chars)"
+              />
+              <button
+                className="ghost"
+                onClick={() => void downloadEncryptedCapsule()}
+                disabled={capsulePass.length < 8}
+              >
+                Download encrypted capsule
+              </button>
+            </div>
+            {capsuleMsg && <p className="small dim" style={{ marginBottom: 0 }}>{capsuleMsg}</p>}
           </div>
 
           <h2>Publish to a Sepolia ENS name</h2>
