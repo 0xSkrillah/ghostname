@@ -67,24 +67,28 @@ export async function getResolverAddress(
 export interface PublishStealthRecordArgs {
   publicClient: ResolverFinder;
   walletClient: TextWriter;
-  /** Sepolia chain object from viem (passed through to the wallet). */
+  /** Target chain object from viem (Sepolia by default; mainnet only in guarded mode). */
   chain: Chain;
   /** Address (browser wallet) or a local viem Account (scripts/tests). */
   account: Address | Account;
   name: string;
   stealthMetaAddress: string;
+  /** Explicit per-action confirmation, required for a mainnet write. */
+  mainnetConfirmed?: boolean;
 }
 
 /**
  * Publish `stealth-meta-address[1]` = the meta-address string, verbatim, on
- * the name's configured resolver. Hard-fails off-Sepolia BEFORE any wallet
- * interaction, and again against the wallet's actual reported chain.
+ * the name's configured resolver. Hard-fails on a disallowed network BEFORE
+ * any wallet interaction, and again against the wallet's actual reported
+ * chain. A mainnet write additionally requires `mainnetConfirmed: true`.
  */
 export async function publishStealthRecord(args: PublishStealthRecordArgs): Promise<Hash> {
+  const guard = { mainnetConfirmed: args.mainnetConfirmed };
   // Guard 1: the chain the caller intends to use.
-  assertWritableNetwork(args.chain.id);
+  assertWritableNetwork(args.chain.id, guard);
   // Guard 2: the chain the wallet is actually connected to.
-  assertWritableNetwork(await args.walletClient.getChainId());
+  assertWritableNetwork(await args.walletClient.getChainId(), guard);
 
   // Validate the record before publishing anything.
   parseStealthMetaAddress(args.stealthMetaAddress);

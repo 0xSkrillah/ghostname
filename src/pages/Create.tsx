@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import { sepolia } from 'viem/chains';
 import { saveIdentity, useIdentity } from '../state/identity';
 import type { StealthKeys } from '../crypto/stealth';
 import { encryptCapsule } from '../swarm/capsule';
 import { useWallet } from '../state/wallet';
 import { publishStealthRecord } from '../ens/write';
-import { getSepoliaClient } from '../chain/clients';
+import { getMainnetClient, getSepoliaClient } from '../chain/clients';
 import { resolveStealthMetaAddress } from '../ens/resolve';
 import { ENS_STEALTH_RECORD_KEY } from '../crypto/metaAddress';
-import { WRITABLE_CHAIN_ID } from '../chain/guards';
+import { MAINNET_CHAIN_ID, SEPOLIA_CHAIN_ID } from '../chain/guards';
 import CopyField from '../components/CopyField';
+import MainnetConfirm from '../components/MainnetConfirm';
 
 export default function Create() {
   const { identity, create, clear } = useIdentity();
@@ -21,24 +21,31 @@ export default function Create() {
   const [publishing, setPublishing] = useState(false);
   const [publishTx, setPublishTx] = useState<string | null>(null);
   const [verified, setVerified] = useState<string | null>(null);
+  const [mainnetConfirmed, setMainnetConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const onSepolia = wallet.chainId === WRITABLE_CHAIN_ID;
+  const onSepolia = wallet.chainId === SEPOLIA_CHAIN_ID;
+  const onMainnet = wallet.chainId === MAINNET_CHAIN_ID;
+  const explorer = onMainnet ? 'https://etherscan.io' : 'https://sepolia.etherscan.io';
+  const readClient = onMainnet ? getMainnetClient() : getSepoliaClient();
+  const canPublish =
+    wallet.onWritableNetwork && (!onMainnet || mainnetConfirmed) && !publishing && !!ensName.trim();
 
   async function publish() {
-    if (!identity || !wallet.client || !wallet.account) return;
+    if (!identity || !wallet.client || !wallet.account || !wallet.chain) return;
     setPublishing(true);
     setError(null);
     setPublishTx(null);
     setVerified(null);
     try {
       const hash = await publishStealthRecord({
-        publicClient: getSepoliaClient(),
+        publicClient: readClient,
         walletClient: wallet.client,
-        chain: sepolia,
+        chain: wallet.chain,
         account: wallet.account,
         name: ensName,
         stealthMetaAddress: identity.stealthMetaAddress,
+        mainnetConfirmed,
       });
       setPublishTx(hash);
     } catch (err) {
@@ -51,11 +58,11 @@ export default function Create() {
   async function verify() {
     setError(null);
     try {
-      const result = await resolveStealthMetaAddress(getSepoliaClient(), ensName);
+      const result = await resolveStealthMetaAddress(readClient, ensName);
       setVerified(
         result.status === 'ok'
-          ? `Record live on Sepolia: ${result.record.slice(0, 28)}…`
-          : `Record not readable yet (status: ${result.status}). Sepolia blocks take ~15s.`,
+          ? `Record live: ${result.record.slice(0, 28)}…`
+          : `Record not readable yet (status: ${result.status}). New blocks take ~15s.`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -199,10 +206,11 @@ export default function Create() {
             {capsuleMsg && <p className="small dim" style={{ marginBottom: 0 }}>{capsuleMsg}</p>}
           </div>
 
-          <h2>Publish to a Sepolia ENS name</h2>
+          <h2>Publish to an ENS name</h2>
           <p className="small dim">
-            Testnet only. Mainnet writes are blocked in code — the publish path hard-fails on
-            any chain other than Sepolia ({WRITABLE_CHAIN_ID}).
+            Sepolia by default. {wallet.mainnetEnabled
+              ? 'This build has guarded mainnet mode enabled: a mainnet publish is possible but requires an explicit typed confirmation below.'
+              : 'Mainnet writes are blocked in this build — the publish path hard-fails on any chain other than Sepolia.'}
           </p>
           {!wallet.account ? (
             <button className="secondary" onClick={() => void wallet.connect()}>
@@ -214,26 +222,37 @@ export default function Create() {
                 <span className="pill">{wallet.account}</span>{' '}
                 {onSepolia ? (
                   <span className="pill ok">Sepolia</span>
+                ) : onMainnet ? (
+                  <span className="pill warn">Mainnet — guarded</span>
                 ) : (
                   <>
                     <span className="pill bad">chain {wallet.chainId ?? '?'} — writes blocked</span>{' '}
                     <button className="ghost" onClick={() => void wallet.switchToSepolia()}>
                       Switch to Sepolia
                     </button>
+                    {wallet.mainnetEnabled && (
+                      <button className="ghost" onClick={() => void wallet.switchToMainnet()}>
+                        Switch to Mainnet
+                      </button>
+                    )}
                   </>
                 )}
               </p>
+              {onMainnet && (
+                <MainnetConfirm
+                  action="record publish"
+                  confirmed={mainnetConfirmed}
+                  setConfirmed={setMainnetConfirmed}
+                />
+              )}
               <div className="row">
                 <input
                   type="text"
                   value={ensName}
                   onChange={(e) => setEnsName(e.target.value)}
-                  placeholder="your-test-name.eth (owned by this wallet, on Sepolia)"
+                  placeholder={onMainnet ? 'your-name.eth (owned by this wallet)' : 'your-test-name.eth (Sepolia)'}
                 />
-                <button
-                  onClick={() => void publish()}
-                  disabled={publishing || !onSepolia || !ensName.trim()}
-                >
+                <button onClick={() => void publish()} disabled={!canPublish}>
                   {publishing ? 'Publishing…' : 'Publish record'}
                 </button>
               </div>
@@ -243,11 +262,7 @@ export default function Create() {
             <div className="card ok">
               <span className="label">Record published — transaction</span>
               <div className="bigmono">
-                <a
-                  href={`https://sepolia.etherscan.io/tx/${publishTx}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
+                <a href={`${explorer}/tx/${publishTx}`} target="_blank" rel="noreferrer">
                   {publishTx}
                 </a>
               </div>

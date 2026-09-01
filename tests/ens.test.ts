@@ -35,9 +35,9 @@ describe('network guards', () => {
     expect(() => assertWritableNetwork(WRITABLE_CHAIN_ID)).not.toThrow();
   });
 
-  it('blocks mainnet with an explicit message', () => {
+  it('blocks mainnet by default with an explicit message', () => {
     expect(() => assertWritableNetwork(1)).toThrow(WrongNetworkError);
-    expect(() => assertWritableNetwork(1)).toThrow(/Mainnet writes are blocked/);
+    expect(() => assertWritableNetwork(1)).toThrow(/disabled in this build/);
   });
 
   it('blocks every other network and undefined', () => {

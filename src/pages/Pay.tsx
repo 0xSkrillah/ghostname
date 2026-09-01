@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { parseEther } from 'viem';
-import { sepolia } from 'viem/chains';
-import { getSepoliaClient } from '../chain/clients';
+import { getMainnetClient, getSepoliaClient } from '../chain/clients';
 import { planStealthPayment, executeStealthPayment, type StealthPaymentPlan } from '../chain/payment';
-import { WRITABLE_CHAIN_ID } from '../chain/guards';
+import { MAINNET_CHAIN_ID, SEPOLIA_CHAIN_ID } from '../chain/guards';
 import { useWallet } from '../state/wallet';
 import { DEMO_PAYMENT_ETH, DEMO_SEPOLIA_NAME } from '../config';
 import Compare from '../components/Compare';
+import MainnetConfirm from '../components/MainnetConfirm';
 
 export default function Pay() {
   const wallet = useWallet();
@@ -15,9 +15,15 @@ export default function Pay() {
   const [plans, setPlans] = useState<StealthPaymentPlan[]>([]);
   const [busy, setBusy] = useState<'idle' | 'planning' | 'paying'>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [mainnetConfirmed, setMainnetConfirmed] = useState(false);
   const [result, setResult] = useState<{ paymentTx: string; announcementTx: string } | null>(null);
 
-  const onSepolia = wallet.chainId === WRITABLE_CHAIN_ID;
+  const onMainnet = wallet.chainId === MAINNET_CHAIN_ID;
+  const explorer = onMainnet ? 'https://etherscan.io' : 'https://sepolia.etherscan.io';
+  // Resolve the record on the same network the payment will be sent on.
+  const readClient = onMainnet ? getMainnetClient() : getSepoliaClient();
+  const canPay =
+    wallet.onWritableNetwork && (!onMainnet || mainnetConfirmed) && busy === 'idle';
   const current = plans[plans.length - 1];
 
   async function derive() {
@@ -25,11 +31,7 @@ export default function Pay() {
     setError(null);
     setResult(null);
     try {
-      const plan = await planStealthPayment(
-        getSepoliaClient(),
-        name,
-        parseEther(amount || '0'),
-      );
+      const plan = await planStealthPayment(readClient, name, parseEther(amount || '0'));
       setPlans((prev) => [...prev.slice(-4), plan]);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -39,15 +41,16 @@ export default function Pay() {
   }
 
   async function pay() {
-    if (!current || !wallet.client || !wallet.account) return;
+    if (!current || !wallet.client || !wallet.account || !wallet.chain) return;
     setBusy('paying');
     setError(null);
     try {
       const executed = await executeStealthPayment({
         walletClient: wallet.client,
-        chain: sepolia,
+        chain: wallet.chain,
         account: wallet.account,
         plan: { ...current, amountWei: parseEther(amount || '0') },
+        mainnetConfirmed,
       });
       setResult(executed);
     } catch (err) {
@@ -61,16 +64,16 @@ export default function Pay() {
     <>
       <h1>Pay an ENS name privately</h1>
       <p className="lead">
-        Resolves <code>stealth-meta-address[1]</code> from Sepolia ENS and derives a fresh
-        one-time destination <strong>locally</strong> — new ephemeral randomness on every
-        derivation, no gateway involved.
+        Resolves <code>stealth-meta-address[1]</code> from ENS and derives a fresh one-time
+        destination <strong>locally</strong> — new ephemeral randomness on every derivation,
+        no gateway involved.
       </p>
       <div className="row">
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="ghostname-enabled-name.eth (Sepolia)"
+          placeholder="ghostname-enabled-name.eth"
         />
         <button onClick={() => void derive()} disabled={busy !== 'idle' || !name.trim()}>
           {busy === 'planning' ? 'Deriving…' : plans.length ? 'Derive again' : 'Resolve + derive'}
@@ -112,7 +115,7 @@ export default function Pay() {
             />
           )}
 
-          <h2>Send Sepolia ETH to the latest destination</h2>
+          <h2>Send {onMainnet ? 'ETH' : 'Sepolia ETH'} to the latest destination</h2>
           {!wallet.account ? (
             <button className="secondary" onClick={() => void wallet.connect()}>
               Connect wallet
@@ -121,17 +124,31 @@ export default function Pay() {
             <>
               <p className="small">
                 <span className="pill">{wallet.account}</span>{' '}
-                {onSepolia ? (
+                {wallet.chainId === SEPOLIA_CHAIN_ID ? (
                   <span className="pill ok">Sepolia</span>
+                ) : onMainnet ? (
+                  <span className="pill warn">Mainnet — guarded</span>
                 ) : (
                   <>
                     <span className="pill bad">chain {wallet.chainId ?? '?'} — writes blocked</span>{' '}
                     <button className="ghost" onClick={() => void wallet.switchToSepolia()}>
                       Switch to Sepolia
                     </button>
+                    {wallet.mainnetEnabled && (
+                      <button className="ghost" onClick={() => void wallet.switchToMainnet()}>
+                        Switch to Mainnet
+                      </button>
+                    )}
                   </>
                 )}
               </p>
+              {onMainnet && (
+                <MainnetConfirm
+                  action="payment"
+                  confirmed={mainnetConfirmed}
+                  setConfirmed={setMainnetConfirmed}
+                />
+              )}
               <div className="row">
                 <input
                   type="text"
@@ -141,7 +158,7 @@ export default function Pay() {
                   placeholder="0.001"
                 />
                 <span className="dim">ETH</span>
-                <button onClick={() => void pay()} disabled={busy !== 'idle' || !onSepolia}>
+                <button onClick={() => void pay()} disabled={!canPay}>
                   {busy === 'paying' ? 'Confirm in wallet…' : 'Send + announce'}
                 </button>
               </div>
@@ -156,21 +173,13 @@ export default function Pay() {
               <span className="label">Payment complete</span>
               <div className="bigmono small">
                 payment:{' '}
-                <a
-                  href={`https://sepolia.etherscan.io/tx/${result.paymentTx}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
+                <a href={`${explorer}/tx/${result.paymentTx}`} target="_blank" rel="noreferrer">
                   {result.paymentTx}
                 </a>
               </div>
               <div className="bigmono small">
                 announcement:{' '}
-                <a
-                  href={`https://sepolia.etherscan.io/tx/${result.announcementTx}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
+                <a href={`${explorer}/tx/${result.announcementTx}`} target="_blank" rel="noreferrer">
                   {result.announcementTx}
                 </a>
               </div>
