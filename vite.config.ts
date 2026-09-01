@@ -7,6 +7,19 @@ export default defineConfig({
   // subdirectory, Swarm bzz:// paths) without rebuild.
   base: './',
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        // Split heavy, rarely-changing deps into their own cached chunks so
+        // the app shell reloads fast on venue Wi-Fi.
+        manualChunks: {
+          viem: ['viem', 'viem/chains', 'viem/ens', 'viem/accounts'],
+          react: ['react', 'react-dom', 'react-router-dom'],
+          noble: ['@noble/curves/secp256k1'],
+        },
+      },
+    },
+  },
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
