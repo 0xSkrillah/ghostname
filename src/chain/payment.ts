@@ -2,7 +2,7 @@
  * The private payment flow: resolve → derive fresh destination → send ETH →
  * announce. Sepolia-only, enforced before any wallet interaction.
  */
-import type { Address, Hash, Hex } from 'viem';
+import type { Address, Chain, Hash, Hex } from 'viem';
 import { assertWritableNetwork } from './guards';
 import {
   ANNOUNCER_ABI,
@@ -20,7 +20,7 @@ export interface PaymentWallet {
     to: Address;
     value: bigint;
     account: Address;
-    chain: { id: number } | null | undefined;
+    chain: Chain | null | undefined;
   }): Promise<Hash>;
   writeContract(args: {
     address: Address;
@@ -28,7 +28,7 @@ export interface PaymentWallet {
     functionName: 'announce';
     args: readonly [bigint, Address, Hex, Hex];
     account: Address;
-    chain: { id: number } | null | undefined;
+    chain: Chain | null | undefined;
   }): Promise<Hash>;
 }
 
@@ -64,7 +64,7 @@ export interface ExecutedStealthPayment {
  */
 export async function executeStealthPayment(args: {
   walletClient: PaymentWallet;
-  chain: { id: number };
+  chain: Chain;
   account: Address;
   plan: StealthPaymentPlan;
 }): Promise<ExecutedStealthPayment> {

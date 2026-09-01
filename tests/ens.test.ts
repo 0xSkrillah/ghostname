@@ -3,7 +3,7 @@
  * names, and the Sepolia-only record write path with hard network guards.
  */
 import { describe, expect, it } from 'vitest';
-import { namehash, zeroAddress, type Address, type Hash } from 'viem';
+import { namehash, zeroAddress, type Address, type Chain, type Hash } from 'viem';
 import { assertWritableNetwork, WrongNetworkError, WRITABLE_CHAIN_ID } from '../src/chain/guards';
 import {
   normalizeEnsName,
@@ -167,7 +167,7 @@ describe('publishStealthRecord (Sepolia-only write)', () => {
     const hash = await publishStealthRecord({
       publicClient: fakeRegistry(RESOLVER),
       walletClient: wallet,
-      chain: { id: WRITABLE_CHAIN_ID },
+      chain: { id: WRITABLE_CHAIN_ID } as Chain,
       account: OWNER,
       name: 'MyTest.eth',
       stealthMetaAddress: keys.stealthMetaAddress,
@@ -192,7 +192,7 @@ describe('publishStealthRecord (Sepolia-only write)', () => {
       publishStealthRecord({
         publicClient: fakeRegistry(RESOLVER),
         walletClient: wallet,
-        chain: { id: 1 },
+        chain: { id: 1 } as Chain,
         account: OWNER,
         name: 'mytest.eth',
         stealthMetaAddress: keys.stealthMetaAddress,
@@ -207,7 +207,7 @@ describe('publishStealthRecord (Sepolia-only write)', () => {
       publishStealthRecord({
         publicClient: fakeRegistry(RESOLVER),
         walletClient: wallet,
-        chain: { id: WRITABLE_CHAIN_ID },
+        chain: { id: WRITABLE_CHAIN_ID } as Chain,
         account: OWNER,
         name: 'mytest.eth',
         stealthMetaAddress: keys.stealthMetaAddress,
@@ -222,7 +222,7 @@ describe('publishStealthRecord (Sepolia-only write)', () => {
       publishStealthRecord({
         publicClient: fakeRegistry(RESOLVER),
         walletClient: wallet,
-        chain: { id: WRITABLE_CHAIN_ID },
+        chain: { id: WRITABLE_CHAIN_ID } as Chain,
         account: OWNER,
         name: 'mytest.eth',
         stealthMetaAddress: 'st:eth:0xnothex',
@@ -237,7 +237,7 @@ describe('publishStealthRecord (Sepolia-only write)', () => {
       publishStealthRecord({
         publicClient: fakeRegistry(zeroAddress),
         walletClient: wallet,
-        chain: { id: WRITABLE_CHAIN_ID },
+        chain: { id: WRITABLE_CHAIN_ID } as Chain,
         account: OWNER,
         name: 'unconfigured.eth',
         stealthMetaAddress: keys.stealthMetaAddress,
