@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { sepolia } from 'viem/chains';
-import { useIdentity } from '../state/identity';
+import { saveIdentity, useIdentity } from '../state/identity';
+import type { StealthKeys } from '../crypto/stealth';
 import { useWallet } from '../state/wallet';
 import { publishStealthRecord } from '../ens/write';
 import { getSepoliaClient } from '../chain/clients';
@@ -13,6 +14,7 @@ export default function Create() {
   const { identity, create, clear } = useIdentity();
   const wallet = useWallet();
   const [ensName, setEnsName] = useState('');
+  const [importJson, setImportJson] = useState('');
   const [publishing, setPublishing] = useState(false);
   const [publishTx, setPublishTx] = useState<string | null>(null);
   const [verified, setVerified] = useState<string | null>(null);
@@ -77,7 +79,45 @@ export default function Create() {
       </p>
 
       {!identity && (
-        <button onClick={() => create()}>Generate keys locally</button>
+        <>
+          <button onClick={() => create()}>Generate keys locally</button>
+          <h2>Or import an existing identity</h2>
+          <p className="small dim">
+            Paste a GhostName identity backup (JSON). It is parsed locally and stored only in
+            this browser.
+          </p>
+          <div className="row">
+            <input
+              type="text"
+              value={importJson}
+              onChange={(e) => setImportJson(e.target.value)}
+              placeholder='{"spendingPrivateKey":"0x…", …}'
+            />
+            <button
+              className="secondary"
+              onClick={() => {
+                try {
+                  const parsed = JSON.parse(importJson) as StealthKeys;
+                  if (
+                    !parsed.spendingPrivateKey ||
+                    !parsed.viewingPrivateKey ||
+                    !parsed.stealthMetaAddress
+                  ) {
+                    throw new Error('missing fields');
+                  }
+                  saveIdentity(parsed);
+                  setImportJson('');
+                } catch {
+                  setError('Invalid identity JSON — expected the ghostname-identity.json backup.');
+                }
+              }}
+              disabled={!importJson.trim()}
+            >
+              Import
+            </button>
+          </div>
+          {error && <p className="error">{error}</p>}
+        </>
       )}
 
       {identity && (
