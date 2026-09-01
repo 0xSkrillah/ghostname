@@ -147,7 +147,7 @@ are pre-filled, outputs never are. See [DEMO.md](DEMO.md).
 git clone https://github.com/0xSkrillah/ghostname
 cd ghostname
 npm install
-npm test          # 58 deterministic tests, no network needed
+npm test          # deterministic tests, no network needed (see 03_BUILD_STATUS.md for the count)
 npm run dev       # http://localhost:5173
 ```
 
@@ -280,6 +280,40 @@ Reproduce with `npm run sweep:sepolia`. Full design in [RELAYERS.md](RELAYERS.md
 (Each is only claimed here if actually working; see commit history.)
 
 See [SWARM.md](SWARM.md) for both.
+
+## AI agents: a local-first, read-only privacy adviser
+
+Ask your AI agent to audit any ENS name, explain its privacy leaks and guide
+you through a human-signed upgrade, without the agent ever seeing your keys.
+
+```bash
+npm run build:agent
+claude mcp add ghostname -- node ./dist-agent/ghostname-mcp.mjs
+```
+
+The local MCP server runs on your machine over stdio, uses your RPC, calls no
+GhostName API, collects nothing and keeps no history. It exposes five read-only
+tools (`ghostname_audit_ens_privacy`, `ghostname_prepare_upgrade`,
+`ghostname_reaudit_ens_privacy`, `ghostname_verify_payment`,
+`ghostname_verify_sponsored_exit`), five `ghostname://` resources, one prompt,
+and an inline MCP App view for hosts that support it. It has no wallet, no
+signing and no write capability, enforced by an import-boundary test rather
+than by tool annotations. The upgrade itself happens in your browser through
+a secure handoff link that carries only the name, chain id, report id and
+version; keys are generated there and the record is written only after you
+approve it in your own wallet.
+
+Workflow: **audit, explain, prepare safe handoff, human wallet action, re-audit
+and prove.** A private-ready result means forward recipient-address privacy for
+compatible senders, never anonymity.
+
+See [AGENTS.md](AGENTS.md) for Claude Code, Claude Desktop, Cursor, VS Code and
+MCP Inspector setup, the CLI, and the local versus remote privacy comparison;
+[AGENT_DEMO.md](AGENT_DEMO.md) for the live sequence;
+[AGENT_DISCOVERY.md](AGENT_DISCOVERY.md) for the draft ENSIP-26 agent records;
+[server.json](server.json) for the MCP Registry descriptor; and
+[.claude/skills/ens-privacy-advisor/SKILL.md](.claude/skills/ens-privacy-advisor/SKILL.md)
+for the Claude Agent Skill.
 
 ## Standards
 

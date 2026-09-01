@@ -17,11 +17,14 @@
     "build:all": "npm run build && npm run build:agent",
     "mcp": "node dist-agent/ghostname-mcp.mjs",
     "mcp:inspect": "npx @modelcontextprotocol/inspector node dist-agent/ghostname-mcp.mjs",
-    "cli": "node dist-agent/ghostname.mjs"
+    "cli": "node dist-agent/ghostname.mjs",
+    "mcp:http": "node dist-agent/ghostname-mcp-http.mjs"
   },
   "dependencies": {
+    "@modelcontextprotocol/node": "2.0.0",
     "@modelcontextprotocol/server": "2.0.0",
     "@noble/curves": "^1.9.0",
+    "hono": "4.11.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.0.0",
@@ -43,7 +46,8 @@
   },
   "bin": {
     "ghostname": "dist-agent/ghostname.mjs",
-    "ghostname-mcp": "dist-agent/ghostname-mcp.mjs"
+    "ghostname-mcp": "dist-agent/ghostname-mcp.mjs",
+    "ghostname-mcp-http": "dist-agent/ghostname-mcp-http.mjs"
   },
   "engines": {
     "node": ">=20"
