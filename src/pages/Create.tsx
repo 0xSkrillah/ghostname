@@ -95,7 +95,7 @@ export default function Create() {
       a.download = 'ghostname-capsule.json';
       a.click();
       URL.revokeObjectURL(url);
-      setCapsuleMsg('Encrypted capsule downloaded — safe to store on Swarm (testnet only).');
+      setCapsuleMsg('Encrypted capsule downloaded. Safe to store on Swarm (testnet only).');
       setCapsulePass('');
     } catch (err) {
       setCapsuleMsg(err instanceof Error ? err.message : String(err));
@@ -107,7 +107,7 @@ export default function Create() {
       <h1>Create a private receive identity</h1>
       <p className="lead">
         Two keypairs are generated in this browser with a cryptographically secure RNG.
-        Private keys never leave this device — there is no server.
+        Private keys never leave this device. There is no server.
       </p>
 
       {!identity && (
@@ -140,7 +140,7 @@ export default function Create() {
                   saveIdentity(parsed);
                   setImportJson('');
                 } catch {
-                  setError('Invalid identity JSON — expected the ghostname-identity.json backup.');
+                  setError('Invalid identity JSON. Expected the ghostname-identity.json backup.');
                 }
               }}
               disabled={!importJson.trim()}
@@ -155,14 +155,14 @@ export default function Create() {
       {identity && (
         <>
           <CopyField
-            label={`ENS text record — key: ${ENS_STEALTH_RECORD_KEY}`}
+            label={`ENS text record, key: ${ENS_STEALTH_RECORD_KEY}`}
             value={identity.stealthMetaAddress}
             size="xl"
           />
           <p className="small dim">
             Publish this value under the text record key{' '}
             <code>{ENS_STEALTH_RECORD_KEY}</code> on any ENS name you own. Senders resolve
-            it and derive fresh one-time addresses — no interaction with you required.
+            it and derive fresh one-time addresses, with no interaction with you required.
           </p>
           <CopyField label="Spending private key" value={identity.spendingPrivateKey} sensitive />
           <CopyField label="Viewing private key" value={identity.viewingPrivateKey} sensitive />
@@ -210,7 +210,7 @@ export default function Create() {
           <p className="small dim">
             Sepolia by default. {wallet.mainnetEnabled
               ? 'This build has guarded mainnet mode enabled: a mainnet publish is possible but requires an explicit typed confirmation below.'
-              : 'Mainnet writes are blocked in this build — the publish path hard-fails on any chain other than Sepolia.'}
+              : 'Mainnet writes are blocked in this build. The publish path hard-fails on any chain other than Sepolia.'}
           </p>
           {!wallet.account ? (
             <button className="secondary" onClick={() => void wallet.connect()}>
@@ -223,10 +223,10 @@ export default function Create() {
                 {onSepolia ? (
                   <span className="pill ok">Sepolia</span>
                 ) : onMainnet ? (
-                  <span className="pill warn">Mainnet — guarded</span>
+                  <span className="pill warn">Mainnet (guarded)</span>
                 ) : (
                   <>
-                    <span className="pill bad">chain {wallet.chainId ?? '?'} — writes blocked</span>{' '}
+                    <span className="pill bad">chain {wallet.chainId ?? '?'}, writes blocked</span>{' '}
                     <button className="ghost" onClick={() => void wallet.switchToSepolia()}>
                       Switch to Sepolia
                     </button>
@@ -250,6 +250,7 @@ export default function Create() {
                   type="text"
                   value={ensName}
                   onChange={(e) => setEnsName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && canPublish && void publish()}
                   placeholder={onMainnet ? 'your-name.eth (owned by this wallet)' : 'your-test-name.eth (Sepolia)'}
                 />
                 <button onClick={() => void publish()} disabled={!canPublish}>
@@ -260,7 +261,7 @@ export default function Create() {
           )}
           {publishTx && (
             <div className="card ok">
-              <span className="label">Record published — transaction</span>
+              <span className="label">Record published. Transaction</span>
               <div className="bigmono">
                 <a href={`${explorer}/tx/${publishTx}`} target="_blank" rel="noreferrer">
                   {publishTx}

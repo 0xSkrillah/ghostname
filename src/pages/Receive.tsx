@@ -109,7 +109,7 @@ export default function Receive() {
       <>
         <h1>Receive</h1>
         <p className="lead">
-          No local identity found. <Link to="/create">Create one first</Link> — the scanner
+          No local identity found. <Link to="/create">Create one first</Link>. The scanner
           needs your viewing key (which never leaves this device).
         </p>
       </>
@@ -121,14 +121,15 @@ export default function Receive() {
       <h1>Discover your payments</h1>
       <p className="lead">
         Scans ERC-5564 announcements on Sepolia and recognises yours with the private
-        viewing key — locally. Observers (and other recipients) cannot do this.
+        viewing key, locally. Observers (and other recipients) cannot do this.
       </p>
       <div className="row">
         <input
           type="text"
           value={fromBlock}
           onChange={(e) => setFromBlock(e.target.value)}
-          placeholder={`from block (default: latest − ${DEFAULT_LOOKBACK})`}
+          onKeyDown={(e) => e.key === 'Enter' && !busy && void scan()}
+          placeholder={`from block (default: latest minus ${DEFAULT_LOOKBACK})`}
         />
         <button onClick={() => void scan()} disabled={busy}>
           {busy ? 'Scanning…' : 'Scan announcements'}
@@ -158,7 +159,7 @@ export default function Receive() {
               <strong style={{ color: outcome.strangerMatches === 0 ? 'var(--accent)' : 'var(--danger)' }}>
                 {outcome.strangerMatches}
               </strong>{' '}
-              payment{outcome.strangerMatches === 1 ? '' : 's'} — recognition requires the
+              payment{outcome.strangerMatches === 1 ? '' : 's'}. Recognition requires the
               recipient's private viewing key, not just public data.
             </p>
           </div>

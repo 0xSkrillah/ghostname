@@ -1,14 +1,14 @@
 export default function Privacy() {
   return (
     <>
-      <h1>What GhostName protects — and what it cannot</h1>
+      <h1>What GhostName protects, and what it cannot</h1>
       <p className="lead">
         GhostName is forward privacy for ENS receiving addresses. It is not anonymity, not a
         mixer, not zero knowledge, and it cannot delete blockchain history. Here is the
         honest boundary.
       </p>
 
-      <h2>Past — cannot be erased</h2>
+      <h2>Past: cannot be erased</h2>
       <div className="card danger">
         <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
           <li>Historic transactions of any address the name has resolved to.</li>
@@ -17,12 +17,12 @@ export default function Privacy() {
         </ul>
       </div>
 
-      <h2>Present — current exposure can be reduced</h2>
+      <h2>Present: current exposure can be reduced</h2>
       <div className="card">
         <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
           <li>
             Current public ENS records (address, profile, socials) are visible to everyone.
-            You can review and remove records you no longer want associated — GhostName
+            You can review and remove records you no longer want associated. GhostName
             explains this but never executes destructive changes for you.
           </li>
           <li>
@@ -32,7 +32,7 @@ export default function Privacy() {
         </ul>
       </div>
 
-      <h2>Future — what GhostName adds</h2>
+      <h2>Future: what GhostName adds</h2>
       <div className="card ok">
         <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
           <li>Keep the human-readable ENS identity.</li>
@@ -74,11 +74,11 @@ export default function Privacy() {
       <h2>Not protected</h2>
       <table className="plain">
         <tbody>
-          <tr><td>Historical blockchain activity — nothing can delete it.</td></tr>
+          <tr><td>Historical blockchain activity. Nothing can delete it.</td></tr>
           <tr><td>Existence and ownership of the ENS name itself.</td></tr>
           <tr><td>The public stealth meta-address record (it is meant to be public).</td></tr>
           <tr><td>Sender identity, if the sender pays from a public wallet.</td></tr>
-          <tr><td>Amounts of ordinary ETH/ERC-20 transfers — visible on-chain.</td></tr>
+          <tr><td>Amounts of ordinary ETH/ERC-20 transfers, visible on-chain.</td></tr>
           <tr><td>Timing, network, RPC and browser-fingerprint correlation attacks.</td></tr>
           <tr><td>A compromised device, or leaked viewing/spending keys.</td></tr>
           <tr><td>Your identity to a sender who already knows who they are paying.</td></tr>

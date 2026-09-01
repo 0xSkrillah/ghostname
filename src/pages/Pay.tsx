@@ -65,7 +65,7 @@ export default function Pay() {
       <h1>Pay an ENS name privately</h1>
       <p className="lead">
         Resolves <code>stealth-meta-address[1]</code> from ENS and derives a fresh one-time
-        destination <strong>locally</strong> — new ephemeral randomness on every derivation,
+        destination <strong>locally</strong>, with new ephemeral randomness on every derivation,
         no gateway involved.
       </p>
       <div className="row">
@@ -73,6 +73,7 @@ export default function Pay() {
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && busy === 'idle' && name.trim() && void derive()}
           placeholder="ghostname-enabled-name.eth"
         />
         <button onClick={() => void derive()} disabled={busy !== 'idle' || !name.trim()}>
@@ -102,7 +103,7 @@ export default function Pay() {
             ))}
             {plans.length > 1 && (
               <p className="small" style={{ color: 'var(--accent)', marginBottom: 0 }}>
-                Same name, different destination every time — that is the point. Only the
+                Same name, different destination every time. That is the point. Only the
                 recipient's viewing key can link these.
               </p>
             )}
@@ -127,10 +128,10 @@ export default function Pay() {
                 {wallet.chainId === SEPOLIA_CHAIN_ID ? (
                   <span className="pill ok">Sepolia</span>
                 ) : onMainnet ? (
-                  <span className="pill warn">Mainnet — guarded</span>
+                  <span className="pill warn">Mainnet (guarded)</span>
                 ) : (
                   <>
-                    <span className="pill bad">chain {wallet.chainId ?? '?'} — writes blocked</span>{' '}
+                    <span className="pill bad">chain {wallet.chainId ?? '?'}, writes blocked</span>{' '}
                     <button className="ghost" onClick={() => void wallet.switchToSepolia()}>
                       Switch to Sepolia
                     </button>

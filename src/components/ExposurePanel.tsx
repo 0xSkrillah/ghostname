@@ -32,7 +32,7 @@ export default function ExposurePanel({ address }: { address: Address }) {
         <>
           <p className="small dim" style={{ marginTop: 0 }}>
             This static address is public. Anyone can assemble its full financial profile
-            from it — here is a live sample of what a single lookup reveals.
+            from it. Here is a live sample of what a single lookup reveals.
           </p>
           <button className="secondary" onClick={() => void load()}>
             Assemble public profile
@@ -97,7 +97,7 @@ export default function ExposurePanel({ address }: { address: Address }) {
             </table>
           )}
           <p className="small dim" style={{ marginTop: '0.6rem', marginBottom: 0 }}>
-            This is the exposure GhostName removes from <em>future</em> payments — each one
+            This is the exposure GhostName removes from <em>future</em> payments. Each one
             lands on a fresh address that cannot be assembled into a profile like this.
             {exposure.source === 'demo' && ' (Mobula keyless demo endpoint.)'}
           </p>
