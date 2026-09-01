@@ -55,6 +55,28 @@ calls `token.transferWithAuthorization(...)`, pays gas, and typically deducts a
 fee from the amount. This is exactly how Umbra (the reference ERC-5564 product)
 sweeps stablecoins.
 
+## Proven live on Sepolia
+
+The full sponsored sweep runs on-chain, not just as signatures:
+
+- Executor `StealthSweepExecutor` (`contracts/StealthSweepExecutor.sol`)
+  deployed at **`0x94E4C39055fa4a5fCd47E03CbcbCD0503848806b`** (Sepolia).
+- A fresh stealth EOA was funded, then swept to a clean destination by a
+  **sponsored type-4 (EIP-7702) transaction** — the sponsor paid the gas, the
+  stealth EOA never held any. Sweep tx:
+  [`0x412cca80…efedc0`](https://sepolia.etherscan.io/tx/0x412cca80d621d5d58a38ef190c6a8c323d18adb1be3488f29868d1b4b2efedc0).
+- Reproduce: `npm run sweep:sepolia` (deploys once, then runs the full sweep;
+  needs `SEPOLIA_PRIVATE_KEY` funded with a little test ETH). Evidence lands in
+  `.demo/sweep-evidence.json`.
+
+The executor verifies an EIP-712 `Sweep` signature made by the EOA itself
+(`ecrecover == address(this)` under 7702), so anyone — a sponsor/relayer — can
+submit it but only the stealth key can authorize where the funds go.
+
+> In this demo the sponsor is the same throwaway wallet for convenience; the
+> mechanism (stealth EOA never funded for gas) is what's proven. In production
+> the sponsor is an independent relayer, so the sender wallet isn't linked either.
+
 ## What GhostName ships vs. what a deployment adds
 
 **Shipped and tested (client-side, no infrastructure, no funds):**
@@ -63,15 +85,17 @@ sweeps stablecoins.
 - The `/receive` page can produce a signed sweep authorization for any payment
   it recognises, entirely locally.
 
-**Needed to actually execute (real infrastructure with funds — out of scope to
-provision autonomously, same rationale as the Swarm postage stamp):**
-- A deployed **batch-executor / smart-account implementation** for the EIP-7702
-  delegate (e.g. a minimal `execute(to, value, data)` contract, or an existing
-  audited one).
-- A **sponsor / relayer / bundler** with ETH to pay gas. Options: run your own
-  relayer, use a public ERC-4337 bundler with a paymaster, or a service like a
-  gas-sponsorship API. Point the executor address and relayer endpoint at your
-  deployment; the signing code already produces what they need.
+**Deployed for the demo:**
+- The **executor** (`contracts/StealthSweepExecutor.sol`) is live on Sepolia
+  and its address is wired into the app (`SWEEP_EXECUTOR`), so `/receive`
+  pre-fills it.
+- The **sponsor** is scripted (`tests/live.sweep.test.ts` / `npm run
+  sweep:sepolia`). For a mainnet deployment, swap the throwaway sponsor for an
+  independent relayer/bundler (run your own, or a public ERC-4337 bundler with
+  a paymaster) and set `VITE_SWEEP_EXECUTOR` to your executor on that network.
+
+The executor here is a minimal, unaudited testnet demo contract — use an
+audited 7702 account implementation for anything beyond a testnet demo.
 
 ## Honesty note
 
