@@ -21,6 +21,7 @@
   },
   "devDependencies": {
     "@scopelift/stealth-address-sdk": "^1.0.0-beta.5",
+    "@types/node": "^26.4.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.0.0",
