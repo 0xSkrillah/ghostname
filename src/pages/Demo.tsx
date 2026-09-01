@@ -51,7 +51,7 @@ export default function Demo() {
     <>
       <h1>90-second demo</h1>
       <p className="lead">
-        Every result below is resolved and derived live — inputs are pre-filled, outputs are
+        Every result below is resolved and derived live. Inputs are pre-filled, outputs are
         not.
       </p>
 
@@ -59,7 +59,12 @@ export default function Demo() {
         <li className={staticResult ? 'done' : 'active'}>
           <strong>An established public identity.</strong>
           <div className="row" style={{ marginTop: '0.4rem' }}>
-            <input type="text" value={mainnetName} onChange={(e) => setMainnetName(e.target.value)} />
+            <input
+              type="text"
+              value={mainnetName}
+              onChange={(e) => setMainnetName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && busy !== 'static' && void step1()}
+            />
             <button onClick={() => void step1()} disabled={busy === 'static'}>
               {busy === 'static' ? 'Resolving…' : 'Resolve on mainnet (read-only)'}
             </button>
@@ -73,8 +78,8 @@ export default function Demo() {
                 </span>
               </div>
               <p className="small dim" style={{ margin: '0.4rem 0 0' }}>
-                Years of history, publicly linkable. <strong>I cannot delete it</strong> —
-                blockchains have no delete button.
+                Years of history, publicly linkable. <strong>I cannot delete it.</strong>{' '}
+                Blockchains have no delete button.
               </p>
             </div>
           )}
@@ -87,6 +92,7 @@ export default function Demo() {
               type="text"
               value={testName}
               onChange={(e) => setTestName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && busy !== 'derive' && testName.trim() && void step2()}
               placeholder="ghostname-enabled test name (Sepolia)"
             />
             <button onClick={() => void step2()} disabled={busy === 'derive' || !testName.trim()}>
@@ -106,7 +112,7 @@ export default function Demo() {
             <>
               <div className="bigmono" style={{ color: 'var(--stealth-col)' }}>B: {b}</div>
               <p className="small" style={{ color: 'var(--accent)' }}>
-                A ≠ B — same name, fresh destination each time, derived locally from new
+                A ≠ B. Same name, fresh destination each time, derived locally from new
                 ephemeral randomness.
               </p>
             </>

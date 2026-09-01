@@ -71,7 +71,7 @@ export default function Scan() {
               <strong>This mapping is public and permanent.</strong>
               <p className="small" style={{ marginBottom: 0 }}>
                 Anyone can connect <span className="mono">{result.name}</span> to every past
-                and future transaction of this address — balances, counterparties, timing.
+                and future transaction of this address: balances, counterparties, timing.
                 Past activity cannot be deleted. GhostName cannot fix the past; it prevents
                 <em> future</em> receiving addresses from being linkable this way.
               </p>

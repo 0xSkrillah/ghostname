@@ -30,7 +30,7 @@ export default function Layout() {
         <Outlet />
       </main>
       <footer className="foot">
-        GhostName — forward privacy for ENS identities via ERC-5564. Not anonymity, not
+        GhostName: forward privacy for ENS identities via ERC-5564. Not anonymity, not
         history deletion; see <Link to="/privacy">what is and is not protected</Link>.
       </footer>
     </>

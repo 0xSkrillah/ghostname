@@ -13,7 +13,7 @@ export default function Compare(props: {
   return (
     <div className="compare">
       <div className="col static">
-        <div className="title">Before — static</div>
+        <div className="title">Before: static</div>
         <div className="tree">
           <span className="name">{name}</span>
           {'\n'}
@@ -25,7 +25,7 @@ export default function Compare(props: {
         </p>
       </div>
       <div className="col stealth">
-        <div className="title">After — GhostName</div>
+        <div className="title">After: GhostName</div>
         <div className="tree">
           <span className="name">{name}</span>
           {'\n'}

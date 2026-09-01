@@ -23,7 +23,7 @@ export default function MainnetConfirm(props: {
 
   return (
     <div className="card danger">
-      <strong>Mainnet {props.action} — this is real.</strong>
+      <strong>Mainnet {props.action}. This is real.</strong>
       <p className="small" style={{ margin: '0.4rem 0' }}>
         This spends real ETH and permanently, publicly links this action to your wallet on
         Ethereum mainnet. GhostName protects the <em>recipient</em> address, not your sender

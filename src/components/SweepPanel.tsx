@@ -87,7 +87,7 @@ export default function SweepPanel(props: {
           type="text"
           value={executor}
           onChange={(e) => setExecutor(e.target.value)}
-          placeholder="EIP-7702 executor contract (0x…) — see RELAYERS.md"
+          placeholder="EIP-7702 executor contract (0x…), see RELAYERS.md"
         />
       </div>
       <div className="row">

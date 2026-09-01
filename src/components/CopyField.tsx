@@ -31,7 +31,7 @@ export default function CopyField(props: {
           </button>
         )}
         {props.sensitive && (
-          <span className="small dim">Private — stays on this device.</span>
+          <span className="small dim">Private. Stays on this device.</span>
         )}
       </div>
     </div>
