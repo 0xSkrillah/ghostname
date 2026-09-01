@@ -1,8 +1,25 @@
-# GhostName — Privacy Claims, Precisely
+# GhostName: Privacy Claims, Precisely
 
 This document is the authoritative statement of what GhostName does and does
 not protect. The `/privacy` page in the app mirrors it. If any marketing
 line and this document disagree, this document wins.
+
+## How we report uncertainty
+
+GhostName reports a privacy property as evidenced, explicitly experimental, or
+unknown. There is deliberately **no numeric privacy score**, because collapsing
+these into a number implies precision the evidence does not support.
+
+Concretely, the GhostCheck audit uses four statuses: private-ready, incomplete,
+misconfigured, unknown. Where a property cannot be established from on-chain
+evidence, such as whether a resolver is set directly or inherited via a
+wildcard, the report says **unknown** rather than guessing. A green result is
+never substituted for missing evidence.
+
+Likewise, the sponsored-exit proof keeps a standing "not proven" list. Passing
+every check does not establish that the destination is unrelated to the
+recipient, that no offchain party logged metadata, or anything about amount or
+sender privacy.
 
 ## The adversary
 
@@ -26,7 +43,7 @@ out-of-band knowledge of who is paying whom.
    already published or archived. Nothing can delete blockchain history.
 2. **Name ownership.** That you own/control the ENS name stays public.
 3. **The meta-address record.** `stealth-meta-address[1]` is public by
-   design. Observers know the name *can* receive stealth payments — they
+   design. Observers know the name *can* receive stealth payments, they
    just cannot see *where*.
 4. **Sender identity.** A sender paying from their public wallet exposes
    themselves, and the payment amount, in the ordinary way.
@@ -57,5 +74,5 @@ receive + prove-control (see README limitations).
 - Private keys: generated in-browser via CSPRNG, optionally stored in
   `localStorage` (demo convenience), never transmitted, never logged.
 - No analytics, no cookies, no backend, no telemetry.
-- RPC endpoints see your IP and your queries, like any dapp — pin your own
+- RPC endpoints see your IP and your queries, like any dapp: pin your own
   endpoints in `.env` if this matters to you.

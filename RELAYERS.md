@@ -1,12 +1,12 @@
-# Spending stealth funds without re-linking — relayers & paymasters
+# Spending stealth funds without re-linking: relayers & paymasters
 
 ## The problem
 
 A GhostName payment lands on a **fresh stealth EOA**: an address only the
 recipient can derive the key for, holding the funds but **no ETH for gas**.
 
-The naive way to spend it — send a little ETH to the stealth address from your
-main wallet to cover gas — **re-links** the "private" stealth address to your
+The naive way to spend it, send a little ETH to the stealth address from your
+main wallet to cover gas, **re-links** the "private" stealth address to your
 public identity on-chain. That hands the observer exactly the connection
 GhostName removed. So the recipient-address privacy is only real if you can
 move the funds **without the stealth address ever paying its own gas**.
@@ -32,7 +32,7 @@ signs them and an unrelated key cannot.
 ### 1. EIP-7702 sponsored native-ETH sweep (recommended)
 
 1. Recipient recognises the payment and derives the stealth private key
-   (`computeStealthPrivateKey`) — all local.
+   (`computeStealthPrivateKey`), all local.
 2. The stealth key signs an **EIP-7702 authorization** delegating the stealth
    EOA to a batch-executor implementation (`signSweepAuthorization`). No gas,
    no on-chain action yet.
@@ -44,8 +44,10 @@ signs them and an unrelated key cannot.
 5. Funds leave the stealth address for the destination; the stealth address
    never received gas and was never touched by the recipient's main wallet.
 
-The stealth EOA's account nonce is 0 (it has never sent a tx), which is the
-authorization nonce used.
+A fresh stealth EOA is usually at account nonce 0, but the app reads the real
+account nonce rather than assuming it, because EIP-7702 requires the
+authorization nonce to equal the account nonce at processing time. See the
+two-signature section below.
 
 ### 2. EIP-3009 relayed ERC-20 sweep (USDC & friends)
 
@@ -62,7 +64,7 @@ The full sponsored sweep runs on-chain, not just as signatures:
 - Executor `StealthSweepExecutor` (`contracts/StealthSweepExecutor.sol`)
   deployed at **`0x94E4C39055fa4a5fCd47E03CbcbCD0503848806b`** (Sepolia).
 - A fresh stealth EOA was funded, then swept to a clean destination by a
-  **sponsored type-4 (EIP-7702) transaction** — the sponsor paid the gas, the
+  **sponsored type-4 (EIP-7702) transaction**, the sponsor paid the gas, the
   stealth EOA never held any. Sweep tx:
   [`0x412cca80…efedc0`](https://sepolia.etherscan.io/tx/0x412cca80d621d5d58a38ef190c6a8c323d18adb1be3488f29868d1b4b2efedc0).
 - Reproduce: `npm run sweep:sepolia` (deploys once, then runs the full sweep;
@@ -70,7 +72,7 @@ The full sponsored sweep runs on-chain, not just as signatures:
   `.demo/sweep-evidence.json`.
 
 The executor verifies an EIP-712 `Sweep` signature made by the EOA itself
-(`ecrecover == address(this)` under 7702), so anyone — a sponsor/relayer — can
+(`ecrecover == address(this)` under 7702), so anyone, a sponsor/relayer, can
 submit it but only the stealth key can authorize where the funds go.
 
 > In this demo the sponsor is the same throwaway wallet for convenience; the
@@ -118,8 +120,8 @@ merely self-consistent.
 ## What GhostName ships vs. what a deployment adds
 
 **Shipped and tested (client-side, no infrastructure, no funds):**
-- `signSweepAuthorization` / `verifySweepAuthorization` — EIP-7702.
-- `signErc3009Sweep` / `verifyErc3009Sweep` — EIP-3009.
+- `signSweepAuthorization` / `verifySweepAuthorization`: EIP-7702.
+- `signErc3009Sweep` / `verifyErc3009Sweep`: EIP-3009.
 - The `/receive` page can produce a signed sweep authorization for any payment
   it recognises, entirely locally.
 
@@ -132,14 +134,14 @@ merely self-consistent.
   independent relayer/bundler (run your own, or a public ERC-4337 bundler with
   a paymaster) and set `VITE_SWEEP_EXECUTOR` to your executor on that network.
 
-The executor here is a minimal, unaudited testnet demo contract — use an
+The executor here is a minimal, unaudited testnet demo contract, use an
 audited 7702 account implementation for anything beyond a testnet demo.
 
 ## Honesty note
 
 A relayer *learns the destination address* it sweeps to and can log it. Choose
 a destination that is itself clean (not your main wallet), and treat the
-relayer as a semi-trusted party for metadata — it cannot steal funds (it only
+relayer as a semi-trusted party for metadata, it cannot steal funds (it only
 relays a signature authorizing a specific transfer), but it sees where the
 money goes. This is a metadata trade-off, not a custody risk, and it is the
 same trade-off every relayed-withdrawal system carries.

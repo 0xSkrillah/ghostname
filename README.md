@@ -1,15 +1,46 @@
 # GhostName
 
+**The open privacy-assurance layer for ENS.**
+
 **Keep the ENS name. Break the payment graph.**
+
+GhostName does three things for an ENS identity you already own: **audit,
+upgrade, prove.**
+
+- **Audit** any ENS name against the emerging ENS stealth-resolution convention.
+- **Upgrade** an existing identity in place, with no service-owned subdomain and
+  no new wallet provider to trust.
+- **Prove** the whole lifecycle, from local address derivation through sponsored
+  withdrawal, with evidence anyone can re-check.
+
+## Why GhostName is not another stealth wallet
+
+Stealth payments are becoming a stack, and most projects sit at the account
+layer. GhostName sits at the assurance layer.
+
+- **Fluidkey** and **Cloaked** operate account and wallet infrastructure.
+- **Umbra** implements the core stealth-payment standard.
+- **Sneaky** combines ENS resolution with a privacy-pool exit.
+- **GhostName** is the open conformance, migration and lifecycle-assurance layer
+  for ENS identities users already own. It custodies nothing and issues nothing.
+
+What that buys you in practice: its strict mode derives addresses in the sender
+client, so no gateway learns the destination; it makes resolver, record and
+withdrawal trust assumptions visible instead of implicit; and it exports
+evidence you can inspect independently, including a sponsored exit that is
+verified from chain data rather than asserted.
+
+No claim is made to being first, only, or most private. See
+[COMPETITIVE_MOAT.md](COMPETITIVE_MOAT.md).
 
 Common S3nse Amsterdam 2026 hackathon entry. GhostName gives an established
 ENS identity **forward privacy**: keep the human-readable name, publish one
 ERC-5564 stealth meta-address record, and every future sender derives a
-fresh one-time receiving address — locally, with no gateway.
+fresh one-time receiving address, locally, with no gateway.
 
 ## 1. The problem
 
-An ENS name like `skrillah.eth` is a great identity — and a privacy
+An ENS name like `skrillah.eth` is a great identity, and a privacy
 liability. If it always resolves to one static wallet address, then every
 payment anyone ever sends becomes public, permanently linkable history:
 balances, counterparties, timing. **Blockchain history cannot be deleted.**
@@ -30,7 +61,7 @@ The only thing you can still choose is what happens to *future* payments.
 
 ### Not protected
 
-- Historical blockchain activity — nothing can delete it.
+- Historical blockchain activity: nothing can delete it.
 - Existence/ownership of the ENS name itself.
 - The public stealth meta-address record (it is meant to be public).
 - Sender identity, when the sender pays from a public wallet.
@@ -44,8 +75,8 @@ GhostName is **not** anonymity, **not** a mixer, **not** zero knowledge and
 
 ## 3. The privacy mechanism (ERC-5564 scheme 1)
 
-The recipient generates two secp256k1 keypairs locally — spending and
-viewing — and publishes their compressed public keys as a stealth
+The recipient generates two secp256k1 keypairs locally, spending and
+viewing, and publishes their compressed public keys as a stealth
 meta-address:
 
 ```
@@ -66,7 +97,7 @@ The sender transfers ETH to `destination` and calls the ERC-5564 announcer
 singleton with `(schemeId=1, destination, P_eph, viewTag‖metadata)`. The
 recipient scans announcements: `s_h' = keccak256(compress(p_view · P_eph))`,
 skips 255/256 of foreign announcements via the view tag, recomputes the
-address, and — for their own payments — recovers the controlling key
+address, and, for their own payments, recovers the controlling key
 `p_stealth = (p_spend + s_h') mod n`. Nobody without the private viewing key
 can link the destinations to the name.
 
@@ -85,15 +116,15 @@ the combination.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md). Summary:
 
-- `src/crypto/` — pure, local ERC-5564 scheme-1 core on
+- `src/crypto/`: pure, local ERC-5564 scheme-1 core on
   [@noble/curves](https://github.com/paulmillr/noble-curves) (audited
   primitives; we compose, never hand-roll curve math). No network, no
   storage, no logging.
-- `src/ens/` — ENS resolution (mainnet read-only + Sepolia) and the
+- `src/ens/`: ENS resolution (mainnet read-only + Sepolia) and the
   Sepolia-only `setText` publish path.
-- `src/chain/` — viem clients with RPC fallback, the announcer integration,
+- `src/chain/`: viem clients with RPC fallback, the announcer integration,
   scanning/recognition, and the hard network guards.
-- `src/pages/` — Vite/React UI: `/scan /create /pay /receive /privacy /demo`.
+- `src/pages/`: Vite/React UI: `/scan /create /pay /receive /privacy /demo`.
 
 **Key handling:** private keys are generated with a CSPRNG in the browser,
 used locally, and optionally kept in `localStorage` for the demo scanner.
@@ -102,12 +133,12 @@ They are never transmitted, logged or analysed. There is no backend.
 **Network safety:** Ethereum mainnet is read-only by construction (no
 mainnet wallet client exists). Every write path calls
 `assertWritableNetwork`, which hard-fails on anything but Sepolia
-(11155111) — checked against both the intended chain and the wallet's
+(11155111), checked against both the intended chain and the wallet's
 actually-reported chain, before the wallet is touched. Covered by tests.
 
 ## 6. Live demo
 
-The `/demo` route runs the 90-second sequence with live calls only — inputs
+The `/demo` route runs the 90-second sequence with live calls only, inputs
 are pre-filled, outputs never are. See [DEMO.md](DEMO.md).
 
 ## 7. Local reproduction
@@ -132,18 +163,18 @@ defaults (recommended for presentations).
 
 ## 8. Tests
 
-- `tests/stealth.test.ts` — key generation, derivation determinism &
+- `tests/stealth.test.ts`: key generation, derivation determinism &
   freshness, positive/negative recognition (incl. 50 random wrong viewing
   keys), spending-key recovery, malformed inputs.
-- `tests/metaAddress.test.ts` — record encoding/parsing/validation.
-- `tests/interop.test.ts` — byte-level cross-verification against the
+- `tests/metaAddress.test.ts`: record encoding/parsing/validation.
+- `tests/interop.test.ts`: byte-level cross-verification against the
   ScopeLift `stealth-address-sdk` (dev-only oracle) + frozen known-answer
   vector.
-- `tests/ens.test.ts` — resolution, record read, publish path, and the
+- `tests/ens.test.ts`: resolution, record read, publish path, and the
   mainnet-write-blocked negatives.
-- `tests/announcer.test.ts` — EIP-5564 metadata layout, scanning,
+- `tests/announcer.test.ts`: EIP-5564 metadata layout, scanning,
   recognition among noise, guarded payment flow, offline end-to-end.
-- `tests/live.ens.test.ts` — gated (`RUN_LIVE=1`) read-only mainnet checks.
+- `tests/live.ens.test.ts`: gated (`RUN_LIVE=1`) read-only mainnet checks.
 
 ## 9. Contracts and networks
 
@@ -152,15 +183,15 @@ defaults (recommended for presentations).
 | ERC-5564 announcer (singleton) | mainnet + Sepolia | `0x55649E01B5Df198D18D95b5cc5051630cfD45564` |
 | ERC-6538 registry (singleton, not required by the flow) | mainnet + Sepolia | `0x6538E6bf4B0eBd30A8Ea093027Ac2422ce5d6538` |
 | ENS Universal Resolver (resolution + resolver discovery) | mainnet + Sepolia | `0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe` |
-| ENS text record key | — | `stealth-meta-address[1]` |
-| Record value | — | `st:eth:0x…` string, verbatim |
+| ENS text record key | - | `stealth-meta-address[1]` |
+| Record value | - | `st:eth:0x…` string, verbatim |
 | Writes permitted | **Sepolia only** (11155111) | mainnet writes blocked in code |
 
 **Sepolia ENSv2 note:** Sepolia is mid-migration to ENSv2, and the classic
 ETHRegistrarController rejects new registrations. The demo identity
 `ghostname-3c7714.eth` was registered through the live ENSv2 `ETHRegistrar`
 (`0xa88553F454b77203B0D036A05c894d555EAAa2Cc`, paid in freely-mintable test
-USDC) with a dedicated resolver deployed via the ENS `VerifiableFactory` —
+USDC) with a dedicated resolver deployed via the ENS `VerifiableFactory` -
 see `scripts/register-v2-name.mjs`. Resolution and record writes in the app
 go through the Universal Resolver, so they work identically for legacy and
 v2 names.
@@ -173,7 +204,7 @@ v2 names.
 - Stealth payment: [`0x2430f7f8…dc248b`](https://sepolia.etherscan.io/tx/0x2430f7f8a422a6a527272cd591541c101e9fffd43dccb2a1feed918ee0dc248b)
 - ERC-5564 announcement: [`0x4164c074…010c11`](https://sepolia.etherscan.io/tx/0x4164c074fbb0adacf3d3804928e2a4cc803d61e783e9fbbef207608fe3010c11)
 - Recognised by the viewing key + recovered spending key verified in
-  `npm run e2e:sepolia` (fresh derivations each run — addresses differ every time,
+  `npm run e2e:sepolia` (fresh derivations each run, addresses differ every time,
   which is the point).
 
 ## 10. Networks: Sepolia by default, guarded mainnet mode
@@ -181,8 +212,8 @@ v2 names.
 The shipped/demo build writes **only on Sepolia**. A build compiled with
 `VITE_ENABLE_MAINNET=true` unlocks **guarded mainnet mode**: mainnet writes
 become possible but every one requires an explicit typed per-action
-confirmation in the UI (you type `SEND ON MAINNET`). Both gates are required —
-the build flag alone, or a confirmation alone, still blocks — enforced in
+confirmation in the UI (you type `SEND ON MAINNET`). Both gates are required -
+the build flag alone, or a confirmation alone, still blocks, enforced in
 `assertWritableNetwork` and covered by `tests/mainnet-guard.test.ts`. Reads,
 including the ENS record read, already work on mainnet through the Universal
 Resolver.
@@ -197,12 +228,12 @@ sweep authorizations** a sponsor/relayer can execute while paying gas itself:
 - **EIP-3009** relayed transfer for USDC-style tokens (`signErc3009Sweep`).
 
 `/receive` produces a signed EIP-7702 authorization for any recognised payment,
-locally — the stealth key never leaves the device.
+locally, the stealth key never leaves the device.
 
 **Proven live on Sepolia:** the executor (`contracts/StealthSweepExecutor.sol`)
 is deployed at `0x94E4C39055fa4a5fCd47E03CbcbCD0503848806b`, and a stealth EOA
 was swept to a clean destination by a **sponsored type-4 (EIP-7702)
-transaction** — sponsor paid the gas, stealth EOA never held any
+transaction**, sponsor paid the gas, stealth EOA never held any
 ([sweep tx](https://sepolia.etherscan.io/tx/0x412cca80d621d5d58a38ef190c6a8c323d18adb1be3488f29868d1b4b2efedc0)).
 Reproduce with `npm run sweep:sepolia`. Full design in [RELAYERS.md](RELAYERS.md).
 
@@ -210,8 +241,8 @@ Reproduce with `npm run sweep:sepolia`. Full design in [RELAYERS.md](RELAYERS.md
 
 - The relayer/executor infrastructure itself is not deployed (only the
   client-side signing is shipped and tested); a relayer also learns the
-  destination address it sweeps to (metadata, not custody — see RELAYERS.md).
-- Demo key custody is browser `localStorage` — fine for a testnet demo, not
+  destination address it sweeps to (metadata, not custody, see RELAYERS.md).
+- Demo key custody is browser `localStorage`: fine for a testnet demo, not
   a production custody model.
 - Announcement scanning uses bounded `eth_getLogs` ranges over public RPCs;
   a production scanner would use an indexer.
@@ -222,7 +253,7 @@ Reproduce with `npm run sweep:sepolia`. Full design in [RELAYERS.md](RELAYERS.md
 - **Mobula public-exposure panel: ENABLED.** On `/scan`, after resolving a
   name, "Assemble public profile" queries the Mobula wallet-portfolio API for
   the conventional address and shows how much financial information a static
-  ENS→wallet mapping leaks — token count and chain count immediately, total
+  ENS→wallet mapping leaks, token count and chain count immediately, total
   USD value only behind a deliberate reveal (projector-safe). Works keyless
   via Mobula's demo endpoint; set `VITE_MOBULA_PROXY_URL` to a minimal proxy
   that injects a production key server-side (the key never ships in the
@@ -230,12 +261,12 @@ Reproduce with `npm run sweep:sepolia`. Full design in [RELAYERS.md](RELAYERS.md
   from future payments.
 - **Swarm encrypted recovery capsule: ENABLED.** `/create` can encrypt the
   local identity into a passphrase-locked capsule (AES-256-GCM + PBKDF2) that
-  is safe to store on Swarm — no plaintext key material ever leaves the
+  is safe to store on Swarm, no plaintext key material ever leaves the
   device (proven by `tests/capsule.test.ts`). Testnet only.
 - **Swarm static deployment: scripted** (`scripts/swarm-deploy.mjs`,
   `SWARM.md`). Uploading `dist/` to Swarm needs a Bee node and a funded
   postage stamp (xBZZ), so it is a one-command step you run with your own /
-  the venue booth's stamp rather than done automatically — GhostName's own
+  the venue booth's stamp rather than done automatically, GhostName's own
   safety rules keep the agent from spending assets on your behalf.
 
 (Each is only claimed here if actually working; see commit history.)
