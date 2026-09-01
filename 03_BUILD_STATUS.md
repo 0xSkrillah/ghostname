@@ -128,11 +128,19 @@ npm test           -> PASS: 30 passed (30) — metaAddress 7, stealth 18, intero
 npm run build      -> PASS: vite 7.3.6, dist/assets/index-*.js 193.38 kB (gzip 60.73)
 ```
 
+## UI verification (2026-09-01, in-browser against live Sepolia)
+
+- /demo: skrillah.eth resolves live read-only; ghostname-3c7714.eth resolves
+  to distinct A≠B locally. PASS.
+- /create: local key generation + identity import (JSON) both work. PASS.
+- /receive: imported demo viewing key → scanned blocks 11612900+ →
+  "3 recognised as yours", live negative control "unrelated key recognised 0",
+  per-payment "derived stealth private key controls this address ✓". PASS.
+- Only UI bug found + fixed: switched BrowserRouter→HashRouter for static
+  hosting; added identity import control on /create.
+
 ## Next action
 
-1. Verify the demo flow in the deployed UI (scan → pay → receive on
-   ghostname-3c7714.eth) and fix any UI-level issues.
-2. Import the demo identity into the browser (Receive page needs the
-   viewing key from .demo/identity.json — add an import control).
-3. Clean-clone reproduction check; record backup demo video (Friday rule).
-4. Only then: P2 Mobula panel, P3 Swarm deployment.
+1. Clean-clone reproduction check (fresh git clone → npm install → npm test).
+2. Record 2-minute backup demo video (Friday freeze rule).
+3. Only then: P2 Mobula panel, P3 Swarm deployment.
