@@ -77,6 +77,44 @@ submit it but only the stealth key can authorize where the funds go.
 > mechanism (stealth EOA never funded for gas) is what's proven. In production
 > the sponsor is an independent relayer, so the sender wallet isn't linked either.
 
+## The sweep package needs two signatures, not one
+
+This is the part that is easy to get wrong, so it is worth stating plainly.
+
+A sponsored sweep requires **two independent signatures**:
+
+1. the **EIP-7702 delegation authorization**, which binds only
+   `(chainId, executor, accountNonce)`. It says nothing about where the money
+   goes;
+2. the executor's **EIP-712 `Sweep` intent**, which is what actually binds
+   `to`, `amount`, `nonce` and `deadline`.
+
+Handing a relayer only the delegation is both non-executable, because
+`StealthSweepExecutor.sweep` rejects a missing or wrong intent signature, and
+misleading, because a destination shown next to an unbound delegation implies a
+guarantee that does not exist.
+
+`signNativeSweepPackage` therefore emits both signatures plus the exact
+`sweep(...)` calldata, and `verifyNativeSweepPackage` re-checks every bound
+field independently: delegation signer, executor, chain, intent signer,
+calldata/field agreement and expiry. `tests/sweep.package.test.ts` asserts that
+tampering with the destination, amount, deadline, sweep nonce, executor, chain
+or signer fails verification, and that the serialized package carries no key
+material.
+
+The two nonces are deliberately distinct and separately labelled:
+
+- `authorizationNonce` is the stealth EOA's **account nonce**. EIP-7702 requires
+  it to equal the account nonce at processing time, so the app reads it from a
+  public client instead of assuming a fresh EOA is at zero.
+- `sweepNonce` is the executor's internal **replay guard**, unrelated to the
+  account nonce.
+
+The live test builds its transaction entirely from the package
+(`to: pkg.stealthAddress`, `data: pkg.calldata`, `authorizationList: [...]`), so
+the on-chain sweep is proof that the package format is executable rather than
+merely self-consistent.
+
 ## What GhostName ships vs. what a deployment adds
 
 **Shipped and tested (client-side, no infrastructure, no funds):**

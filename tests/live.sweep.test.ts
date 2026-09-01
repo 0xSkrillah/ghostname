@@ -15,7 +15,6 @@ import {
   createPublicClient,
   createWalletClient,
   http,
-  encodeFunctionData,
   formatEther,
   parseEther,
   getContractAddress,
@@ -24,7 +23,7 @@ import {
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { sepolia } from 'viem/chains';
 import { generateStealthAddress, computeStealthPrivateKey } from '../src/crypto/stealth';
-import { signSweepAuthorization } from '../src/relay/sweep';
+import { signNativeSweepPackage, verifyNativeSweepPackage } from '../src/relay/sweep';
 
 const env = { ...loadEnv('development', process.cwd(), ''), ...process.env };
 const PRIVATE_KEY = env.SEPOLIA_PRIVATE_KEY as Hex | undefined;
@@ -84,49 +83,46 @@ describe.runIf(live)('LIVE Sepolia — sponsored EIP-7702 sweep', () => {
     const stealthAccount = privateKeyToAccount(stealthPrivateKey);
     expect(stealthAccount.address.toLowerCase()).toBe(stealthAddress.toLowerCase());
 
-    // 4a. EIP-7702 authorization (fresh EOA → nonce 0).
-    const { authorization } = await signSweepAuthorization({
+    // 4. Build the COMPLETE destination-bound package exactly as the browser
+    // does. Read the real account nonce rather than assuming zero.
+    const destination = privateKeyToAccount(generatePrivateKey()).address;
+    const authorizationNonce = await publicClient.getTransactionCount({
+      address: stealthAddress,
+    });
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
+    const pkg = await signNativeSweepPackage({
       stealthPrivateKey,
+      stealthAddress,
       chainId: sepolia.id,
       executor: EXECUTOR,
-      nonce: 0,
+      destination,
+      amount,
+      authorizationNonce,
+      sweepNonce: 0n,
+      deadline,
     });
 
-    // 4b. EIP-712 Sweep authorization matching the contract.
-    const destination = privateKeyToAccount(generatePrivateKey()).address;
-    const sweepNonce = 0n;
-    const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
-    const signature = await stealthAccount.signTypedData({
-      domain: {
-        name: 'GhostNameSweep',
-        version: '1',
-        chainId: sepolia.id,
-        verifyingContract: stealthAddress,
-      },
-      types: {
-        Sweep: [
-          { name: 'to', type: 'address' },
-          { name: 'amount', type: 'uint256' },
-          { name: 'nonce', type: 'uint256' },
-          { name: 'deadline', type: 'uint256' },
-        ],
-      },
-      primaryType: 'Sweep',
-      message: { to: destination, amount, nonce: sweepNonce, deadline },
-    });
+    // The package must verify locally before we spend gas on it.
+    const verification = await verifyNativeSweepPackage(pkg);
+    expect(verification.failures).toEqual([]);
+    expect(verification.valid).toBe(true);
 
-    const data = encodeFunctionData({
-      abi: artifact.abi,
-      functionName: 'sweep',
-      args: [destination, amount, sweepNonce, deadline, signature],
-    });
-
-    // 5. Sponsor submits the type-4 sponsored transaction.
+    // 5. Sponsor submits the type-4 transaction built ENTIRELY from the
+    // package. If the package were incomplete this step could not exist.
     const before = await publicClient.getBalance({ address: destination });
     const receipt = await send('SPONSORED 7702 sweep', {
-      to: stealthAddress,
-      data,
-      authorizationList: [authorization],
+      to: pkg.stealthAddress,
+      data: pkg.calldata,
+      authorizationList: [
+        {
+          chainId: pkg.authorization.chainId,
+          address: pkg.authorization.address,
+          nonce: pkg.authorization.nonce,
+          r: pkg.authorization.r,
+          s: pkg.authorization.s,
+          yParity: pkg.authorization.yParity,
+        },
+      ],
     });
 
     // 6. Verify funds moved out with the sponsor paying gas.
