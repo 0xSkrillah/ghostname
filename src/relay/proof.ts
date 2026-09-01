@@ -20,7 +20,7 @@ import {
   SWEEP_DOMAIN_NAME,
   SWEEP_DOMAIN_VERSION,
   SWEEP_TYPES,
-} from './sweep';
+} from './sweepTypes';
 import type { SweepEvidenceRef } from './evidence';
 
 /** keccak256("Swept(address,uint256,uint256)") */

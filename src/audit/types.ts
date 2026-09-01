@@ -102,4 +102,21 @@ export interface PrivacyAuditReport {
   warnings: string[];
   /** Properties that could not be established. Never silently treated as pass. */
   unknowns: string[];
+  /**
+   * Structured diagnostics for programmatic consumers such as the agent layer.
+   * Additive and optional: the rendered report and its schema version are unchanged.
+   */
+  diagnostics?: AuditDiagnostics;
+}
+
+/** Machine-readable reasons a property could not be established. */
+export interface AuditDiagnostics {
+  /** The name failed ENSIP-15 normalization, so nothing was resolved. */
+  nameInvalid: boolean;
+  /** The conventional address read threw (RPC or resolver failure). */
+  addressResolutionFailed: boolean;
+  /** The active resolver address could not be read. */
+  resolverReadFailed: boolean;
+  /** Record keys whose read threw. Reported as unreadable, never as absent. */
+  recordReadFailures: string[];
 }
