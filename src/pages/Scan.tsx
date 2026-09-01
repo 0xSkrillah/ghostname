@@ -1,36 +1,35 @@
 import { useState } from 'react';
+import type { Address } from 'viem';
 import { getMainnetClient } from '../chain/clients';
-import {
-  resolveConventionalAddress,
-  resolveStealthMetaAddress,
-  type StealthResolution,
-} from '../ens/resolve';
+import { auditEnsName } from '../audit/auditEnsName';
+import type { PrivacyAuditReport } from '../audit/types';
+import { MAINNET_CHAIN_ID } from '../chain/guards';
 import { DEMO_MAINNET_NAME } from '../config';
 import Compare from '../components/Compare';
 import ExposurePanel from '../components/ExposurePanel';
-import type { Address } from 'viem';
+import PrivacyReadinessReport from '../components/PrivacyReadinessReport';
 
-interface ScanResult {
-  name: string;
-  address: string | null;
-  stealth: StealthResolution;
-}
-
+/**
+ * GhostCheck: audit any ENS name against the emerging stealth-resolution
+ * convention. Read-only, live, and honest about what it cannot establish.
+ */
 export default function Scan() {
   const [name, setName] = useState(DEMO_MAINNET_NAME);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<ScanResult | null>(null);
+  const [report, setReport] = useState<PrivacyAuditReport | null>(null);
 
-  async function scan() {
+  async function audit() {
     setBusy(true);
     setError(null);
-    setResult(null);
+    setReport(null);
     try {
-      const client = getMainnetClient();
-      const conventional = await resolveConventionalAddress(client, name);
-      const stealth = await resolveStealthMetaAddress(client, name);
-      setResult({ name: conventional.name, address: conventional.address, stealth });
+      setReport(
+        await auditEnsName(getMainnetClient(), name, {
+          chainId: MAINNET_CHAIN_ID,
+          derivationPath: 'local-client',
+        }),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -40,9 +39,10 @@ export default function Scan() {
 
   return (
     <>
-      <h1>Scan an ENS identity</h1>
+      <h1>Audit an ENS identity</h1>
       <p className="lead">
-        Live, read-only Ethereum mainnet resolution. What does this name publicly commit to?
+        GhostCheck reads any ENS name live on Ethereum mainnet and reports whether it is ready
+        to receive private payments. Read-only. Nothing is written and nothing is uploaded.
       </p>
       <div className="row">
         <input
@@ -50,57 +50,45 @@ export default function Scan() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="name.eth"
-          onKeyDown={(e) => e.key === 'Enter' && !busy && void scan()}
+          onKeyDown={(e) => e.key === 'Enter' && !busy && name.trim() && void audit()}
         />
-        <button onClick={() => void scan()} disabled={busy || !name.trim()}>
-          {busy ? 'Resolving…' : 'Resolve'}
+        <button onClick={() => void audit()} disabled={busy || !name.trim()}>
+          {busy ? 'Auditing…' : 'Run privacy audit'}
         </button>
       </div>
       {error && <p className="error">{error}</p>}
-      {result && (
+
+      {report && (
         <>
           <div className="card inset">
-            <span className="label">Conventional resolution (static)</span>
-            <div className="bigmono xl">{result.name}</div>
+            <span className="label">Conventional resolution (static identity)</span>
+            <div className="bigmono xl">{report.name}</div>
             <div className="bigmono" style={{ color: 'var(--static-col)', marginTop: '0.4rem' }}>
-              {result.address ?? 'No ETH address record set.'}
+              {report.conventionalAddress ?? 'No ETH address record set.'}
             </div>
+            <p className="small dim" style={{ marginBottom: 0 }}>
+              {report.staticMappingNote}
+            </p>
           </div>
-          {result.address && (
+
+          {report.conventionalAddress && (
             <div className="card danger">
               <strong>This mapping is public and permanent.</strong>
               <p className="small" style={{ marginBottom: 0 }}>
-                Anyone can connect <span className="mono">{result.name}</span> to every past
-                and future transaction of this address: balances, counterparties, timing.
-                Past activity cannot be deleted. GhostName cannot fix the past; it prevents
-                <em> future</em> receiving addresses from being linkable this way.
+                Anyone can connect <span className="mono">{report.name}</span> to every past and
+                future transaction of this address: balances, counterparties, timing. Past
+                activity cannot be deleted. GhostName cannot fix the past. It prevents{' '}
+                <em>future</em> receiving addresses from being linkable this way.
               </p>
             </div>
           )}
-          <div className={`card ${result.stealth.status === 'ok' ? 'ok' : 'inset'}`}>
-            <span className="label">stealth-meta-address[1] record</span>
-            {result.stealth.status === 'ok' && (
-              <>
-                <span className="pill ok">GhostName-enabled</span>
-                <div className="bigmono" style={{ marginTop: '0.5rem' }}>
-                  {result.stealth.record}
-                </div>
-              </>
-            )}
-            {result.stealth.status === 'none' && (
-              <p className="dim" style={{ margin: 0 }}>
-                Not published. Future payments to the static address above remain publicly
-                linkable.
-              </p>
-            )}
-            {result.stealth.status === 'invalid' && (
-              <p className="error" style={{ margin: 0 }}>
-                Record present but malformed: {result.stealth.error}
-              </p>
-            )}
-          </div>
-          {result.address && <ExposurePanel address={result.address as Address} />}
-          <Compare name={result.name} staticAddress={result.address ?? undefined} />
+
+          <PrivacyReadinessReport report={report} />
+
+          {report.conventionalAddress && (
+            <ExposurePanel address={report.conventionalAddress as Address} />
+          )}
+          <Compare name={report.name} staticAddress={report.conventionalAddress ?? undefined} />
         </>
       )}
     </>

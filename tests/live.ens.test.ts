@@ -10,6 +10,7 @@
 import { describe, expect, it } from 'vitest';
 import { getMainnetClient } from '../src/chain/clients';
 import { resolveConventionalAddress, resolveStealthMetaAddress } from '../src/ens/resolve';
+import { auditEnsName } from '../src/audit/auditEnsName';
 
 const live = process.env.RUN_LIVE === '1';
 
@@ -29,4 +30,22 @@ describe.runIf(live)('live mainnet ENS (read-only)', () => {
     const result = await resolveStealthMetaAddress(getMainnetClient(), 'vitalik.eth');
     expect(['none', 'ok', 'invalid']).toContain(result.status);
   }, 30_000);
+
+  it('GhostCheck audits an established mainnet name end to end', async () => {
+    const report = await auditEnsName(getMainnetClient(), 'skrillah.eth', { chainId: 1 });
+    console.log(
+      `[audit] skrillah.eth => ${report.overallStatus}, addr ${report.conventionalAddress}, resolver ${report.resolver.address}`,
+    );
+    expect(report.name).toBe('skrillah.eth');
+    expect(report.chainId).toBe(1);
+    // A name with no stealth record must read as incomplete, never as ready.
+    expect(['incomplete', 'misconfigured', 'private-ready']).toContain(report.overallStatus);
+    // All three normative + diagnostic keys are probed on mainnet.
+    expect(report.recordSources.length).toBe(3);
+    expect(report.recordSources.some((s) => !s.normative)).toBe(true);
+    // Provenance is never guessed.
+    expect(report.resolver.provenance).toBe('unknown');
+    // No secrets, ever.
+    expect(JSON.stringify(report).toLowerCase()).not.toContain('privatekey');
+  }, 60_000);
 });

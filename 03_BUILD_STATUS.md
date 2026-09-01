@@ -1,159 +1,117 @@
-# GhostName — Build Status
+# GhostName: Build Status
 
-Claude must update this file after every milestone, meaningful failure,
-deployment, contract/configuration change, and before ending a work period.
+Single source of truth for build state. Every figure here was verified against
+the repository, not carried over from an earlier draft.
 
-## Project state
+Last reconciled: 2026-09-05, after Phase 1 (GhostCheck audit).
 
-- Current milestone: **P0 COMPLETE AND PROVEN LIVE ON-CHAIN** (M0–M2 + live
-  E2E). M3 UI built. Next: M3 polish/demo config verification in UI, backup
-  video, then optional P2/P3.
-- Current branch: main
+## Product position
+
+GhostName is the open privacy-assurance layer for ENS: **audit, upgrade, prove**.
+
+- **Audit** any ENS name against the emerging ENS stealth-resolution convention.
+- **Upgrade** an existing ENS identity in place, with no service-owned subdomain.
+- **Prove** the whole lifecycle, from local derivation to sponsored withdrawal.
+
+Tagline unchanged: *Keep the ENS name. Break the payment graph.*
+
+## Verified commands
+
+| Command | Status | Result |
+|---|---|---|
+| `npm run typecheck` | PASS | no errors |
+| `npm test` | PASS | 132 passed, 5 skipped (14 files) |
+| `npm run build` | PASS | app shell ~230 kB, viem chunk ~334 kB |
+| `npm run e2e:sepolia` | PASS | gated on `SEPOLIA_PRIVATE_KEY` |
+| `npm run sweep:sepolia` | PASS | gated on `SEPOLIA_PRIVATE_KEY` |
+
+Skipped tests are the network-gated live suites, which run only when a funded
+testnet key is present.
+
+## Deployment and repository
+
 - Repository: https://github.com/0xSkrillah/ghostname (public)
-- Deployment: https://0xskrillah.github.io/ghostname/ (GitHub Pages, gh-pages branch)
-- Latest working commit: (see `git log`)
-- Sepolia demo identity: **ghostname-3c7714.eth** (ENSv2), resolver
-  0xE0e6F09B30eBcdE505FDCA0F1fd244273838FFAE, owner = throwaway demo key
-  (in local .env, gitignored), funded 0.05 ETH by user 2026-09-01.
-- Live evidence (Sepolia): register 0x04985bb6…83a398 · setText (app path)
-  0x75b7a640…59ea29 · payment 0x2430f7f8…dc248b · announcement
-  0x4164c074…010c11 · scan start block 11612900. Full evidence JSON in
-  .demo/e2e-evidence.json (gitignored).
-- IMPORTANT Sepolia quirk: classic ENS registration is BROKEN network-wide
-  (ENSv2 migration). Names register via ENSv2 ETHRegistrar
-  0xa88553F454b77203B0D036A05c894d555EAAa2Cc paid in test USDC
-  0x768F4245…67a39 (open mint(address,uint256)); dedicated resolver via
-  VerifiableFactory 0x10dC6333…Cd7ef, impl 0x9EAe5C27…0365e, init selector
-  0x7058b559 = initialize(address,uint256,bytes[]). All scripted in
-  scripts/register-v2-name.mjs (idempotent).
-- Local app command: `npm run dev`
-- Typecheck command/status: `npm run typecheck` — PASS
-- Test command/status: `npm test` — PASS (30/30, 3 files)
-- Production build command/status: `npm run build` — PASS
-- Deployment URL: none yet
-- Demo route: not built yet (M3)
-- Mainnet mode: READ by default; guarded WRITE mode available via
-  VITE_ENABLE_MAINNET=true (off in shipped build) + typed per-action
-  confirmation. See tests/mainnet-guard.test.ts.
-- Relayer sweep: client-side EIP-7702 + EIP-3009 signing shipped/tested
-  (src/relay/sweep.ts, /receive SweepPanel, RELAYERS.md). Relayer infra not
-  deployed (needs funded sponsor) — documented.
-- Sepolia test ENS name/subname: not configured yet (M1)
-- Sepolia test wallets funded: not yet
-- RPC endpoints configured: `.env.example` defaults (public RPCs); override via `VITE_MAINNET_RPC_URL` / `VITE_SEPOLIA_RPC_URL`
-- ERC-5564 announcer: `0x55649E01B5Df198D18D95b5cc5051630cfD45564` (singleton, per EIP-5564)
-- ERC-6538 registry: `0x6538E6bf4B0eBd30A8Ea093027Ac2422ce5d6538` (singleton, per EIP-6538)
-- ENS record key: `stealth-meta-address[1]`, value `st:eth:0x<spend33><view33>` verbatim (per ENS stealth-resolution RFC)
-- Mobula enabled: YES (P2) — keyless demo endpoint by default; panel on /scan;
-  balance hidden behind reveal. Optional VITE_MOBULA_PROXY_URL for prod key.
-- Swarm enabled: PARTIAL (P3) — encrypted recovery capsule DONE + tested
-  (src/swarm/capsule.ts, /create UI, 8 tests); static deploy scripted
-  (scripts/swarm-deploy.mjs + SWARM.md), not auto-run (needs Bee node +
-  funded xBZZ stamp — user/venue-booth step by design).
+- Deployed app: https://0xskrillah.github.io/ghostname/ (gh-pages branch)
+- Routes: `/` `/scan` `/create` `/pay` `/receive` `/privacy` `/demo` (hash router,
+  so every route deep-links on a static host)
 
-## What currently works (updated after M3)
+## Networks and keys
 
-- Full UI at `npm run dev`: `/scan` (live mainnet resolution verified in
-  browser: skrillah.eth → 0xf91B…13CD, read-only), `/create` (local key
-  generation verified), `/pay`, `/receive`, `/privacy`, `/demo`.
-- Docs: README.md, PRIVACY.md, ARCHITECTURE.md, DEMO.md.
-- 58 deterministic tests + 3 live-gated; typecheck + build clean.
+- Mainnet: **read only** by default. Guarded write mode exists behind
+  `VITE_ENABLE_MAINNET=true` **and** a typed per-action confirmation. Off in the
+  shipped build. Covered by `tests/mainnet-guard.test.ts`.
+- Sepolia: all demo writes.
+- `skrillah.eth` is read-only mainnet demo input and is never modified.
+- Demo signing key is a throwaway testnet key in gitignored `.env`.
 
-## What worked earlier (M0)
+## Live on-chain evidence (Sepolia)
 
-- ERC-5564 scheme-1 core in `src/crypto/stealth.ts` (pure, local, no network):
-  - `generateStealthKeys` — CSPRNG spending/viewing keypairs + `st:eth:0x...` meta-address.
-  - `generateStealthAddress` — fresh ephemeral key per call, keccak256 over the
-    33-byte compressed shared-secret point, view tag = first hash byte.
-  - `checkStealthAddress` — view-tag fast path + full address check; never throws on garbage.
-  - `computeStealthPrivateKey` — `(p_spend + s_h) mod n`.
-- Meta-address encode/parse/validate in `src/crypto/metaAddress.ts` (66-byte and
-  33-byte forms, `st:eth:` prefix handling, curve validation).
-- Tests (Vitest, `tests/`): 30 passing —
-  - positive recognition (with and without view tag);
-  - negative: unrelated viewing key ×50, wrong view tag, garbage announcement;
-  - distinctness: two derivations differ; 10 rounds all distinct; fresh randomness per call;
-  - recovery: derived stealth private key controls the destination (×10);
-  - malformed meta-addresses rejected (10 cases);
-  - INTEROP: byte-identical to `@scopelift/stealth-address-sdk` (dev-only oracle)
-    for sender derivation, mutual recognition, and key recovery; frozen
-    known-answer vector `0x387bf2cf77227941fff3aabdcce9e02edeef0a38`.
+- Demo identity: **ghostname-3c7714.eth** (ENSv2), resolver
+  `0xE0e6F09B30eBcdE505FDCA0F1fd244273838FFAE`
+- ERC-5564 announcer: `0x55649E01B5Df198D18D95b5cc5051630cfD45564`
+- ERC-6538 registry: `0x6538E6bf4B0eBd30A8Ea093027Ac2422ce5d6538`
+- Sweep executor: `0x94E4C39055fa4a5fCd47E03CbcbCD0503848806b`
+- Record publish: `0x75b7a6404a5a3b1880f8dce7c874cbf34ce65fca64cffeb7e313567b2759ea29`
+- Stealth payment: `0x2430f7f8a422a6a527272cd591541c101e9fffd43dccb2a1feed918ee0dc248b`
+- Announcement: `0x4164c074fbb0adacf3d3804928e2a4cc803d61e783e9fbbef207608fe3010c11`
+- Sponsored EIP-7702 sweep, built entirely from the sweep package:
+  `0x75a9da4e44494d5983bdfe5a6774255e938248bbbca9414eefcd9acdb0089c25`
+- Announcement scan start block: `11612900`
 
-## What does not work
+## Sepolia ENSv2 note
 
-- No ENS layer yet (M1), no chain layer (M2), no UI (M3).
+Classic ENS registration is broken network-wide on Sepolia during the ENSv2
+migration. Names register through the ENSv2 `ETHRegistrar`
+`0xa88553F454b77203B0D036A05c894d555EAAa2Cc`, paid in freely mintable test USDC
+`0x768F42455A2D082E23ceeF7d51e5787C82d67a39`, with a resolver deployed via
+`VerifiableFactory` `0x10dC6333CDFe1FCEf624c6e0a8221b91804Cd7ef`
+(impl `0x9EAe5C2730a7dD16BDD1DeE6421a1B91e3B0365e`, init selector `0x7058b559` =
+`initialize(address,uint256,bytes[])`). Automated in
+`scripts/register-v2-name.mjs`. App reads and writes go through the Universal
+Resolver, so they work on both ENS v1 and v2.
 
-## Security/privacy checks
+## What works
 
-- [x] No private key appears in source, logs, analytics or network requests (crypto core is pure/local).
-- [x] `skrillah.eth` is read only (no chain writes exist at all yet).
-- [x] Mainnet writes are blocked (no write code exists yet; guards land in M1).
-- [x] New ephemeral randomness is generated for every derivation (tested, 10-round distinctness).
-- [x] Wrong viewing-key negative test passes (×50).
-- [ ] Threat-model claims match implementation (UI pending, M3).
+- **ERC-5564 scheme-1 core** (`src/crypto/`): key generation, derivation with
+  fresh ephemeral randomness, view-tag recognition, spending-key recovery.
+  Byte-identical to the ScopeLift reference SDK, with a frozen known-answer
+  vector.
+- **ENS layer** (`src/ens/`): normalization, conventional resolution, stealth
+  record read, Sepolia-guarded `setText` publish via the Universal Resolver.
+- **Chain layer** (`src/chain/`): announcer integration, bounded-range scanning,
+  viewing-key recognition, network write guards.
+- **GhostCheck audit** (`src/audit/`): versioned privacy-readiness report for
+  arbitrary names, chain-specific then default record precedence, malformed and
+  conflicting record detection, three local derivation trials, explicit unknowns,
+  JSON and summary export. No numeric score anywhere.
+- **Sweep package** (`src/relay/sweep.ts`): complete destination-bound package
+  carrying both required signatures plus executor calldata, with an independent
+  verifier. Proven executable on-chain.
+- **UI**: `/scan` audit, `/create` identity and record publish, `/pay`, `/receive`
+  scan with sweep package, `/privacy` threat model, `/demo`.
+- **Mobula exposure panel** and **encrypted testnet recovery capsule**.
 
-## Acceptance checklist
+## Known limitations, stated honestly
 
-- [x] Arbitrary ENS resolution (live mainnet: skrillah.eth, vitalik.eth).
-- [x] Scheme-1 keypair/meta-address generation.
-- [x] ENS stealth record read (live: ghostname-3c7714.eth on Sepolia).
-- [x] Controlled Sepolia ENS write (live, via app write path: 0x75b7a640…).
-- [x] Two distinct stealth destinations (live: fresh A≠B every E2E run).
-- [x] Positive recognition test (live: scanner found payment at block 11612941).
-- [x] Negative recognition test (live + 50-key offline).
-- [x] Spending-key/address verification (live recovery verified).
-- [x] Real Sepolia payment (0.0005 ETH, tx 0x2430f7f8…).
-- [x] Announcement discovery (tx 0x4164c074…, constrained block range).
-- [x] Clean typecheck.
-- [x] Clean tests (62 passing; live suite skips without key).
-- [x] Clean production build.
-- [x] README reproduction verified from a clean clone (git clone → npm
-      install → npm test: 60 passed, 6 skipped; npm run build: PASS).
-- [ ] Backup demo recorded. (M5 — pre-presentation task)
+- Resolver provenance (direct versus inherited or wildcard) is reported as
+  **unknown**. Proving it needs registry evidence that is not uniformly
+  available across ENS v1 and v2. Never guessed.
+- The sweep executor is an unaudited testnet demo contract.
+- No production relayer is operated. The demo sponsor is the throwaway wallet.
+- The ENS stealth-resolution RFC is still evolving, so record conventions are
+  implemented as the current proposal, not a ratified requirement.
+- Scanning uses bounded `eth_getLogs` over public RPCs rather than an indexer.
+- Amounts, sender identity, timing and history remain public. GhostName is
+  forward privacy only.
 
-## Decisions made
+## Phase log
 
-| Date/time | Decision | Reason | Evidence/test |
-|---|---|---|---|
-| 2026-09-01 | Implement scheme-1 core on `@noble/curves` directly; use `@scopelift/stealth-address-sdk` as dev-only test oracle | SDK is 1.0.0-beta, ~1 year stale; noble is audited and current; scheme-1 layer is thin composition | `tests/interop.test.ts` proves byte-compatibility |
-| 2026-09-01 | Hash convention: keccak256 over 33-byte COMPRESSED shared-secret point | Matches EIP-5564 reference implementations | interop tests pass |
-| 2026-09-01 | No wagmi; viem wallet client directly | Fewer moving parts for a hackathon | — |
-| 2026-09-01 | SDK quirk found: hex-string ephemeral key input silently mis-derives | Pass bytes to SDK in tests; our impl accepts both safely | frozen vector test |
-| 2026-09-01 | Vitest `server.deps.inline` for the SDK | Its dist uses bundler-style directory imports | test suite runs |
-
-## Known risks/blockers
-
-| Priority | Risk/blocker | Current mitigation | Owner/next check |
-|---|---|---|---|
-| P0 | Sepolia ENS name needed for record write demo | User owns skrillah.eth (mainnet, read-only); need a Sepolia test name — register one via ENS Sepolia app in M1 | M1 |
-| P0 | Sepolia ETH needed for payment demo | Ask user / faucet before M2 | M2 |
-| P1 | Public RPC reliability during demo | `.env` overrides + fallback list; test on venue Wi-Fi | M5 |
-
-## Last verification
-
-```text
-2026-09-01 ~14:39 local
-npm run typecheck  -> PASS (tsc --noEmit, no output)
-npm test           -> PASS: 30 passed (30) — metaAddress 7, stealth 18, interop 5
-npm run build      -> PASS: vite 7.3.6, dist/assets/index-*.js 193.38 kB (gzip 60.73)
-```
-
-## UI verification (2026-09-01, in-browser against live Sepolia)
-
-- /demo: skrillah.eth resolves live read-only; ghostname-3c7714.eth resolves
-  to distinct A≠B locally. PASS.
-- /create: local key generation + identity import (JSON) both work. PASS.
-- /receive: imported demo viewing key → scanned blocks 11612900+ →
-  "3 recognised as yours", live negative control "unrelated key recognised 0",
-  per-payment "derived stealth private key controls this address ✓". PASS.
-- Only UI bug found + fixed: switched BrowserRouter→HashRouter for static
-  hosting; added identity import control on /create.
+- **Phase 0 (done):** complete destination-bound sweep package. Fixed a real
+  defect where only the EIP-7702 delegation was emitted, which was both
+  non-executable and misleading about destination binding. 18 tests.
+- **Phase 1 (done):** GhostCheck ENS privacy conformance audit. 22 tests.
 
 ## Next action
 
-P0 + P1 + P2 (Mobula) + P3 capsule all DONE and deployed. Remaining, all
-pre-presentation / user-driven:
-1. Record 2-minute backup demo video (Friday freeze rule).
-2. Optional: run `scripts/swarm-deploy.mjs` with a Bee node + booth stamp to
-   put the app itself on Swarm (SWARM.md).
-3. Optional hardening: code-split the ~620 KB bundle (viem is the bulk).
+Phase 2: verify the live sponsored exit from public chain data via RPC, then
+Phase 3 (single guided demo route) and Phase 4 (competitive positioning docs).
