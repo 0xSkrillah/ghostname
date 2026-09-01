@@ -1,4 +1,6 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+// HashRouter: deep links work on any static host (GitHub Pages, Swarm)
+// with zero server configuration — demo reliability over URL aesthetics.
+import { HashRouter, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
 import Landing from './pages/Landing';
 import Scan from './pages/Scan';
@@ -10,7 +12,7 @@ import Demo from './pages/Demo';
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<Landing />} />
@@ -22,6 +24,6 @@ export default function App() {
           <Route path="/demo" element={<Demo />} />
         </Route>
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }

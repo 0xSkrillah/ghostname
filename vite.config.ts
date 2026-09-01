@@ -3,6 +3,9 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
+  // Relative base: the built app works from any path (GitHub Pages
+  // subdirectory, Swarm bzz:// paths) without rebuild.
+  base: './',
   plugins: [react()],
   test: {
     environment: 'node',

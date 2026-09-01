@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet } from 'react-router-dom';
 
 const links = [
   ['/scan', 'Scan'],
@@ -31,7 +31,7 @@ export default function Layout() {
       </main>
       <footer className="foot">
         GhostName — forward privacy for ENS identities via ERC-5564. Not anonymity, not
-        history deletion; see <a href="/privacy">what is and is not protected</a>.
+        history deletion; see <Link to="/privacy">what is and is not protected</Link>.
       </footer>
     </>
   );
