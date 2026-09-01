@@ -41,7 +41,10 @@ deployment, contract/configuration change, and before ending a work period.
 - ENS record key: `stealth-meta-address[1]`, value `st:eth:0x<spend33><view33>` verbatim (per ENS stealth-resolution RFC)
 - Mobula enabled: YES (P2) — keyless demo endpoint by default; panel on /scan;
   balance hidden behind reveal. Optional VITE_MOBULA_PROXY_URL for prod key.
-- Swarm enabled: in progress (P3)
+- Swarm enabled: PARTIAL (P3) — encrypted recovery capsule DONE + tested
+  (src/swarm/capsule.ts, /create UI, 8 tests); static deploy scripted
+  (scripts/swarm-deploy.mjs + SWARM.md), not auto-run (needs Bee node +
+  funded xBZZ stamp — user/venue-booth step by design).
 
 ## What currently works (updated after M3)
 
@@ -143,6 +146,9 @@ npm run build      -> PASS: vite 7.3.6, dist/assets/index-*.js 193.38 kB (gzip 6
 
 ## Next action
 
-1. Clean-clone reproduction check (fresh git clone → npm install → npm test).
-2. Record 2-minute backup demo video (Friday freeze rule).
-3. Only then: P2 Mobula panel, P3 Swarm deployment.
+P0 + P1 + P2 (Mobula) + P3 capsule all DONE and deployed. Remaining, all
+pre-presentation / user-driven:
+1. Record 2-minute backup demo video (Friday freeze rule).
+2. Optional: run `scripts/swarm-deploy.mjs` with a Bee node + booth stamp to
+   put the app itself on Swarm (SWARM.md).
+3. Optional hardening: code-split the ~620 KB bundle (viem is the bulk).
