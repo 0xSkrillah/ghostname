@@ -20,7 +20,7 @@ Tagline unchanged: *Keep the ENS name. Break the payment graph.*
 | Command | Status | Result |
 |---|---|---|
 | `npm run typecheck` | PASS | no errors |
-| `npm test` | PASS | 144 passed, 7 skipped (15 files) |
+| `npm test` | PASS | 155 passed, 8 skipped (16 files) |
 | `npm run build` | PASS | app shell ~230 kB, viem chunk ~334 kB |
 | `npm run e2e:sepolia` | PASS | gated on `SEPOLIA_PRIVATE_KEY` |
 | `npm run sweep:sepolia` | PASS | gated on `SEPOLIA_PRIVATE_KEY` |
@@ -113,9 +113,13 @@ Resolver, so they work on both ENS v1 and v2.
   on-chain result proves the format is executable.
 - **Phase 1 (done):** GhostCheck ENS privacy conformance audit on `/scan`.
   22 tests. Verified live: `skrillah.eth` reads Incomplete.
-- **Phase 2 (done):** sponsored-exit proof verified from chain data, integrated
-  into `/receive` and `/demo`. 12 tests. All eight checks pass live against the
-  published sweep.
+- **Phase 2 (done):** both halves of the published evidence are verified from
+  live chain data, integrated into `/receive` and `/demo`.
+  - Sponsored exit (`src/relay/proof.ts`, 12 tests): all eight checks pass live.
+  - Payment and announcement (`src/relay/paymentProof.ts`, 11 tests): all eight
+    checks pass live, including the binding check that the announcement names
+    the same address the payment actually funded. Without that, an announcement
+    is just an unrelated log.
 - **Phase 3 (done):** `/demo` rebuilt as one guided route (audit, upgrade,
   derive, prove receive, prove exit, boundary, close). Verified end to end in
   the browser.

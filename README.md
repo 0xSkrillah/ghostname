@@ -230,6 +230,14 @@ sweep authorizations** a sponsor/relayer can execute while paying gas itself:
 `/receive` produces a signed EIP-7702 authorization for any recognised payment,
 locally, the stealth key never leaves the device.
 
+**Both halves of the evidence are verified live, not asserted.** `/receive` and
+`/demo` re-derive every claim from chain data, with only transaction hashes
+configured. The payment proof includes the binding check that the ERC-5564
+announcement names the same address the payment actually funded; without that,
+an announcement is just an unrelated log. Recognition itself is listed as *not*
+proven there, because deciding a payment is yours requires the private viewing
+key, which never leaves the recipient device.
+
 **Proven live on Sepolia:** the executor (`contracts/StealthSweepExecutor.sol`)
 is deployed at `0x94E4C39055fa4a5fCd47E03CbcbCD0503848806b`, and a stealth EOA
 was swept to a clean destination by a **sponsored type-4 (EIP-7702)

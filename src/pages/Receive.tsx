@@ -5,6 +5,7 @@ import { getSepoliaClient } from '../chain/clients';
 import { SEPOLIA_CHAIN_ID } from '../chain/guards';
 import SweepPanel from '../components/SweepPanel';
 import SweepProofPanel from '../components/SweepProofPanel';
+import PaymentProofPanel from '../components/PaymentProofPanel';
 import {
   fetchAnnouncements,
   recogniseOwnedAnnouncements,
@@ -206,7 +207,8 @@ export default function Receive() {
             );
           })}
 
-          <h2>Getting the funds out</h2>
+          <h2>Published evidence, verified live</h2>
+          <PaymentProofPanel />
           <SweepProofPanel />
         </>
       )}
