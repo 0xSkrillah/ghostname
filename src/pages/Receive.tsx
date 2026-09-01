@@ -4,6 +4,7 @@ import { formatEther, type Hex } from 'viem';
 import { getSepoliaClient } from '../chain/clients';
 import { SEPOLIA_CHAIN_ID } from '../chain/guards';
 import SweepPanel from '../components/SweepPanel';
+import SweepProofPanel from '../components/SweepProofPanel';
 import {
   fetchAnnouncements,
   recogniseOwnedAnnouncements,
@@ -204,6 +205,9 @@ export default function Receive() {
               </div>
             );
           })}
+
+          <h2>Getting the funds out</h2>
+          <SweepProofPanel />
         </>
       )}
     </>

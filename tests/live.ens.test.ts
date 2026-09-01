@@ -11,8 +11,31 @@ import { describe, expect, it } from 'vitest';
 import { getMainnetClient } from '../src/chain/clients';
 import { resolveConventionalAddress, resolveStealthMetaAddress } from '../src/ens/resolve';
 import { auditEnsName } from '../src/audit/auditEnsName';
+import { getSepoliaClient } from '../src/chain/clients';
+import { verifySweepProof } from '../src/relay/proof';
+import { SPONSORED_SWEEP_EVIDENCE } from '../src/relay/evidence';
 
 const live = process.env.RUN_LIVE === '1';
+
+describe.runIf(live)('live sponsored exit proof (read-only)', () => {
+  it('verifies the published sweep entirely from public chain data', async () => {
+    const proof = await verifySweepProof(
+      getSepoliaClient() as never,
+      SPONSORED_SWEEP_EVIDENCE,
+    );
+    for (const check of proof.checks) {
+      console.log(`[proof] ${check.state.toUpperCase().padEnd(7)} ${check.label}`);
+    }
+    expect(proof.checks.find((c) => c.id === 'receipt')!.state).toBe('pass');
+    expect(proof.checks.find((c) => c.id === 'type')!.state).toBe('pass');
+    expect(proof.checks.find((c) => c.id === 'sponsor')!.state).toBe('pass');
+    expect(proof.checks.find((c) => c.id === 'delegation')!.state).toBe('pass');
+    expect(proof.checks.find((c) => c.id === 'calldata')!.state).toBe('pass');
+    expect(proof.checks.find((c) => c.id === 'intent')!.state).toBe('pass');
+    expect(proof.checks.find((c) => c.id === 'event')!.state).toBe('pass');
+    expect(proof.verified).toBe(true);
+  }, 60_000);
+});
 
 describe.runIf(live)('live mainnet ENS (read-only)', () => {
   it('resolves an established name to its conventional address', async () => {

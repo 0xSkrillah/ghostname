@@ -1,0 +1,112 @@
+import { useEffect, useState } from 'react';
+import { formatEther } from 'viem';
+import { getSepoliaClient } from '../chain/clients';
+import { SPONSORED_SWEEP_EVIDENCE } from '../relay/evidence';
+import { verifySweepProof, type SweepProof } from '../relay/proof';
+
+const STATE_PILL: Record<string, string> = {
+  pass: 'pill ok',
+  fail: 'pill bad',
+  unknown: 'pill warn',
+};
+
+/**
+ * Verify the published sponsored exit live from public chain data. Only the
+ * transaction hash is configured; every claim is re-derived here, so a stale
+ * hash shows as a failed check rather than a false green.
+ */
+export default function SweepProofPanel({ autoRun = false }: { autoRun?: boolean }) {
+  const [proof, setProof] = useState<SweepProof | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function run() {
+    setBusy(true);
+    try {
+      setProof(await verifySweepProof(getSepoliaClient() as never, SPONSORED_SWEEP_EVIDENCE));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    if (autoRun) void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRun]);
+
+  return (
+    <div className="card">
+      <span className="label">Sponsored exit, verified from chain data</span>
+      <p className="small dim" style={{ marginTop: 0 }}>
+        A stealth address holds funds but no gas. Funding it from your own wallet would
+        re-link it, so a sponsor pays instead. This checks that the published exit really
+        happened that way. Only the transaction hash is configured. Every claim below is
+        re-verified live.
+      </p>
+
+      {!proof && (
+        <button className="secondary" onClick={() => void run()} disabled={busy}>
+          {busy ? 'Verifying…' : 'Verify the sponsored exit'}
+        </button>
+      )}
+
+      {proof && (
+        <>
+          <p className="small" style={{ marginBottom: '0.5rem' }}>
+            {proof.verified ? (
+              <span className="pill ok">all checks passed</span>
+            ) : (
+              <span className="pill warn">not fully verified</span>
+            )}{' '}
+            <a href={proof.explorerUrl} target="_blank" rel="noreferrer" className="mono small">
+              view transaction
+            </a>{' '}
+            <button
+              className="ghost"
+              style={{ padding: '0.15rem 0.6rem', fontSize: '0.78rem' }}
+              onClick={() => void run()}
+              disabled={busy}
+            >
+              {busy ? 'Re-checking…' : 'Re-verify'}
+            </button>
+          </p>
+
+          <table className="plain">
+            <tbody>
+              {proof.checks.map((check) => (
+                <tr key={check.id}>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <span className={STATE_PILL[check.state] ?? 'pill'}>{check.state}</span>
+                  </td>
+                  <td className="small">
+                    <strong>{check.label}</strong>
+                    <div className="dim" style={{ wordBreak: 'break-word' }}>
+                      {check.detail}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {proof.facts.sponsor && proof.facts.stealthAddress && (
+            <p className="small dim" style={{ marginBottom: '0.4rem' }}>
+              Sponsor <span className="mono">{proof.facts.sponsor}</span> paid the gas. The swept
+              account <span className="mono">{proof.facts.stealthAddress}</span> never received a
+              gas-funding transfer
+              {proof.facts.amountWei && <> and released {formatEther(BigInt(proof.facts.amountWei))} ETH</>}.
+            </p>
+          )}
+
+          <div className="card danger" style={{ marginBottom: 0 }}>
+            <span className="label">Not proven by this evidence</span>
+            <ul className="small" style={{ margin: 0, paddingLeft: '1.2rem' }}>
+              {proof.notProven.map((n) => (
+                <li key={n}>{n}</li>
+              ))}
+            </ul>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
