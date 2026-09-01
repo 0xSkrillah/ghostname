@@ -197,9 +197,14 @@ sweep authorizations** a sponsor/relayer can execute while paying gas itself:
 - **EIP-3009** relayed transfer for USDC-style tokens (`signErc3009Sweep`).
 
 `/receive` produces a signed EIP-7702 authorization for any recognised payment,
-locally — the stealth key never leaves the device. Executing it needs a
-deployed executor contract + a funded relayer (out of scope to provision here,
-same as the Swarm stamp). Full design in [RELAYERS.md](RELAYERS.md).
+locally — the stealth key never leaves the device.
+
+**Proven live on Sepolia:** the executor (`contracts/StealthSweepExecutor.sol`)
+is deployed at `0x94E4C39055fa4a5fCd47E03CbcbCD0503848806b`, and a stealth EOA
+was swept to a clean destination by a **sponsored type-4 (EIP-7702)
+transaction** — sponsor paid the gas, stealth EOA never held any
+([sweep tx](https://sepolia.etherscan.io/tx/0x412cca80d621d5d58a38ef190c6a8c323d18adb1be3488f29868d1b4b2efedc0)).
+Reproduce with `npm run sweep:sepolia`. Full design in [RELAYERS.md](RELAYERS.md).
 
 ## 12. Known limitations
 

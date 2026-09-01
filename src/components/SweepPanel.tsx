@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { isAddress, type Address, type Hex } from 'viem';
 import { signSweepAuthorization, verifySweepAuthorization } from '../relay/sweep';
+import { SWEEP_EXECUTOR } from '../config';
 
 /**
  * Produce a signed EIP-7702 sweep authorization for a recognised payment,
@@ -17,7 +18,7 @@ export default function SweepPanel(props: {
 }) {
   const [open, setOpen] = useState(false);
   const [destination, setDestination] = useState('');
-  const [executor, setExecutor] = useState('');
+  const [executor, setExecutor] = useState(SWEEP_EXECUTOR);
   const [authJson, setAuthJson] = useState<string | null>(null);
   const [verified, setVerified] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
