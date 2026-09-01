@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { formatEther, type Hex } from 'viem';
 import { getSepoliaClient } from '../chain/clients';
+import { SEPOLIA_CHAIN_ID } from '../chain/guards';
+import SweepPanel from '../components/SweepPanel';
 import {
   fetchAnnouncements,
   recogniseOwnedAnnouncements,
@@ -22,7 +24,7 @@ interface ScanOutcome {
   owned: Announcement[];
   /** Result of running the SAME scan with a random unrelated viewing key. */
   strangerMatches: number;
-  verified: Array<{ address: string; ok: boolean }>;
+  verified: Array<{ address: string; ok: boolean; stealthPrivateKey: Hex }>;
 }
 
 const DEFAULT_LOOKBACK = 50_000n;
@@ -72,6 +74,7 @@ export default function Receive() {
         return {
           address: a.stealthAddress,
           ok: privateKeyToAddress(key).toLowerCase() === a.stealthAddress.toLowerCase(),
+          stealthPrivateKey: key,
         };
       });
       setOutcome({
@@ -190,6 +193,13 @@ export default function Receive() {
                   )}{' '}
                   <span className="dim">(key derived locally, never displayed or sent)</span>
                 </p>
+                {verification?.ok && (
+                  <SweepPanel
+                    stealthPrivateKey={verification.stealthPrivateKey}
+                    stealthAddress={a.stealthAddress}
+                    chainId={SEPOLIA_CHAIN_ID}
+                  />
+                )}
               </div>
             );
           })}
