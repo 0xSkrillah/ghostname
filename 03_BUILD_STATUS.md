@@ -98,8 +98,9 @@ deployment, contract/configuration change, and before ending a work period.
 - [x] Clean typecheck.
 - [x] Clean tests (62 passing; live suite skips without key).
 - [x] Clean production build.
-- [ ] README reproduction verified from a clean clone. (M5)
-- [ ] Backup demo recorded. (M5)
+- [x] README reproduction verified from a clean clone (git clone → npm
+      install → npm test: 60 passed, 6 skipped; npm run build: PASS).
+- [ ] Backup demo recorded. (M5 — pre-presentation task)
 
 ## Decisions made
 
