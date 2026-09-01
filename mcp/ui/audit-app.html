@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GhostName audit</title>
+<style>
+  :root {
+    --bg: #0a0e12;
+    --bg-raised: #10161d;
+    --bg-inset: #070a0d;
+    --border: #1e2a35;
+    --text: #d7e1ea;
+    --text-dim: #7a8a99;
+    --accent: #4ef0b0;
+    --accent-dim: #1d6b4f;
+    --danger: #f06a6a;
+    --warn: #e8c268;
+    --static-col: #f06a6a;
+    --stealth-col: #4ef0b0;
+    --mono: 'Cascadia Code', 'JetBrains Mono', Consolas, 'SF Mono', monospace;
+  }
+  :root[data-theme='light'] {
+    --bg: #f7f9fb;
+    --bg-raised: #ffffff;
+    --bg-inset: #eef2f6;
+    --border: #d4dde6;
+    --text: #15202b;
+    --text-dim: #5b6b7a;
+    --accent: #0f8f63;
+    --accent-dim: #8fd9bc;
+    --danger: #c43c3c;
+    --warn: #9a7413;
+    --static-col: #c43c3c;
+    --stealth-col: #0f8f63;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 0.9rem 1rem 1.2rem;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    line-height: 1.5;
+    font-size: 14px;
+  }
+  .mono { font-family: var(--mono); }
+  .card {
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    margin: 0.7rem 0;
+  }
+  .card.inset { background: var(--bg-inset); }
+  .card.danger { border-color: var(--danger); }
+  .card.ok { border-color: var(--accent-dim); }
+  .label {
+    display: block;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    margin-bottom: 0.3rem;
+  }
+  .row { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+  .pill {
+    display: inline-block;
+    padding: 0.12rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    white-space: nowrap;
+  }
+  .pill.ok { color: var(--accent); border-color: var(--accent-dim); }
+  .pill.bad { color: var(--danger); border-color: var(--danger); }
+  .pill.warn { color: var(--warn); border-color: var(--warn); }
+  .small { font-size: 0.85rem; }
+  .dim { color: var(--text-dim); }
+  h1 { font-size: 1.15rem; margin: 0 0 0.2rem; }
+  h2 { font-size: 0.95rem; margin: 0.9rem 0 0.35rem; }
+  table.plain { border-collapse: collapse; width: 100%; }
+  table.plain td, table.plain th {
+    text-align: left;
+    padding: 0.35rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    font-size: 0.85rem;
+  }
+  table.plain th { color: var(--text-dim); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; }
+  ul { margin: 0.2rem 0 0; padding-left: 1.1rem; }
+  li { margin: 0.15rem 0; }
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; margin: 0.7rem 0; }
+  @media (max-width: 600px) { .compare { grid-template-columns: 1fr; } }
+  .compare .col { border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem 0.9rem; background: var(--bg-raised); }
+  .compare .col.stealth { border-color: rgba(78, 240, 176, 0.4); }
+  .compare .col.static { border-color: rgba(240, 106, 106, 0.4); }
+  .compare .title { font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 0.4rem; }
+  .compare .stealth .title { color: var(--stealth-col); }
+  .compare .static .title { color: var(--static-col); }
+  button {
+    background: var(--accent);
+    color: #05130c;
+    border: 0;
+    border-radius: 8px;
+    padding: 0.55rem 0.95rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  button:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; }
+  button.ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); font-weight: 500; }
+  .url { word-break: break-all; font-size: 0.8rem; }
+  #status { margin: 0; }
+</style>
+</head>
+<body>
+  <div id="root">
+    <p id="status" class="small dim">Waiting for the audit result from the host…</p>
+  </div>
+  <!--APP_SCRIPT-->
+</body>
+</html>

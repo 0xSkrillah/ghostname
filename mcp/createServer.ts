@@ -20,6 +20,7 @@ import type { AgentObservation } from '../src/agent/types';
 import { registerGhostNamePrompts } from './prompts';
 import { registerGhostNameResources } from './resources';
 import { registerGhostNameTools } from './tools';
+import { registerGhostNameAppView } from './ui/index';
 
 export const SERVER_NAME = 'ghostname';
 export const SERVER_TITLE = 'GhostName ENS privacy adviser';
@@ -65,5 +66,7 @@ export function createGhostNameServer(options: GhostNameServerOptions = {}): Mcp
   registerGhostNameTools(server, { getClient, observationFor, webBaseUrl, now: options.now });
   registerGhostNameResources(server);
   registerGhostNamePrompts(server);
+  // Optional inline view for hosts with MCP Apps support. Never required.
+  registerGhostNameAppView(server);
   return server;
 }
