@@ -13,11 +13,11 @@ every future payment.** Everything below supports that single claim.
 
 ## Slide 1. Governing thought (title)
 
-**GhostName keeps your ENS name and unlinks every future payment.**
+**GhostName is the open privacy-assurance layer for ENS: audit, upgrade, prove.**
 
 <sub>Keep the ENS name. Break the payment graph. ERC-5564 stealth addresses, resolved through ENS. Common S3nse Amsterdam 2026.</sub>
 
-> Speaker: "One sentence: GhostName gives an established ENS identity forward privacy. Keep the name, unlink every future payment. Here is why that matters and that it works."
+> Speaker: "One sentence: GhostName audits any ENS name for privacy readiness, upgrades the identity you already own, and proves the whole payment lifecycle. Keep the name, unlink every future payment."
 
 ---
 
@@ -79,6 +79,18 @@ Protects: future receiving addresses, address reuse, no gateway to trust.
 Does not: delete history, hide the amount, hide the sender.
 
 > Speaker: "Forward privacy, not anonymity, not a mixer, not erasing the past. We name exactly what we protect and exactly what we do not."
+
+---
+
+## Slide 7b. Why this is not another stealth wallet
+
+**Others operate accounts. GhostName operates assurance.**
+
+Fluidkey and Cloaked run wallet infrastructure. Umbra implements the core
+standard. Sneaky pairs ENS resolution with a privacy pool. GhostName audits,
+upgrades and proves the identity you already own, and custodies nothing.
+
+> Speaker: "We are not asking you to move to a new wallet or buy a subdomain from us. We check the name you already have, upgrade it in place, and hand you evidence you can verify yourself."
 
 ---
 

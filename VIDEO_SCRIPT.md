@@ -18,6 +18,14 @@ step is live. No em dashes, so the narration reads clean.
    you want to send a fresh payment on camera. The video works without it,
    because the Receive scan already finds real prior payments.
 
+## Fastest path: the single guided route
+
+`#/demo` now runs the whole story on one page as audit, upgrade, derive, prove
+receive, prove exit, boundary, close. Nothing navigates away, and the exit proof
+verifies published chain data live, so the route works even if you do not send a
+fresh transaction on camera. Drive that route top to bottom and the script below
+maps onto it step for step.
+
 ## The script
 
 Format: [time] then ON SCREEN action, then SAY narration.
@@ -27,8 +35,9 @@ Format: [time] then ON SCREEN action, then SAY narration.
 ON SCREEN: the title or the `#/` landing page.
 
 SAY: "An ENS name is your identity. It is also a permanent public record of
-every payment you have ever received. GhostName keeps the name and unlinks
-every future payment."
+every payment you have ever received. GhostName is the privacy-assurance layer
+for ENS: it audits the name you already own, upgrades it in place, and proves
+the result."
 
 ### [0:12 to 0:30] The problem, live on Scan
 

@@ -20,7 +20,7 @@ Tagline unchanged: *Keep the ENS name. Break the payment graph.*
 | Command | Status | Result |
 |---|---|---|
 | `npm run typecheck` | PASS | no errors |
-| `npm test` | PASS | 132 passed, 5 skipped (14 files) |
+| `npm test` | PASS | 144 passed, 7 skipped (15 files) |
 | `npm run build` | PASS | app shell ~230 kB, viem chunk ~334 kB |
 | `npm run e2e:sepolia` | PASS | gated on `SEPOLIA_PRIVATE_KEY` |
 | `npm run sweep:sepolia` | PASS | gated on `SEPOLIA_PRIVATE_KEY` |
@@ -108,10 +108,22 @@ Resolver, so they work on both ENS v1 and v2.
 
 - **Phase 0 (done):** complete destination-bound sweep package. Fixed a real
   defect where only the EIP-7702 delegation was emitted, which was both
-  non-executable and misleading about destination binding. 18 tests.
-- **Phase 1 (done):** GhostCheck ENS privacy conformance audit. 22 tests.
+  non-executable and misleading about destination binding. 18 tests. The live
+  sweep test now builds its transaction entirely from the package, so the
+  on-chain result proves the format is executable.
+- **Phase 1 (done):** GhostCheck ENS privacy conformance audit on `/scan`.
+  22 tests. Verified live: `skrillah.eth` reads Incomplete.
+- **Phase 2 (done):** sponsored-exit proof verified from chain data, integrated
+  into `/receive` and `/demo`. 12 tests. All eight checks pass live against the
+  published sweep.
+- **Phase 3 (done):** `/demo` rebuilt as one guided route (audit, upgrade,
+  derive, prove receive, prove exit, boundary, close). Verified end to end in
+  the browser.
+- **Phase 4 (done):** competitive position documented in README and
+  COMPETITIVE_MOAT.md; em dashes removed from all GhostName-authored docs.
 
 ## Next action
 
-Phase 2: verify the live sponsored exit from public chain data via RPC, then
-Phase 3 (single guided demo route) and Phase 4 (competitive positioning docs).
+Engineering is complete against the current acceptance criteria. Remaining work
+is presentation only: record the two-minute backup video from `#/demo`, and
+optionally deploy to Swarm with a booth postage stamp (see SWARM.md).

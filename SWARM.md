@@ -10,7 +10,7 @@ Web Crypto before it could ever touch Swarm:
 
 - AES-256-GCM, key derived from a passphrase via PBKDF2-SHA256 (210k iters).
 - Fresh salt + IV per capsule; GCM tag detects tampering and wrong passphrases.
-- The serialized capsule contains **only** ciphertext + KDF params — no
+- The serialized capsule contains **only** ciphertext + KDF params: no
   plaintext key material (asserted by `tests/capsule.test.ts`).
 - Flagged `network: "testnet"`; a guard refuses mainnet identities.
 
@@ -27,7 +27,7 @@ Swarm uploads need a running Bee node and a **funded postage stamp** (xBZZ).
 This is the one step that needs infrastructure/funding, so it is scripted for
 you to run rather than done automatically.
 
-### Option A — venue booth (recommended at Common S3nse)
+### Option A: venue booth (recommended at Common S3nse)
 
 The Swarm booth provisions a gateway postage stamp. Get the batch id, then:
 
@@ -36,7 +36,7 @@ npm run build
 BEE_API_URL=<gateway-url> BEE_STAMP=<batchId> node scripts/swarm-deploy.mjs
 ```
 
-### Option B — your own Bee light node
+### Option B: your own Bee light node
 
 ```bash
 # 1. Run a Bee node (light mode) reachable at http://localhost:1633
@@ -64,5 +64,5 @@ updatable name.
 
 Buying a postage stamp spends xBZZ (a real testnet asset) from a node you
 control. Per GhostName's own safety rules, the agent does not spend assets or
-run write operations against your node without you driving it — so this is a
+run write operations against your node without you driving it, so this is a
 one-command manual step with your stamp.
