@@ -24,6 +24,7 @@
  */
 import { privateKeyToAccount } from 'viem/accounts';
 import { verifyAuthorization, verifyTypedData } from 'viem/utils';
+import { decodeFunctionData, encodeFunctionData, isAddress } from 'viem';
 import type { Address, Hex, SignedAuthorization } from 'viem';
 
 /* ------------------------------------------------------------------ */
@@ -70,6 +71,336 @@ export function verifySweepAuthorization(
   authorization: SignedAuthorization,
 ): Promise<boolean> {
   return verifyAuthorization({ address: stealthAddress, authorization });
+}
+
+/* ------------------------------------------------------------------ */
+/* Complete, destination-bound native sweep package                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A sweep needs TWO independent signatures, and shipping only the first one is
+ * both non-executable and misleading:
+ *
+ *  1. the EIP-7702 delegation authorization, which binds only
+ *     (chainId, executor, accountNonce) and says nothing about where funds go;
+ *  2. the executor's EIP-712 `Sweep` intent, which is what actually binds
+ *     destination, amount, sweep nonce and deadline.
+ *
+ * `signNativeSweepPackage` produces both plus the encoded calldata, so a
+ * relayer has everything required and every displayed field is cryptographically
+ * bound. `verifyNativeSweepPackage` re-checks all of it, so a package can be
+ * audited independently of whoever produced it.
+ *
+ * The two nonces are deliberately kept separate and separately named:
+ * `authorizationNonce` is the EOA's account nonce (EIP-7702 requires it to equal
+ * the account nonce at processing time); `sweepNonce` is the executor's internal
+ * replay guard.
+ */
+
+export const SWEEP_PACKAGE_SCHEMA = 'ghostname-native-sweep-package';
+export const SWEEP_PACKAGE_VERSION = 1;
+
+/** EIP-712 domain of StealthSweepExecutor. */
+export const SWEEP_DOMAIN_NAME = 'GhostNameSweep';
+export const SWEEP_DOMAIN_VERSION = '1';
+
+export const SWEEP_TYPES = {
+  Sweep: [
+    { name: 'to', type: 'address' },
+    { name: 'amount', type: 'uint256' },
+    { name: 'nonce', type: 'uint256' },
+    { name: 'deadline', type: 'uint256' },
+  ],
+} as const;
+
+/** Minimal ABI of the executor entry point the sponsor calls. */
+export const EXECUTOR_SWEEP_ABI = [
+  {
+    name: 'sweep',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+      { name: 'nonce', type: 'uint256' },
+      { name: 'deadline', type: 'uint256' },
+      { name: 'signature', type: 'bytes' },
+    ],
+    outputs: [],
+  },
+] as const;
+
+export interface NativeSweepPackageParams {
+  /** Recovered stealth private key. Used locally for signing only. */
+  stealthPrivateKey: Hex;
+  /** Optional expected address; mismatch with the key is rejected. */
+  stealthAddress?: Address;
+  chainId: number;
+  executor: Address;
+  destination: Address;
+  amount: bigint;
+  /** EIP-7702 account nonce of the stealth EOA. Read it; do not assume 0. */
+  authorizationNonce: number;
+  /** Executor replay-guard nonce. Unrelated to the account nonce. */
+  sweepNonce: bigint;
+  /** Unix seconds after which the executor rejects the sweep. */
+  deadline: bigint;
+}
+
+/**
+ * The complete relayer hand-off. Uint256 values are decimal strings so the
+ * package survives JSON round-trips without BigInt loss. Contains no secrets.
+ */
+export interface NativeSweepPackage {
+  schema: typeof SWEEP_PACKAGE_SCHEMA;
+  version: number;
+  chainId: number;
+  executor: Address;
+  /** The EOA being swept; also the EIP-712 `verifyingContract` under 7702. */
+  stealthAddress: Address;
+  destination: Address;
+  amount: string;
+  sweepNonce: string;
+  deadline: string;
+  authorizationNonce: number;
+  /** EIP-7702 delegation: binds chain + executor + account nonce only. */
+  authorization: {
+    chainId: number;
+    address: Address;
+    nonce: number;
+    r: Hex;
+    s: Hex;
+    yParity: number;
+  };
+  /** EIP-712 intent: binds destination, amount, sweep nonce and deadline. */
+  sweepSignature: Hex;
+  /** `sweep(...)` calldata the sponsor sends to the stealth address. */
+  calldata: Hex;
+}
+
+function assertAddress(value: string, label: string): Address {
+  if (!isAddress(value)) throw new Error(`${label} is not a valid address: ${value}`);
+  return value as Address;
+}
+
+/** Build both signatures plus calldata for a sponsored native-ETH sweep. */
+export async function signNativeSweepPackage(
+  params: NativeSweepPackageParams,
+): Promise<NativeSweepPackage> {
+  const executor = assertAddress(params.executor, 'executor');
+  const destination = assertAddress(params.destination, 'destination');
+  if (params.amount <= 0n) throw new Error('amount must be greater than zero');
+  if (params.sweepNonce < 0n) throw new Error('sweepNonce must not be negative');
+  if (params.deadline <= 0n) throw new Error('deadline must be a unix timestamp');
+  if (!Number.isInteger(params.authorizationNonce) || params.authorizationNonce < 0) {
+    throw new Error('authorizationNonce must be a non-negative integer');
+  }
+
+  const account = privateKeyToAccount(params.stealthPrivateKey);
+  if (
+    params.stealthAddress &&
+    params.stealthAddress.toLowerCase() !== account.address.toLowerCase()
+  ) {
+    throw new Error('stealthPrivateKey does not match the expected stealthAddress');
+  }
+
+  // 1. Delegation: chain + executor + account nonce.
+  const authorization = await account.signAuthorization({
+    chainId: params.chainId,
+    address: executor,
+    nonce: params.authorizationNonce,
+  });
+
+  // 2. Intent: destination, amount, sweep nonce, deadline. Under EIP-7702 the
+  // executor runs in the EOA's context, so verifyingContract is the EOA itself.
+  const sweepSignature = await account.signTypedData({
+    domain: {
+      name: SWEEP_DOMAIN_NAME,
+      version: SWEEP_DOMAIN_VERSION,
+      chainId: params.chainId,
+      verifyingContract: account.address,
+    },
+    types: SWEEP_TYPES,
+    primaryType: 'Sweep',
+    message: {
+      to: destination,
+      amount: params.amount,
+      nonce: params.sweepNonce,
+      deadline: params.deadline,
+    },
+  });
+
+  const calldata = encodeFunctionData({
+    abi: EXECUTOR_SWEEP_ABI,
+    functionName: 'sweep',
+    args: [destination, params.amount, params.sweepNonce, params.deadline, sweepSignature],
+  });
+
+  return {
+    schema: SWEEP_PACKAGE_SCHEMA,
+    version: SWEEP_PACKAGE_VERSION,
+    chainId: params.chainId,
+    executor,
+    stealthAddress: account.address,
+    destination,
+    amount: params.amount.toString(),
+    sweepNonce: params.sweepNonce.toString(),
+    deadline: params.deadline.toString(),
+    authorizationNonce: params.authorizationNonce,
+    authorization: {
+      chainId: authorization.chainId,
+      address: authorization.address as Address,
+      nonce: authorization.nonce,
+      r: authorization.r,
+      s: authorization.s,
+      yParity: authorization.yParity as number,
+    },
+    sweepSignature,
+    calldata,
+  };
+}
+
+export interface SweepPackageVerification {
+  valid: boolean;
+  checks: {
+    schema: boolean;
+    delegationSigner: boolean;
+    executorMatches: boolean;
+    chainIdMatches: boolean;
+    sweepSigner: boolean;
+    calldataMatches: boolean;
+    notExpired: boolean;
+  };
+  failures: string[];
+  stealthAddress: Address | null;
+}
+
+/**
+ * Independently verify every bound field of a sweep package. Tampering with the
+ * destination, amount, sweep nonce, deadline, executor or chain must fail here.
+ *
+ * `now` is injectable so expiry is deterministic in tests.
+ */
+export async function verifyNativeSweepPackage(
+  pkg: NativeSweepPackage,
+  opts: { now?: bigint } = {},
+): Promise<SweepPackageVerification> {
+  const failures: string[] = [];
+  const checks: SweepPackageVerification['checks'] = {
+    schema: false,
+    delegationSigner: false,
+    executorMatches: false,
+    chainIdMatches: false,
+    sweepSigner: false,
+    calldataMatches: false,
+    notExpired: false,
+  };
+
+  const fail = (msg: string) => {
+    failures.push(msg);
+  };
+
+  if (pkg?.schema === SWEEP_PACKAGE_SCHEMA && pkg.version === SWEEP_PACKAGE_VERSION) {
+    checks.schema = true;
+  } else {
+    fail('Unrecognised package schema or version.');
+    return { valid: false, checks, failures, stealthAddress: null };
+  }
+
+  let amount: bigint;
+  let sweepNonce: bigint;
+  let deadline: bigint;
+  try {
+    amount = BigInt(pkg.amount);
+    sweepNonce = BigInt(pkg.sweepNonce);
+    deadline = BigInt(pkg.deadline);
+  } catch {
+    fail('amount, sweepNonce or deadline is not a valid integer.');
+    return { valid: false, checks, failures, stealthAddress: null };
+  }
+
+  // Executor identity: the delegation must point at the declared executor.
+  if (pkg.authorization.address?.toLowerCase() === pkg.executor?.toLowerCase()) {
+    checks.executorMatches = true;
+  } else {
+    fail('Delegation authorization does not point at the declared executor.');
+  }
+
+  // Chain binding. EIP-7702 permits chainId 0 (any chain) in the tuple.
+  if (pkg.authorization.chainId === pkg.chainId || pkg.authorization.chainId === 0) {
+    checks.chainIdMatches = true;
+  } else {
+    fail('Delegation chain id does not match the package chain id.');
+  }
+
+  // Delegation signer must be the stealth EOA.
+  try {
+    checks.delegationSigner = await verifyAuthorization({
+      address: pkg.stealthAddress,
+      authorization: {
+        chainId: pkg.authorization.chainId,
+        address: pkg.authorization.address,
+        nonce: pkg.authorization.nonce,
+        r: pkg.authorization.r,
+        s: pkg.authorization.s,
+        yParity: pkg.authorization.yParity,
+      } as SignedAuthorization,
+    });
+  } catch {
+    checks.delegationSigner = false;
+  }
+  if (!checks.delegationSigner) fail('Delegation signature was not made by the stealth address.');
+
+  // The intent signature is what actually binds destination/amount/nonce/deadline.
+  try {
+    checks.sweepSigner = await verifyTypedData({
+      address: pkg.stealthAddress,
+      domain: {
+        name: SWEEP_DOMAIN_NAME,
+        version: SWEEP_DOMAIN_VERSION,
+        chainId: pkg.chainId,
+        verifyingContract: pkg.stealthAddress,
+      },
+      types: SWEEP_TYPES,
+      primaryType: 'Sweep',
+      message: { to: pkg.destination, amount, nonce: sweepNonce, deadline },
+      signature: pkg.sweepSignature,
+    });
+  } catch {
+    checks.sweepSigner = false;
+  }
+  if (!checks.sweepSigner) {
+    fail('Sweep intent signature does not bind these destination/amount/nonce/deadline values.');
+  }
+
+  // Calldata must decode to exactly the declared fields.
+  try {
+    const decoded = decodeFunctionData({ abi: EXECUTOR_SWEEP_ABI, data: pkg.calldata });
+    const [to, dAmount, dNonce, dDeadline, dSig] = decoded.args as unknown as [
+      Address,
+      bigint,
+      bigint,
+      bigint,
+      Hex,
+    ];
+    checks.calldataMatches =
+      decoded.functionName === 'sweep' &&
+      to.toLowerCase() === pkg.destination.toLowerCase() &&
+      dAmount === amount &&
+      dNonce === sweepNonce &&
+      dDeadline === deadline &&
+      dSig.toLowerCase() === pkg.sweepSignature.toLowerCase();
+  } catch {
+    checks.calldataMatches = false;
+  }
+  if (!checks.calldataMatches) fail('Calldata does not decode to the declared sweep fields.');
+
+  const now = opts.now ?? BigInt(Math.floor(Date.now() / 1000));
+  checks.notExpired = deadline > now;
+  if (!checks.notExpired) fail('Package deadline has passed.');
+
+  const valid = Object.values(checks).every(Boolean);
+  return { valid, checks, failures, stealthAddress: pkg.stealthAddress };
 }
 
 /* ------------------------------------------------------------------ */
