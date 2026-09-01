@@ -2,7 +2,7 @@
  * M2 — announcement building, scanning and recognition; payment flow guards.
  */
 import { describe, expect, it } from 'vitest';
-import { parseEther, type Address, type Hash, type Hex } from 'viem';
+import { parseEther, type Address, type Chain, type Hash, type Hex } from 'viem';
 import {
   ANNOUNCER_ADDRESS,
   buildEthAnnouncementMetadata,
@@ -162,7 +162,7 @@ describe('payment flow', () => {
     const plan = await planStealthPayment(ensClient, 'ghost.eth', parseEther('0.001'));
     const result = await executeStealthPayment({
       walletClient: wallet,
-      chain: { id: WRITABLE_CHAIN_ID },
+      chain: { id: WRITABLE_CHAIN_ID } as Chain,
       account: SENDER,
       plan,
     });
@@ -189,7 +189,7 @@ describe('payment flow', () => {
     await expect(
       executeStealthPayment({
         walletClient: wallet,
-        chain: { id: 1 },
+        chain: { id: 1 } as Chain,
         account: SENDER,
         plan,
       }),
@@ -204,7 +204,7 @@ describe('payment flow', () => {
     await expect(
       executeStealthPayment({
         walletClient: wallet,
-        chain: { id: WRITABLE_CHAIN_ID },
+        chain: { id: WRITABLE_CHAIN_ID } as Chain,
         account: SENDER,
         plan,
       }),
@@ -217,7 +217,7 @@ describe('payment flow', () => {
     const plan = await planStealthPayment(ensClient, 'ghost.eth', 42n);
     await executeStealthPayment({
       walletClient: wallet,
-      chain: { id: WRITABLE_CHAIN_ID },
+      chain: { id: WRITABLE_CHAIN_ID } as Chain,
       account: SENDER,
       plan,
     });

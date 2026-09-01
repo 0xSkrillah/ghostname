@@ -3,7 +3,7 @@
  * identity. This is the ONLY ENS write in GhostName and it is hard-gated to
  * Sepolia via assertWritableNetwork — mainnet writes are impossible.
  */
-import { namehash, zeroAddress, type Address, type Hash } from 'viem';
+import { namehash, zeroAddress, type Address, type Chain, type Hash } from 'viem';
 import { assertWritableNetwork } from '../chain/guards';
 import { ENS_STEALTH_RECORD_KEY, parseStealthMetaAddress } from '../crypto/metaAddress';
 import { normalizeEnsName } from './resolve';
@@ -60,7 +60,7 @@ export interface TextWriter {
     functionName: 'setText';
     args: readonly [`0x${string}`, string, string];
     account: Address;
-    chain: { id: number } | null | undefined;
+    chain: Chain | null | undefined;
   }): Promise<Hash>;
 }
 
@@ -82,7 +82,7 @@ export interface PublishStealthRecordArgs {
   publicClient: RegistryReader;
   walletClient: TextWriter;
   /** Sepolia chain object from viem (passed through to the wallet). */
-  chain: { id: number };
+  chain: Chain;
   account: Address;
   name: string;
   stealthMetaAddress: string;
