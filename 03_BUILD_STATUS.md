@@ -3,15 +3,22 @@
 Single source of truth for build state. Every figure here was verified against
 the repository, not carried over from an earlier draft.
 
-Last reconciled: 2026-09-05, after Phase 1 (GhostCheck audit).
+Last reconciled: 2026-09-01, after Agent P0 (agent-safe adapter and local MCP).
+An earlier draft carried a reconciliation date of 2026-09-05, which is later
+than every commit in the history; it was a typo and has been corrected.
 
 ## Product position
 
-GhostName is the open privacy-assurance layer for ENS: **audit, upgrade, prove**.
+GhostName is the open privacy-assurance layer for ENS: **audit, upgrade, prove**,
+and it is now accessible to AI agents as a local-first, read-only privacy adviser.
 
 - **Audit** any ENS name against the emerging ENS stealth-resolution convention.
 - **Upgrade** an existing ENS identity in place, with no service-owned subdomain.
 - **Prove** the whole lifecycle, from local derivation to sponsored withdrawal.
+
+Agent promise: ask your AI agent to audit any ENS name, explain its privacy
+leaks and guide you through a human-signed upgrade, without the agent ever
+seeing your keys. GhostName is not, and will not become, an autonomous wallet.
 
 Tagline unchanged: *Keep the ENS name. Break the payment graph.*
 
@@ -20,13 +27,15 @@ Tagline unchanged: *Keep the ENS name. Break the payment graph.*
 | Command | Status | Result |
 |---|---|---|
 | `npm run typecheck` | PASS | no errors |
-| `npm test` | PASS | 155 passed, 8 skipped (16 files) |
-| `npm run build` | PASS | app shell ~230 kB, viem chunk ~334 kB |
+| `npm test` | PASS | 202 passed, 10 skipped (21 files) |
+| `npm run build` | PASS | app shell ~267 kB, viem chunk ~334 kB |
+| `npm run build:agent` | PASS | `dist-agent/ghostname-mcp.mjs` (esbuild, deps external) |
 | `npm run e2e:sepolia` | PASS | gated on `SEPOLIA_PRIVATE_KEY` |
 | `npm run sweep:sepolia` | PASS | gated on `SEPOLIA_PRIVATE_KEY` |
 
-Skipped tests are the network-gated live suites, which run only when a funded
-testnet key is present.
+Skipped tests are the network-gated live suites. Without `SEPOLIA_PRIVATE_KEY`
+ten are skipped; with it, eight (the two funded live tests then run). The
+earlier "155 passed, 8 skipped" figure was measured with the key present.
 
 ## Deployment and repository
 
@@ -34,6 +43,7 @@ testnet key is present.
 - Deployed app: https://0xskrillah.github.io/ghostname/ (gh-pages branch)
 - Routes: `/` `/scan` `/create` `/pay` `/receive` `/privacy` `/demo` (hash router,
   so every route deep-links on a static host)
+- Local MCP server: `npm run build:agent && npm run mcp` (stdio)
 
 ## Networks and keys
 
@@ -43,6 +53,9 @@ testnet key is present.
 - Sepolia: all demo writes.
 - `skrillah.eth` is read-only mainnet demo input and is never modified.
 - Demo signing key is a throwaway testnet key in gitignored `.env`.
+- The agent layer (MCP, CLI) reaches only chain 1 and 11155111 through
+  server-configured RPC (`GHOSTNAME_MAINNET_RPC_URL`, `GHOSTNAME_SEPOLIA_RPC_URL`,
+  or the `VITE_*` aliases). No tool accepts an RPC URL.
 
 ## Live on-chain evidence (Sepolia)
 
@@ -83,13 +96,51 @@ Resolver, so they work on both ENS v1 and v2.
 - **GhostCheck audit** (`src/audit/`): versioned privacy-readiness report for
   arbitrary names, chain-specific then default record precedence, malformed and
   conflicting record detection, three local derivation trials, explicit unknowns,
-  JSON and summary export. No numeric score anywhere.
+  JSON and summary export. No numeric score anywhere. Now also carries an
+  additive `diagnostics` block (name invalid, address resolution failed, record
+  read failures) for programmatic consumers.
 - **Sweep package** (`src/relay/sweep.ts`): complete destination-bound package
   carrying both required signatures plus executor calldata, with an independent
-  verifier. Proven executable on-chain.
+  verifier. Proven executable on-chain. The executor ABI and EIP-712 constants
+  now live in `src/relay/sweepTypes.ts` so read-only verifiers never import the
+  signing path.
+- **Agent service layer** (`src/agent/`): deterministic, transport-free adapter
+  over GhostCheck and the two evidence verifiers. Versioned `AgentPrivacyReport`
+  (schema 1) with stable finding codes, recommended actions with human-action
+  flags, sanitised strings, no sample derivation addresses, no record values
+  outside a labelled technical-evidence block, a content-derived `reportId`
+  (SHA-256 over canonical JSON), and a secure handoff URL that can carry only
+  five non-secret parameters. Any RPC failure yields status unknown.
+- **Local MCP server** (`mcp/`): official TypeScript SDK v2
+  (`@modelcontextprotocol/server` 2.0.0, spec 2026-07-28, legacy `initialize`
+  handshake still negotiated for current hosts). Five read-only tools with zod
+  input and output schemas, `structuredContent`, concise text fallback and
+  read-only annotations; five `ghostname://` resources; the `improve-ens-privacy`
+  prompt. stdio entry emits only MCP messages on stdout, diagnostics on stderr.
 - **UI**: `/scan` audit, `/create` identity and record publish, `/pay`, `/receive`
   scan with sweep package, `/privacy` threat model, `/demo`.
 - **Mobula exposure panel** and **encrypted testnet recovery capsule**.
+
+## Agent security boundary (enforced by tests)
+
+- `tests/mcp.boundary.test.ts` walks the transitive import graph from
+  `src/agent`, `mcp` and `cli` and fails if it reaches `src/ens/write.ts`,
+  `src/chain/payment.ts`, `src/relay/sweep.ts`, wallet or identity state, the
+  capsule, any page or component, `viem/accounts` or React. It also scans the
+  safe layers for signing, wallet and key-generation call sites, and checks that
+  no tool input has an RPC, key or secret parameter and that unknown fields are
+  rejected.
+- `tests/agent.report.test.ts` proves stable codes for missing, malformed,
+  conflicting and legacy records, unknown on invalid names and RPC failures,
+  no addresses or record values by default, inert injection text, verifiable
+  report ids, and a handoff URL with exactly five parameters.
+- `tests/mcp.server.test.ts` (official in-memory transport) proves the exact
+  tool catalogue and annotations, strict inputs, schema-valid structured
+  content, evidence tools preserving verified/failed/unknown/notProven, the
+  resources and the prompt's key prohibition.
+- `tests/mcp.stdio.test.ts` builds the bundle with esbuild, drives it with raw
+  newline-delimited JSON-RPC and with the official stdio client, and asserts
+  that stdout holds only valid MCP messages.
 
 ## Known limitations, stated honestly
 
@@ -103,6 +154,9 @@ Resolver, so they work on both ENS v1 and v2.
 - Scanning uses bounded `eth_getLogs` over public RPCs rather than an indexer.
 - Amounts, sender identity, timing and history remain public. GhostName is
   forward privacy only.
+- The MCP server is stateless, so a re-audit can compare against a supplied
+  prior status and finding codes but never claims the prior report was
+  cryptographically validated.
 
 ## Phase log
 
@@ -125,9 +179,14 @@ Resolver, so they work on both ENS v1 and v2.
   the browser.
 - **Phase 4 (done):** competitive position documented in README and
   COMPETITIVE_MOAT.md; em dashes removed from all GhostName-authored docs.
+- **Agent P0 (done):** agent-safe adapter and schemas, stable finding codes,
+  sanitisation, local stdio MCP server, five approved read-only tools, five
+  resources, one prompt, 49 new tests (202 total).
 
 ## Next action
 
-Engineering is complete against the current acceptance criteria. Remaining work
-is presentation only: record the two-minute backup video from `#/demo`, and
-optionally deploy to Swarm with a booth postage stamp (see SWARM.md).
+Agent P1: the `ghostname` CLI over the same service functions, the
+`ens-privacy-advisor` Claude Agent Skill, and the secure `/create` handoff that
+accepts only name, chainId, source, reportId and version. Then P2 (MCP App view,
+AGENT_DEMO.md) and P3 (remote stateless HTTP profile, server.json, ENSIP-26
+discovery records).
