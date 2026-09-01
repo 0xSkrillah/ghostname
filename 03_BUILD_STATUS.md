@@ -3,7 +3,7 @@
 Single source of truth for build state. Every figure here was verified against
 the repository, not carried over from an earlier draft.
 
-Last reconciled: 2026-09-01, after Agent P1 (CLI, Claude skill, secure web handoff).
+Last reconciled: 2026-09-01, after Agent P2 (MCP App view, agent demo).
 An earlier draft carried a reconciliation date of 2026-09-05, which is later
 than every commit in the history; it was a typo and has been corrected.
 
@@ -27,9 +27,9 @@ Tagline unchanged: *Keep the ENS name. Break the payment graph.*
 | Command | Status | Result |
 |---|---|---|
 | `npm run typecheck` | PASS | no errors |
-| `npm test` | PASS | 213 passed, 10 skipped (23 files) |
+| `npm test` | PASS | 217 passed, 10 skipped (24 files) |
 | `npm run build` | PASS | app shell ~267 kB, viem chunk ~334 kB |
-| `npm run build:agent` | PASS | `dist-agent/ghostname-mcp.mjs` and `dist-agent/ghostname.mjs` (esbuild, deps external) |
+| `npm run build:agent` | PASS | `dist-agent/ghostname-mcp.mjs`, `dist-agent/ghostname.mjs`, `dist-agent/ui/ghostname-audit.html` (esbuild) |
 | `npm run e2e:sepolia` | PASS | gated on `SEPOLIA_PRIVATE_KEY` |
 | `npm run sweep:sepolia` | PASS | gated on `SEPOLIA_PRIVATE_KEY` |
 
@@ -133,6 +133,16 @@ Resolver, so they work on both ENS v1 and v2.
   time; keeps the mainnet guards; warns before any real transaction; offers a
   re-audit instruction after confirmation. Verified in the browser against live
   mainnet for skrillah.eth, including the invalid-handoff path.
+- **MCP App view** (`mcp/ui/`): the official MCP Apps extension (SEP-1865,
+  stable 2026-01-26). The audit and re-audit tools carry `_meta.ui.resourceUri`
+  pointing at `ui://ghostname/audit`, served with MIME type
+  `text/html;profile=mcp-app` as one self-contained HTML file (script inlined,
+  no external loads, no connect domains). It renders findings, warnings,
+  unknowns, recommended actions, protected/not protected, and an "Open secure
+  upgrade" action that uses the host's open-link capability. It touches no
+  wallet, generates no key and stores nothing. Hosts without MCP Apps keep the
+  text summary and structured JSON, which stay authoritative; when the bundle is
+  not built the resource serves a plain fallback page instead of failing.
 - **UI**: `/scan` audit, `/create` identity and record publish, `/pay`, `/receive`
   scan with sweep package, `/privacy` threat model, `/demo`.
 - **Mobula exposure panel** and **encrypted testnet recovery capsule**.
@@ -201,10 +211,14 @@ Resolver, so they work on both ENS v1 and v2.
 - **Agent P1 (done):** CLI over the same service functions, the
   ens-privacy-advisor Claude Agent Skill, the secure /create handoff with live
   re-resolution, and the re-audit instruction. 11 new tests (213 total).
+- **Agent P2 (done):** MCP App audit view with text and structured fallback,
+  AGENT_DEMO.md live sequence. 4 new tests (217 total). The inline view bundle
+  is about 570 kB because it embeds the official App runtime; acceptable for a
+  resource read, noted as a size limitation.
 
 ## Next action
 
-Agent P2: the MCP App audit view (official MCP Apps extension, with the plain
-text and structured fallback for hosts without Apps) and AGENT_DEMO.md. Then P3
-(remote stateless HTTP profile, server.json, AGENTS.md, llms.txt, ENSIP-26
-discovery records).
+Agent P3: the optional stateless remote Streamable HTTP profile with host and
+origin validation, request size and rate limits; server.json for the MCP
+Registry; AGENTS.md, llms.txt, AGENT_DISCOVERY.md and the ENSIP-26 record
+preparation script; README section on agent access.

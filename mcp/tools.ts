@@ -16,6 +16,7 @@ import { reauditForAgent } from '../src/agent/reaudit';
 import { sanitizeText } from '../src/agent/sanitize';
 import { auditText, evidenceText, planText, reauditText } from '../src/agent/format';
 import { verifyPaymentForAgent, verifySponsoredExitForAgent } from '../src/agent/verify';
+import { AUDIT_TOOL_UI_META } from './ui/index';
 import {
   AgentPrivacyReportSchema,
   AuditInputSchema,
@@ -92,6 +93,7 @@ export function registerGhostNameTools(server: McpServer, deps: ToolDeps): void 
       inputSchema: AuditInputSchema,
       outputSchema: AgentPrivacyReportSchema,
       annotations: { ...READ_ONLY_ANNOTATIONS, title: 'Audit ENS privacy readiness' },
+      _meta: AUDIT_TOOL_UI_META,
     },
     async ({ name, chainId, technicalEvidence }) => {
       try {
@@ -145,6 +147,7 @@ export function registerGhostNameTools(server: McpServer, deps: ToolDeps): void 
       inputSchema: ReauditInputSchema,
       outputSchema: ReauditResultSchema,
       annotations: { ...READ_ONLY_ANNOTATIONS, title: 'Re-audit after the human wallet action' },
+      _meta: AUDIT_TOOL_UI_META,
     },
     async ({ name, chainId, priorStatus, priorReportId, priorFindingCodes }) => {
       try {

@@ -280,7 +280,9 @@ describe('resources and prompt', () => {
   it('serves the privacy model, schemas, finding codes and status', async () => {
     const client = await connect(fakeChain({}));
     const { resources } = await client.listResources();
-    expect(resources.map((r) => r.uri).sort()).toEqual(Object.values(RESOURCE_URIS).sort());
+    // The ui:// view resource is covered by tests/mcp.app.test.ts.
+    const documents = resources.map((r) => r.uri).filter((uri) => uri.startsWith('ghostname://'));
+    expect(documents.sort()).toEqual(Object.values(RESOURCE_URIS).sort());
 
     const model = await client.readResource({ uri: RESOURCE_URIS.privacyModel });
     const modelText = (model.contents[0] as { text: string }).text;
