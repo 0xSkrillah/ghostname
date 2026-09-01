@@ -1,0 +1,25 @@
+Build GhostName for the Common S3nse Amsterdam 2026 hackathon by Friday night, 4 September, ready for final submission at 09:00 Amsterdam time on Saturday, 5 September.
+
+GhostName’s promise: “Keep the ENS name. Break the payment graph.” It gives existing ENS identities forward privacy. A sender enters an arbitrary ENS name, reads its ERC-5564 scheme-1 stealth meta-address from the ENS text record `stealth-meta-address[1]`, locally derives a fresh one-time address with new cryptographically secure ephemeral randomness, sends Sepolia ETH, and emits the announcement data required for the recipient to discover the payment. The recipient scanner uses the private viewing key to recognise the payment and derive/verify the corresponding spending key. Two resolutions of the same name must produce different destinations. An unrelated viewing key must fail.
+
+Use `skrillah.eth` only as read-only mainnet input to demonstrate the existing static identity/history problem. Never hard-code it, alter it, clear records, transfer it, burn it, or initiate any mainnet write. All functional flows must work for arbitrary ENS names. Blockchain history cannot be deleted; present GhostName honestly as forward privacy, not anonymity or erasure.
+
+P0, required before anything else:
+1. Generate spending/viewing keypairs and a valid ERC-5564 scheme-1 meta-address client-side.
+2. Read `stealth-meta-address[1]` from arbitrary ENS names.
+3. Publish the record to a safe test ENS identity on Sepolia.
+4. Derive unique stealth destinations client-side.
+5. Complete one real Sepolia payment and announcement.
+6. Scan, recognise and verify ownership/spending-key derivation.
+7. Automated positive and negative cryptographic tests.
+
+P1: a clear Privacy Exit/threat-model UI separating past history that cannot be erased, current public records, and future one-time receiving addresses. State what is and is not protected.
+
+P2 only after P0 is reliable: Mobula public-exposure panel for the conventionally resolved wallet.
+P3 only after P0 is reliable: deploy to Swarm and optionally store a client-side encrypted TESTNET recovery capsule. Never upload plaintext keys.
+
+Use a boring TypeScript stack, preferably Vite/React, viem, optional wagmi, maintained secp256k1 primitives, Web Crypto where needed, and Vitest. Follow EIP-5564/EIP-6538 and the current ENS stealth-resolution RFC; do not invent cryptography or trust a gateway to generate ephemeral keys.
+
+Read every attached project file before coding. Treat `02_GHOSTNAME_MASTER_SPEC.md` as authoritative detail and `03_BUILD_STATUS.md` as persistent state. Work in small milestones; after each, run typecheck, tests and build, then update BUILD_STATUS.md. If P0 is not perfect, delete P2/P3 rather than weakening the core.
+
+Start by returning: proposed repo structure, exact dependencies, ERC-5564 data flow, five largest risks, and the smallest end-to-end cryptographic milestone. Then immediately build that milestone. Ask only before secrets/API keys, real-asset risk, or irreversible/mainnet transactions.
