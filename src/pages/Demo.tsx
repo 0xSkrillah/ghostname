@@ -17,6 +17,7 @@ import { generateStealthAddress } from '../crypto/stealth';
 import { checkStealthAddress, generateStealthKeys } from '../crypto/stealth';
 import { DEMO_MAINNET_NAME, DEMO_SEPOLIA_NAME } from '../config';
 import SweepProofPanel from '../components/SweepProofPanel';
+import PaymentProofPanel from '../components/PaymentProofPanel';
 import Compare from '../components/Compare';
 
 interface RecognitionDemo {
@@ -258,6 +259,7 @@ export default function Demo() {
               </p>
             </div>
           )}
+          {recognition && <PaymentProofPanel />}
         </li>
 
         {/* 5. PROVE EXIT */}

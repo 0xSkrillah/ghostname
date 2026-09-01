@@ -13,9 +13,29 @@ import { resolveConventionalAddress, resolveStealthMetaAddress } from '../src/en
 import { auditEnsName } from '../src/audit/auditEnsName';
 import { getSepoliaClient } from '../src/chain/clients';
 import { verifySweepProof } from '../src/relay/proof';
-import { SPONSORED_SWEEP_EVIDENCE } from '../src/relay/evidence';
+import { verifyPaymentProof } from '../src/relay/paymentProof';
+import { SPONSORED_SWEEP_EVIDENCE, STEALTH_PAYMENT_EVIDENCE } from '../src/relay/evidence';
 
 const live = process.env.RUN_LIVE === '1';
+
+describe.runIf(live)('live stealth payment proof (read-only)', () => {
+  it('verifies the published payment and announcement from public chain data', async () => {
+    const proof = await verifyPaymentProof(
+      getSepoliaClient() as never,
+      STEALTH_PAYMENT_EVIDENCE,
+    );
+    for (const check of proof.checks) {
+      console.log(`[payment] ${check.state.toUpperCase().padEnd(7)} ${check.label}`);
+    }
+    // The binding check is the one that matters: the announcement must name
+    // the address the payment actually funded.
+    expect(proof.checks.find((c) => c.id === 'binding')!.state).toBe('pass');
+    expect(proof.checks.find((c) => c.id === 'announcer')!.state).toBe('pass');
+    expect(proof.checks.find((c) => c.id === 'scheme')!.state).toBe('pass');
+    expect(proof.checks.find((c) => c.id === 'metadata')!.state).toBe('pass');
+    expect(proof.verified).toBe(true);
+  }, 60_000);
+});
 
 describe.runIf(live)('live sponsored exit proof (read-only)', () => {
   it('verifies the published sweep entirely from public chain data', async () => {
