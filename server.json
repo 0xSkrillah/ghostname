@@ -1,0 +1,59 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.0xskrillah/ghostname",
+  "title": "GhostName ENS privacy adviser",
+  "description": "Read-only ENS privacy audit, evidence verification and a human-signed upgrade handoff. No keys.",
+  "version": "0.1.0",
+  "websiteUrl": "https://0xskrillah.github.io/ghostname/",
+  "repository": {
+    "url": "https://github.com/0xSkrillah/ghostname",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@0xskrillah/ghostname-mcp",
+      "version": "0.1.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "GHOSTNAME_MAINNET_RPC_URL",
+          "description": "Comma-separated Ethereum mainnet RPC endpoints. Optional; public defaults are used when unset.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "GHOSTNAME_SEPOLIA_RPC_URL",
+          "description": "Comma-separated Sepolia RPC endpoints. Optional; public defaults are used when unset.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "GHOSTNAME_WEB_BASE_URL",
+          "description": "Base URL of the GhostName web app used for the secure human handoff. Optional.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "tools": [
+        "ghostname_audit_ens_privacy",
+        "ghostname_prepare_upgrade",
+        "ghostname_reaudit_ens_privacy",
+        "ghostname_verify_payment",
+        "ghostname_verify_sponsored_exit"
+      ],
+      "readOnly": true,
+      "chains": [1, 11155111],
+      "privacy": "Local stdio: no GhostName API call, no analytics, no query history. Remote profile: operator and RPC provider can observe queried names.",
+      "status": "registry preparation; the npm package is not published yet and no remote endpoint is deployed"
+    }
+  }
+}

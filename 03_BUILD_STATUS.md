@@ -3,7 +3,7 @@
 Single source of truth for build state. Every figure here was verified against
 the repository, not carried over from an earlier draft.
 
-Last reconciled: 2026-09-01, after Agent P2 (MCP App view, agent demo).
+Last reconciled: 2026-09-01, after Agent P3 (remote profile, registry and discovery preparation).
 An earlier draft carried a reconciliation date of 2026-09-05, which is later
 than every commit in the history; it was a typo and has been corrected.
 
@@ -27,9 +27,9 @@ Tagline unchanged: *Keep the ENS name. Break the payment graph.*
 | Command | Status | Result |
 |---|---|---|
 | `npm run typecheck` | PASS | no errors |
-| `npm test` | PASS | 217 passed, 10 skipped (24 files) |
+| `npm test` | PASS | 227 passed, 10 skipped (26 files) |
 | `npm run build` | PASS | app shell ~267 kB, viem chunk ~334 kB |
-| `npm run build:agent` | PASS | `dist-agent/ghostname-mcp.mjs`, `dist-agent/ghostname.mjs`, `dist-agent/ui/ghostname-audit.html` (esbuild) |
+| `npm run build:agent` | PASS | `dist-agent/ghostname-mcp.mjs`, `ghostname-mcp-http.mjs`, `ghostname.mjs`, `ui/ghostname-audit.html` (esbuild) |
 | `npm run e2e:sepolia` | PASS | gated on `SEPOLIA_PRIVATE_KEY` |
 | `npm run sweep:sepolia` | PASS | gated on `SEPOLIA_PRIVATE_KEY` |
 
@@ -45,6 +45,7 @@ earlier "155 passed, 8 skipped" figure was measured with the key present.
   so every route deep-links on a static host)
 - Local MCP server: `npm run build:agent && npm run mcp` (stdio)
 - CLI: `node dist-agent/ghostname.mjs audit <name> --chain <id> [--json]`
+- Remote profile (optional): `npm run mcp:http` (stateless Streamable HTTP, localhost by default)
 
 ## Networks and keys
 
@@ -143,6 +144,25 @@ Resolver, so they work on both ENS v1 and v2.
   wallet, generates no key and stores nothing. Hosts without MCP Apps keep the
   text summary and structured JSON, which stay authoritative; when the bundle is
   not built the resource serves a plain fallback page instead of failing.
+- **Remote profile** (`mcp/http.ts`): optional stateless Streamable HTTP on the
+  official Node adapter. A fresh server per request, no sessions, no query log;
+  Host and Origin validation (localhost by default, allowlists via env), a
+  64 KiB body cap, a per-client sliding-minute rate limit, GET and DELETE
+  answered 405, a `/healthz` probe. Reports carry `observation.mode: "remote"`
+  with the disclosure that the operator and its RPC provider can observe queried
+  names. Verified with the official HTTP client on loopback and by a smoke test
+  of the built bundle (health 200, foreign Origin 403).
+- **Registry and discovery preparation**: `server.json` on the current
+  registry schema (2025-12-11) describing the stdio npm package, with no remote
+  entry because none is deployed and a publisher note that the npm package is
+  not released yet; `AGENTS.md`, `llms.txt`, `AGENT_DISCOVERY.md`; and
+  `scripts/prepare-agent-records.mjs`, which prints the exact draft ENSIP-26
+  `agent-context` and `agent-endpoint[web]` records, compares them with the
+  current on-chain values read-only (verified live against ghostname-3c7714.eth
+  on Sepolia), withholds `agent-endpoint[mcp]` until an endpoint exists, and
+  publishes only on Sepolia behind `--publish --confirm "PUBLISH ON SEPOLIA"`
+  with the key taken from the environment. ENSIP-25 and ERC-8004 registration
+  are documented as a post-hackathon option.
 - **UI**: `/scan` audit, `/create` identity and record publish, `/pay`, `/receive`
   scan with sweep package, `/privacy` threat model, `/demo`.
 - **Mobula exposure panel** and **encrypted testnet recovery capsule**.
@@ -215,10 +235,15 @@ Resolver, so they work on both ENS v1 and v2.
   AGENT_DEMO.md live sequence. 4 new tests (217 total). The inline view bundle
   is about 570 kB because it embeds the official App runtime; acceptable for a
   resource read, noted as a size limitation.
+- **Agent P3 (done):** stateless remote Streamable HTTP profile with guards,
+  server.json, AGENTS.md, llms.txt, AGENT_DISCOVERY.md, the ENSIP-26 record
+  preparation script, README agent section. 10 new tests (227 total).
 
 ## Next action
 
-Agent P3: the optional stateless remote Streamable HTTP profile with host and
-origin validation, request size and rate limits; server.json for the MCP
-Registry; AGENTS.md, llms.txt, AGENT_DISCOVERY.md and the ENSIP-26 record
-preparation script; README section on agent access.
+Engineering for the agent goal is complete through P3. Remaining work is
+presentation and release: rehearse AGENT_DEMO.md end to end with Claude Code
+connected to the local server; optionally publish the npm package and register
+server.json; optionally publish the ENSIP-26 records on Sepolia with the guarded
+script. P4 (ERC-8004 registration, ENSIP-25 verification, monitoring, wallet CI,
+A2A) stays post-hackathon.
