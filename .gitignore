@@ -4,3 +4,5 @@ dist/
 .env.local
 *.local
 coverage/
+# Testnet-only demo key material and run evidence — never commit.
+.demo/

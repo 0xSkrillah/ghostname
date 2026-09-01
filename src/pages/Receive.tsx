@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { formatEther, type Hex } from 'viem';
 import { getSepoliaClient } from '../chain/clients';
 import {
@@ -105,8 +106,8 @@ export default function Receive() {
       <>
         <h1>Receive</h1>
         <p className="lead">
-          No local identity found. <a href="/create">Create one first</a> — the scanner needs
-          your viewing key (which never leaves this device).
+          No local identity found. <Link to="/create">Create one first</Link> — the scanner
+          needs your viewing key (which never leaves this device).
         </p>
       </>
     );
