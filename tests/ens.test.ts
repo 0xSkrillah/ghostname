@@ -12,11 +12,7 @@ import {
   resolveStealthMetaAddress,
   type EnsReader,
 } from '../src/ens/resolve';
-import {
-  ENS_REGISTRY_ADDRESS,
-  getResolverAddress,
-  publishStealthRecord,
-} from '../src/ens/write';
+import { getResolverAddress, publishStealthRecord } from '../src/ens/write';
 import { ENS_STEALTH_RECORD_KEY } from '../src/crypto/metaAddress';
 import { generateStealthKeys, generateStealthAddress, checkStealthAddress } from '../src/crypto/stealth';
 
@@ -142,7 +138,8 @@ describe('publishStealthRecord (Sepolia-only write)', () => {
 
   function fakeRegistry(resolver: Address) {
     return {
-      async readContract() {
+      async getEnsResolver() {
+        if (resolver === zeroAddress) throw new Error('no resolver');
         return resolver;
       },
     };
@@ -245,15 +242,25 @@ describe('publishStealthRecord (Sepolia-only write)', () => {
     ).rejects.toThrow(/no resolver configured/);
   });
 
-  it('reads the resolver from the canonical registry address', async () => {
-    let seenAddress: Address | undefined;
-    const registry = {
-      async readContract(args: { address: Address }) {
-        seenAddress = args.address;
+  it('discovers the resolver via the universal resolver with the normalized name', async () => {
+    let seenName: string | undefined;
+    const finder = {
+      async getEnsResolver(args: { name: string }) {
+        seenName = args.name;
         return RESOLVER;
       },
     };
-    await getResolverAddress(registry, 'anything.eth');
-    expect(seenAddress).toBe(ENS_REGISTRY_ADDRESS);
+    const resolved = await getResolverAddress(finder, ' AnyThing.eth ');
+    expect(resolved).toBe(RESOLVER);
+    expect(seenName).toBe('anything.eth');
+  });
+
+  it('returns null when resolver discovery reverts or yields the zero address', async () => {
+    expect(
+      await getResolverAddress({ async getEnsResolver() { throw new Error('revert'); } }, 'x.eth'),
+    ).toBeNull();
+    expect(
+      await getResolverAddress({ async getEnsResolver() { return zeroAddress; } }, 'x.eth'),
+    ).toBeNull();
   });
 });

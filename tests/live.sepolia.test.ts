@@ -4,8 +4,11 @@
  *
  *   npm run e2e:sepolia
  *
- * Proves P0 on-chain, using the application's own code paths:
- *   register test ENS name (if needed) → publish stealth-meta-address[1]
+ * The demo ENS name is registered once via `node scripts/register-v2-name.mjs`
+ * (Sepolia runs the ENSv2 registrar; registration pays in freely-mintable
+ * test USDC). This suite then proves P0 on-chain using the application's own
+ * code paths:
+ *   name resolves → publish stealth-meta-address[1] via the app write path
  *   → resolve → derive A/B (A≠B) → pay A → announce → scan → recognise
  *   → negative control → recover spending key.
  *
@@ -20,15 +23,17 @@ import {
   createWalletClient,
   formatEther,
   http,
-  namehash,
   parseEther,
-  toHex,
-  type Address,
   type Hex,
 } from 'viem';
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { sepolia } from 'viem/chains';
-import { generateStealthKeys, computeStealthPrivateKey, privateKeyToAddress, type StealthKeys } from '../src/crypto/stealth';
+import {
+  generateStealthKeys,
+  computeStealthPrivateKey,
+  privateKeyToAddress,
+  type StealthKeys,
+} from '../src/crypto/stealth';
 import { publishStealthRecord } from '../src/ens/write';
 import { resolveStealthMetaAddress } from '../src/ens/resolve';
 import { planStealthPayment, executeStealthPayment } from '../src/chain/payment';
@@ -39,102 +44,8 @@ const PRIVATE_KEY = env.SEPOLIA_PRIVATE_KEY as Hex | undefined;
 const RPC = env.VITE_SEPOLIA_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com';
 const live = !!PRIVATE_KEY;
 
-/** Official ENS Sepolia deployments (ensdomains/ens-contracts, verified 2026-09-01). */
-const ETH_REGISTRAR_CONTROLLER: Address = '0xfb3cE5D01e0f33f41DbB39035dB9745962F1f968';
-const PUBLIC_RESOLVER: Address = '0xE99638b40E4Fff0129D56f03b55b6bbC4BBE49b5';
-const ENS_REGISTRY: Address = '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e';
-
-const CONTROLLER_ABI = [
-  {
-    name: 'makeCommitment',
-    type: 'function',
-    stateMutability: 'pure',
-    inputs: [
-      {
-        name: 'registration',
-        type: 'tuple',
-        components: [
-          { name: 'label', type: 'string' },
-          { name: 'owner', type: 'address' },
-          { name: 'duration', type: 'uint256' },
-          { name: 'secret', type: 'bytes32' },
-          { name: 'resolver', type: 'address' },
-          { name: 'data', type: 'bytes[]' },
-          { name: 'reverseRecord', type: 'uint8' },
-          { name: 'referrer', type: 'bytes32' },
-        ],
-      },
-    ],
-    outputs: [{ name: 'commitment', type: 'bytes32' }],
-  },
-  {
-    name: 'commit',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'commitment', type: 'bytes32' }],
-    outputs: [],
-  },
-  {
-    name: 'register',
-    type: 'function',
-    stateMutability: 'payable',
-    inputs: [
-      {
-        name: 'registration',
-        type: 'tuple',
-        components: [
-          { name: 'label', type: 'string' },
-          { name: 'owner', type: 'address' },
-          { name: 'duration', type: 'uint256' },
-          { name: 'secret', type: 'bytes32' },
-          { name: 'resolver', type: 'address' },
-          { name: 'data', type: 'bytes[]' },
-          { name: 'reverseRecord', type: 'uint8' },
-          { name: 'referrer', type: 'bytes32' },
-        ],
-      },
-    ],
-    outputs: [],
-  },
-  {
-    name: 'rentPrice',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [
-      { name: 'label', type: 'string' },
-      { name: 'duration', type: 'uint256' },
-    ],
-    outputs: [
-      {
-        name: 'price',
-        type: 'tuple',
-        components: [
-          { name: 'base', type: 'uint256' },
-          { name: 'premium', type: 'uint256' },
-        ],
-      },
-    ],
-  },
-  {
-    name: 'minCommitmentAge',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-] as const;
-
-const REGISTRY_OWNER_ABI = [
-  {
-    name: 'owner',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'node', type: 'bytes32' }],
-    outputs: [{ name: '', type: 'address' }],
-  },
-] as const;
-
 const IDENTITY_PATH = '.demo/identity.json';
+const REGISTRATION_PATH = '.demo/v2-registration.json';
 const EVIDENCE_PATH = '.demo/e2e-evidence.json';
 
 function loadOrCreateIdentity(): StealthKeys {
@@ -147,8 +58,6 @@ function loadOrCreateIdentity(): StealthKeys {
   return keys;
 }
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 describe.runIf(live)('LIVE Sepolia end-to-end', () => {
   const account = privateKeyToAccount(PRIVATE_KEY ?? generatePrivateKey());
   const publicClient = createPublicClient({ chain: sepolia, transport: http(RPC, { timeout: 30_000 }) });
@@ -157,9 +66,11 @@ describe.runIf(live)('LIVE Sepolia end-to-end', () => {
     chain: sepolia,
     transport: http(RPC, { timeout: 30_000 }),
   });
-  // Deterministic per-key label so re-runs reuse the same test name.
-  const label = `ghostname-${account.address.slice(2, 8).toLowerCase()}`;
-  const ensName = `${label}.eth`;
+  const registration = existsSync(REGISTRATION_PATH)
+    ? (JSON.parse(readFileSync(REGISTRATION_PATH, 'utf8')) as { ensName?: string })
+    : {};
+  const ensName =
+    registration.ensName ?? `ghostname-${account.address.slice(2, 8).toLowerCase()}.eth`;
   const identity = loadOrCreateIdentity();
   const evidence: Record<string, string> = { ensName, account: account.address };
   let funded = false;
@@ -175,89 +86,28 @@ describe.runIf(live)('LIVE Sepolia end-to-end', () => {
     }
   }, 60_000);
 
-  it('owns (or registers) the test ENS name', async (ctx) => {
+  it('the demo ENS name is registered and resolves', async (ctx) => {
     if (!funded) return ctx.skip();
-    const node = namehash(ensName);
-    const owner = await publicClient.readContract({
-      address: ENS_REGISTRY,
-      abi: REGISTRY_OWNER_ABI,
-      functionName: 'owner',
-      args: [node],
-    });
-    if (owner.toLowerCase() === account.address.toLowerCase()) {
-      console.log(`[e2e] ${ensName} already owned by the demo account`);
-      return;
+    const address = await publicClient.getEnsAddress({ name: ensName });
+    if (address === null) {
+      throw new Error(
+        `${ensName} is not registered. Run: node scripts/register-v2-name.mjs (one-time setup).`,
+      );
     }
-    expect(owner).toBe('0x0000000000000000000000000000000000000000');
-
-    const duration = 90n * 24n * 3600n;
-    const registration = {
-      label,
-      owner: account.address,
-      duration,
-      secret: toHex(crypto.getRandomValues(new Uint8Array(32))),
-      resolver: PUBLIC_RESOLVER,
-      data: [] as Hex[],
-      reverseRecord: 0,
-      referrer: `0x${'0'.repeat(64)}` as Hex,
-    } as const;
-
-    const commitment = await publicClient.readContract({
-      address: ETH_REGISTRAR_CONTROLLER,
-      abi: CONTROLLER_ABI,
-      functionName: 'makeCommitment',
-      args: [registration],
-    });
-    const commitTx = await walletClient.writeContract({
-      address: ETH_REGISTRAR_CONTROLLER,
-      abi: CONTROLLER_ABI,
-      functionName: 'commit',
-      args: [commitment],
-    });
-    await publicClient.waitForTransactionReceipt({ hash: commitTx });
-    console.log(`[e2e] commit tx ${commitTx}`);
-
-    const minAge = await publicClient.readContract({
-      address: ETH_REGISTRAR_CONTROLLER,
-      abi: CONTROLLER_ABI,
-      functionName: 'minCommitmentAge',
-      args: [],
-    });
-    console.log(`[e2e] waiting ${minAge + 15n}s commitment age…`);
-    await sleep(Number(minAge + 15n) * 1000);
-
-    const price = await publicClient.readContract({
-      address: ETH_REGISTRAR_CONTROLLER,
-      abi: CONTROLLER_ABI,
-      functionName: 'rentPrice',
-      args: [label, duration],
-    });
-    const value = ((price.base + price.premium) * 110n) / 100n;
-    const registerTx = await walletClient.writeContract({
-      address: ETH_REGISTRAR_CONTROLLER,
-      abi: CONTROLLER_ABI,
-      functionName: 'register',
-      args: [registration],
-      value,
-    });
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: registerTx });
-    expect(receipt.status).toBe('success');
-    evidence.registerTx = registerTx;
-    console.log(`[e2e] registered ${ensName}: ${registerTx}`);
-  }, 300_000);
+    console.log(`[e2e] ${ensName} resolves to ${address}`);
+    expect(address).toMatch(/^0x[0-9a-fA-F]{40}$/);
+  }, 120_000);
 
   it('publishes stealth-meta-address[1] via the app write path and resolves it back', async (ctx) => {
     if (!funded) return ctx.skip();
-    const existing = await resolveStealthMetaAddress(publicClient, ensName);
-    if (existing.status === 'ok' && existing.record === identity.stealthMetaAddress) {
-      console.log('[e2e] record already published and current');
-      return;
-    }
+    // Always publish (idempotent) so the application's write path is
+    // exercised live: guard checks → resolver discovery via the Universal
+    // Resolver → setText with the RFC record key.
     const tx = await publishStealthRecord({
       publicClient,
       walletClient,
       chain: sepolia,
-      account: account.address,
+      account,
       name: ensName,
       stealthMetaAddress: identity.stealthMetaAddress,
     });
@@ -284,7 +134,7 @@ describe.runIf(live)('LIVE Sepolia end-to-end', () => {
     const executed = await executeStealthPayment({
       walletClient,
       chain: sepolia,
-      account: account.address,
+      account,
       plan: planA,
     });
     const payReceipt = await publicClient.waitForTransactionReceipt({ hash: executed.paymentTx });
@@ -307,7 +157,7 @@ describe.runIf(live)('LIVE Sepolia end-to-end', () => {
     // Scan a constrained window and recognise with the viewing key.
     const announcements = await fetchAnnouncements(publicClient, {
       fromBlock: startBlock - 5n,
-      toBlock: annReceipt.blockNumber + 1n,
+      toBlock: annReceipt.blockNumber,
     });
     const owned = recogniseOwnedAnnouncements(announcements, {
       viewingPrivateKey: identity.viewingPrivateKey as Hex,
