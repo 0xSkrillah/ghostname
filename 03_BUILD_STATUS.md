@@ -5,9 +5,12 @@ deployment, contract/configuration change, and before ending a work period.
 
 ## Project state
 
-- Current milestone: M0 COMPLETE — cryptographic core proven. Next: M1 (ENS).
+- Current milestone: M0+M1+M2+M3 code COMPLETE (crypto, ENS, chain, UI, docs).
+  Remaining for P0: live Sepolia config (test ENS name + funded wallet) and
+  the real on-chain publish/payment/scan run.
 - Current branch: main
-- Latest working commit: (see `git log` — M0 crypto core)
+- Repository: https://github.com/0xSkrillah/ghostname (public)
+- Latest working commit: (see `git log`)
 - Local app command: `npm run dev`
 - Typecheck command/status: `npm run typecheck` — PASS
 - Test command/status: `npm test` — PASS (30/30, 3 files)
@@ -24,7 +27,15 @@ deployment, contract/configuration change, and before ending a work period.
 - Mobula enabled: NO
 - Swarm enabled: NO
 
-## What currently works
+## What currently works (updated after M3)
+
+- Full UI at `npm run dev`: `/scan` (live mainnet resolution verified in
+  browser: skrillah.eth → 0xf91B…13CD, read-only), `/create` (local key
+  generation verified), `/pay`, `/receive`, `/privacy`, `/demo`.
+- Docs: README.md, PRIVACY.md, ARCHITECTURE.md, DEMO.md.
+- 58 deterministic tests + 3 live-gated; typecheck + build clean.
+
+## What worked earlier (M0)
 
 - ERC-5564 scheme-1 core in `src/crypto/stealth.ts` (pure, local, no network):
   - `generateStealthKeys` — CSPRNG spending/viewing keypairs + `st:eth:0x...` meta-address.
@@ -104,7 +115,8 @@ npm run build      -> PASS: vite 7.3.6, dist/assets/index-*.js 193.38 kB (gzip 6
 
 ## Next action
 
-M1: build `src/ens/` — resolve conventional address + `stealth-meta-address[1]`
-text record for arbitrary ENS names (mainnet + Sepolia read), and the Sepolia
-record-write path (wallet setText with hard network guard). Add tests with a
-mocked viem client; verify live reads against mainnet ENS.
+1. Deploy the app (static host) and record the URL here.
+2. Live Sepolia run (needs funding — throwaway key generated locally, user
+   sends test ETH): register/configure test ENS name, publish record, send
+   payment + announcement, scan + recognise. Record tx hashes and the scan
+   start block here and in `.env`.
