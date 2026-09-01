@@ -1,115 +1,115 @@
-# GhostName — Demo Slide Copy
+# GhostName Demo Slide Copy
 
-Copy for a ~9-slide deck backing the 90-second live demo. Keep slides sparse:
-one idea each, large type, the live app carries the proof. Speaker notes are
-what you *say*; on-slide text is only the bolded lines.
+Structured Minto style: the governing thought comes first, every headline is a
+full assertion (the "so what"), and the slides beneath it supply the support.
+No em dashes. Keep slides sparse: one assertion each, large type, the live app
+carries the proof. Speaker notes are what you say; on-slide text is the bolded
+lines only.
 
----
-
-## Slide 1 — Title
-
-**GhostName**
-**Keep the ENS name. Break the payment graph.**
-
-<sub>ERC-5564 stealth addresses, resolved through ENS. Common S3nse Amsterdam 2026.</sub>
-
-> Speaker: "GhostName gives an established ENS identity forward privacy."
+The governing thought, stated once: **GhostName keeps your ENS name and unlinks
+every future payment.** Everything below supports that single claim.
 
 ---
 
-## Slide 2 — The problem
+## Slide 1. Governing thought (title)
 
-**Your ENS name is your identity.**
-**It's also a permanent, public record of every payment you've ever received.**
+**GhostName keeps your ENS name and unlinks every future payment.**
 
-> Speaker: "skrillah.eth is years of history. Every payment to it is one static
-> address anyone can watch — balances, counterparties, timing. That's the cost
-> of a memorable name."
+<sub>Keep the ENS name. Break the payment graph. ERC-5564 stealth addresses, resolved through ENS. Common S3nse Amsterdam 2026.</sub>
 
----
-
-## Slide 3 — The uncomfortable truth
-
-**You can't delete it.**
-**Blockchains don't have a delete button.**
-
-> Speaker: "I looked into clearing it. You can't. The past is permanent. So the
-> only honest question is: what happens to the *next* payment?"
+> Speaker: "One sentence: GhostName gives an established ENS identity forward privacy. Keep the name, unlink every future payment. Here is why that matters and that it works."
 
 ---
 
-## Slide 4 — The idea
+## Slide 2. Why it matters
 
-**Keep the name. Publish one record. Every future payment lands on a fresh
-address only you can find.**
+**Your ENS name ties your identity to one wallet, forever.**
 
-`name.eth  →  0xA · 0xB · 0xC …`  *(a new address every time)*
+Every payment to that wallet is public, permanent, and linkable to your name.
 
-> Speaker: "One ENS text record — a stealth meta-address — and every sender
-> derives a brand-new one-time address, locally, in their own browser. No
-> gateway. No coordination with you."
+> Speaker: "skrillah.eth is years of reputation. It also resolves to one static address, so anyone can read every payment it has ever received: balances, counterparties, timing. The name is the convenience and the leak at once."
 
 ---
 
-## Slide 5 — LIVE: derive (switch to /demo)
+## Slide 3. Why now
 
-**Same name, twice → two different addresses.**
+**You cannot undo the past, so control the future.**
 
-> Speaker: (resolve the test name → A, resolve again → B) "Same name. Different
-> destination. A ≠ B. That's the payment graph breaking, live."
+Blockchains have no delete button. The only variable left is the next payment.
 
----
-
-## Slide 6 — LIVE: pay & discover (/pay → /receive)
-
-**Only your viewing key can find your money. A stranger's key finds nothing.**
-
-> Speaker: (send, then scan) "I pay it, announce it, switch to the recipient.
-> My viewing key recognises the payment; a random key recognises zero. Then I
-> prove I can spend it — and sweep it out with a sponsored transaction, so the
-> stealth address never even needs gas."
+> Speaker: "I checked whether I could clear the history. I cannot. The past is permanent. So the honest question is narrow: what happens to the next payment, and the one after that."
 
 ---
 
-## Slide 7 — What it does and doesn't do
+## Slide 4. The answer
 
-**Protects:** future receiving addresses · address reuse · no gateway trust
-**Doesn't:** delete history · hide the amount · hide the sender
+**One published record sends every future payment to a fresh address only you can find.**
 
-> Speaker: "This is forward privacy — not anonymity, not a mixer, not erasing
-> the past. We say exactly what we protect and what we don't."
+You publish a stealth meta-address on ENS. Each sender derives a new one-time address locally. No gateway, no coordination with you.
 
----
-
-## Slide 8 — Built, not slideware
-
-**Live on Sepolia · 90+ tests · byte-identical to the ERC-5564 reference**
-Registered a real ENS name · published the record · paid · scanned · recovered ·
-**swept via a sponsored EIP-7702 transaction — all on-chain.**
-
-> Speaker: "Everything you just saw is live, not mocked. Standards-correct
-> crypto, real transactions, honest scope."
+> Speaker: "One ENS text record. Every sender's own browser derives a brand new destination for each payment. You never touch it, and no service sits in the middle."
 
 ---
 
-## Slide 9 — Close
+## Slide 5. Proof, part one (live on /demo)
 
-**Blockchains don't have a delete button.**
+**The same name resolves to a different address every time.**
+
+`name.eth  →  0xA` , then `name.eth  →  0xB` , and `0xA` is not `0xB`.
+
+> Speaker: (resolve once, resolve again) "Same name. Two resolutions. Two different destinations. That is the payment graph breaking, live."
+
+---
+
+## Slide 6. Proof, part two (/pay then /receive)
+
+**Only your viewing key finds your money; a stranger's key finds nothing.**
+
+Pay, announce, then scan as the recipient. Recover the key, then sweep the funds with a sponsored transaction so the stealth address never needs gas.
+
+> Speaker: "I pay it and announce it. As the recipient my viewing key recognises it; a random key recognises zero. I prove I can spend it, and sweep it out with a sponsored transaction the stealth address never pays gas for."
+
+---
+
+## Slide 7. Honest scope
+
+**This is forward privacy, stated plainly.**
+
+Protects: future receiving addresses, address reuse, no gateway to trust.
+Does not: delete history, hide the amount, hide the sender.
+
+> Speaker: "Forward privacy, not anonymity, not a mixer, not erasing the past. We name exactly what we protect and exactly what we do not."
+
+---
+
+## Slide 8. Credibility
+
+**Every claim here is live on Sepolia, not mocked.**
+
+Real ENS name registered, record published, payment sent, scanned, recovered, and swept via a sponsored EIP-7702 transaction. Standards-correct ERC-5564, 90-plus tests, byte-identical to the reference implementation.
+
+> Speaker: "None of this is slideware. Real transactions, standards-correct cryptography, and a scope we state honestly."
+
+---
+
+## Slide 9. Close (restate the governing thought)
+
 **GhostName gives established identities a forward-privacy button.**
-**Keep the name. Break the payment graph.**
+
+Keep the ENS name. Break the payment graph.
 
 <sub>github.com/0xSkrillah/ghostname · 0xskrillah.github.io/ghostname</sub>
 
+> Speaker: "Blockchains have no delete button. GhostName gives the identity you already have a forward-privacy button. Keep the name. Break the payment graph."
+
 ---
 
-## One-line elevator version (if you get 15 seconds)
+## Fifteen-second version
 
-> "An ENS name ties your identity to one wallet forever. GhostName keeps the
-> name but sends every future payment to a fresh, unlinkable address — real
-> ERC-5564 stealth addresses, resolved through ENS, proven live on Sepolia."
+> "An ENS name ties your identity to one wallet forever. GhostName keeps the name but sends every future payment to a fresh, unlinkable address. Real ERC-5564 stealth addresses, resolved through ENS, proven live on Sepolia."
 
-## Title-slide alternates (pick the room's energy)
+## Title-slide alternates
 
-- "Keep the ENS name. Break the payment graph." *(default — the tagline)*
-- "Your name is forever. Your payment history doesn't have to be."
+- "Keep the ENS name. Break the payment graph." (default tagline)
+- "Your name is forever. Your payment history does not have to be."
 - "Forward privacy for the identity you already have."
