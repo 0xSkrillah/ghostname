@@ -3,30 +3,17 @@
  * identity. This is the ONLY ENS write in GhostName and it is hard-gated to
  * Sepolia via assertWritableNetwork — mainnet writes are impossible.
  */
-import { namehash, zeroAddress, type Address, type Chain, type Hash } from 'viem';
+import {
+  namehash,
+  zeroAddress,
+  type Account,
+  type Address,
+  type Chain,
+  type Hash,
+} from 'viem';
 import { assertWritableNetwork } from '../chain/guards';
 import { ENS_STEALTH_RECORD_KEY, parseStealthMetaAddress } from '../crypto/metaAddress';
 import { normalizeEnsName } from './resolve';
-
-/** ENS registry — same deterministic address on mainnet and Sepolia. */
-export const ENS_REGISTRY_ADDRESS: Address = '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e';
-
-export const ENS_REGISTRY_ABI = [
-  {
-    name: 'resolver',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'node', type: 'bytes32' }],
-    outputs: [{ name: '', type: 'address' }],
-  },
-  {
-    name: 'owner',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'node', type: 'bytes32' }],
-    outputs: [{ name: '', type: 'address' }],
-  },
-] as const;
 
 export const RESOLVER_SET_TEXT_ABI = [
   {
@@ -43,13 +30,9 @@ export const RESOLVER_SET_TEXT_ABI = [
 ] as const;
 
 /** Minimal structural interfaces so tests can inject fakes. */
-export interface RegistryReader {
-  readContract(args: {
-    address: Address;
-    abi: typeof ENS_REGISTRY_ABI;
-    functionName: 'resolver' | 'owner';
-    args: readonly [`0x${string}`];
-  }): Promise<Address>;
+export interface ResolverFinder {
+  /** viem PublicClient.getEnsResolver — resolves via the Universal Resolver. */
+  getEnsResolver(args: { name: string }): Promise<Address>;
 }
 
 export interface TextWriter {
@@ -59,31 +42,35 @@ export interface TextWriter {
     abi: typeof RESOLVER_SET_TEXT_ABI;
     functionName: 'setText';
     args: readonly [`0x${string}`, string, string];
-    account: Address;
+    account: Address | Account;
     chain: Chain | null | undefined;
   }): Promise<Hash>;
 }
 
-/** Resolver address for a name, or null when none is configured. */
+/**
+ * Resolver address for a name, or null when none is configured. Uses the
+ * Universal Resolver (via viem's getEnsResolver), which covers both the
+ * legacy ENS registry and the ENSv2 registry tree on Sepolia.
+ */
 export async function getResolverAddress(
-  client: RegistryReader,
+  client: ResolverFinder,
   name: string,
 ): Promise<Address | null> {
-  const resolver = await client.readContract({
-    address: ENS_REGISTRY_ADDRESS,
-    abi: ENS_REGISTRY_ABI,
-    functionName: 'resolver',
-    args: [namehash(normalizeEnsName(name))],
-  });
-  return resolver === zeroAddress ? null : resolver;
+  try {
+    const resolver = await client.getEnsResolver({ name: normalizeEnsName(name) });
+    return resolver === zeroAddress ? null : resolver;
+  } catch {
+    return null;
+  }
 }
 
 export interface PublishStealthRecordArgs {
-  publicClient: RegistryReader;
+  publicClient: ResolverFinder;
   walletClient: TextWriter;
   /** Sepolia chain object from viem (passed through to the wallet). */
   chain: Chain;
-  account: Address;
+  /** Address (browser wallet) or a local viem Account (scripts/tests). */
+  account: Address | Account;
   name: string;
   stealthMetaAddress: string;
 }

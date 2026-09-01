@@ -5,12 +5,27 @@ deployment, contract/configuration change, and before ending a work period.
 
 ## Project state
 
-- Current milestone: M0+M1+M2+M3 code COMPLETE (crypto, ENS, chain, UI, docs).
-  Remaining for P0: live Sepolia config (test ENS name + funded wallet) and
-  the real on-chain publish/payment/scan run.
+- Current milestone: **P0 COMPLETE AND PROVEN LIVE ON-CHAIN** (M0–M2 + live
+  E2E). M3 UI built. Next: M3 polish/demo config verification in UI, backup
+  video, then optional P2/P3.
 - Current branch: main
 - Repository: https://github.com/0xSkrillah/ghostname (public)
+- Deployment: https://0xskrillah.github.io/ghostname/ (GitHub Pages, gh-pages branch)
 - Latest working commit: (see `git log`)
+- Sepolia demo identity: **ghostname-3c7714.eth** (ENSv2), resolver
+  0xE0e6F09B30eBcdE505FDCA0F1fd244273838FFAE, owner = throwaway demo key
+  (in local .env, gitignored), funded 0.05 ETH by user 2026-09-01.
+- Live evidence (Sepolia): register 0x04985bb6…83a398 · setText (app path)
+  0x75b7a640…59ea29 · payment 0x2430f7f8…dc248b · announcement
+  0x4164c074…010c11 · scan start block 11612900. Full evidence JSON in
+  .demo/e2e-evidence.json (gitignored).
+- IMPORTANT Sepolia quirk: classic ENS registration is BROKEN network-wide
+  (ENSv2 migration). Names register via ENSv2 ETHRegistrar
+  0xa88553F454b77203B0D036A05c894d555EAAa2Cc paid in test USDC
+  0x768F4245…67a39 (open mint(address,uint256)); dedicated resolver via
+  VerifiableFactory 0x10dC6333…Cd7ef, impl 0x9EAe5C27…0365e, init selector
+  0x7058b559 = initialize(address,uint256,bytes[]). All scripted in
+  scripts/register-v2-name.mjs (idempotent).
 - Local app command: `npm run dev`
 - Typecheck command/status: `npm run typecheck` — PASS
 - Test command/status: `npm test` — PASS (30/30, 3 files)
@@ -70,20 +85,20 @@ deployment, contract/configuration change, and before ending a work period.
 
 ## Acceptance checklist
 
-- [ ] Arbitrary ENS resolution. (M1)
+- [x] Arbitrary ENS resolution (live mainnet: skrillah.eth, vitalik.eth).
 - [x] Scheme-1 keypair/meta-address generation.
-- [ ] ENS stealth record read. (M1)
-- [ ] Controlled Sepolia ENS write. (M1)
-- [x] Two distinct stealth destinations.
-- [x] Positive recognition test.
-- [x] Negative recognition test.
-- [x] Spending-key/address verification.
-- [ ] Real Sepolia payment. (M2)
-- [ ] Announcement discovery. (M2)
+- [x] ENS stealth record read (live: ghostname-3c7714.eth on Sepolia).
+- [x] Controlled Sepolia ENS write (live, via app write path: 0x75b7a640…).
+- [x] Two distinct stealth destinations (live: fresh A≠B every E2E run).
+- [x] Positive recognition test (live: scanner found payment at block 11612941).
+- [x] Negative recognition test (live + 50-key offline).
+- [x] Spending-key/address verification (live recovery verified).
+- [x] Real Sepolia payment (0.0005 ETH, tx 0x2430f7f8…).
+- [x] Announcement discovery (tx 0x4164c074…, constrained block range).
 - [x] Clean typecheck.
-- [x] Clean tests.
+- [x] Clean tests (62 passing; live suite skips without key).
 - [x] Clean production build.
-- [ ] README reproduction verified. (M5)
+- [ ] README reproduction verified from a clean clone. (M5)
 - [ ] Backup demo recorded. (M5)
 
 ## Decisions made
@@ -115,8 +130,9 @@ npm run build      -> PASS: vite 7.3.6, dist/assets/index-*.js 193.38 kB (gzip 6
 
 ## Next action
 
-1. Deploy the app (static host) and record the URL here.
-2. Live Sepolia run (needs funding — throwaway key generated locally, user
-   sends test ETH): register/configure test ENS name, publish record, send
-   payment + announcement, scan + recognise. Record tx hashes and the scan
-   start block here and in `.env`.
+1. Verify the demo flow in the deployed UI (scan → pay → receive on
+   ghostname-3c7714.eth) and fix any UI-level issues.
+2. Import the demo identity into the browser (Receive page needs the
+   viewing key from .demo/identity.json — add an import control).
+3. Clean-clone reproduction check; record backup demo video (Friday rule).
+4. Only then: P2 Mobula panel, P3 Swarm deployment.

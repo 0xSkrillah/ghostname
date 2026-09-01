@@ -151,10 +151,30 @@ defaults (recommended for presentations).
 |---|---|---|
 | ERC-5564 announcer (singleton) | mainnet + Sepolia | `0x55649E01B5Df198D18D95b5cc5051630cfD45564` |
 | ERC-6538 registry (singleton, not required by the flow) | mainnet + Sepolia | `0x6538E6bf4B0eBd30A8Ea093027Ac2422ce5d6538` |
-| ENS registry | mainnet + Sepolia | `0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e` |
+| ENS Universal Resolver (resolution + resolver discovery) | mainnet + Sepolia | `0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe` |
 | ENS text record key | — | `stealth-meta-address[1]` |
 | Record value | — | `st:eth:0x…` string, verbatim |
 | Writes permitted | **Sepolia only** (11155111) | mainnet writes blocked in code |
+
+**Sepolia ENSv2 note:** Sepolia is mid-migration to ENSv2, and the classic
+ETHRegistrarController rejects new registrations. The demo identity
+`ghostname-3c7714.eth` was registered through the live ENSv2 `ETHRegistrar`
+(`0xa88553F454b77203B0D036A05c894d555EAAa2Cc`, paid in freely-mintable test
+USDC) with a dedicated resolver deployed via the ENS `VerifiableFactory` —
+see `scripts/register-v2-name.mjs`. Resolution and record writes in the app
+go through the Universal Resolver, so they work identically for legacy and
+v2 names.
+
+### Live on-chain evidence (Sepolia)
+
+- Demo identity: `ghostname-3c7714.eth`, resolver `0xE0e6F09B30eBcdE505FDCA0F1fd244273838FFAE`
+- Registration: [`0x04985bb6…83a398`](https://sepolia.etherscan.io/tx/0x04985bb69fb3b20b034465cbe3d1acfd5a5ca3734ca3eab19db577462383a398)
+- `stealth-meta-address[1]` publish (app write path): [`0x75b7a640…59ea29`](https://sepolia.etherscan.io/tx/0x75b7a6404a5a3b1880f8dce7c874cbf34ce65fca64cffeb7e313567b2759ea29)
+- Stealth payment: [`0x2430f7f8…dc248b`](https://sepolia.etherscan.io/tx/0x2430f7f8a422a6a527272cd591541c101e9fffd43dccb2a1feed918ee0dc248b)
+- ERC-5564 announcement: [`0x4164c074…010c11`](https://sepolia.etherscan.io/tx/0x4164c074fbb0adacf3d3804928e2a4cc803d61e783e9fbbef207608fe3010c11)
+- Recognised by the viewing key + recovered spending key verified in
+  `npm run e2e:sepolia` (fresh derivations each run — addresses differ every time,
+  which is the point).
 
 ## 10. Known limitations
 
