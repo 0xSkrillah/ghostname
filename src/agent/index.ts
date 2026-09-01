@@ -15,3 +15,5 @@ export * from './auditForAgent';
 export * from './upgradePlan';
 export * from './reaudit';
 export * from './verify';
+export * from './format';
+export * from './handoff';

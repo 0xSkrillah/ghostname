@@ -3,7 +3,7 @@
 Single source of truth for build state. Every figure here was verified against
 the repository, not carried over from an earlier draft.
 
-Last reconciled: 2026-09-01, after Agent P0 (agent-safe adapter and local MCP).
+Last reconciled: 2026-09-01, after Agent P1 (CLI, Claude skill, secure web handoff).
 An earlier draft carried a reconciliation date of 2026-09-05, which is later
 than every commit in the history; it was a typo and has been corrected.
 
@@ -27,9 +27,9 @@ Tagline unchanged: *Keep the ENS name. Break the payment graph.*
 | Command | Status | Result |
 |---|---|---|
 | `npm run typecheck` | PASS | no errors |
-| `npm test` | PASS | 202 passed, 10 skipped (21 files) |
+| `npm test` | PASS | 213 passed, 10 skipped (23 files) |
 | `npm run build` | PASS | app shell ~267 kB, viem chunk ~334 kB |
-| `npm run build:agent` | PASS | `dist-agent/ghostname-mcp.mjs` (esbuild, deps external) |
+| `npm run build:agent` | PASS | `dist-agent/ghostname-mcp.mjs` and `dist-agent/ghostname.mjs` (esbuild, deps external) |
 | `npm run e2e:sepolia` | PASS | gated on `SEPOLIA_PRIVATE_KEY` |
 | `npm run sweep:sepolia` | PASS | gated on `SEPOLIA_PRIVATE_KEY` |
 
@@ -44,6 +44,7 @@ earlier "155 passed, 8 skipped" figure was measured with the key present.
 - Routes: `/` `/scan` `/create` `/pay` `/receive` `/privacy` `/demo` (hash router,
   so every route deep-links on a static host)
 - Local MCP server: `npm run build:agent && npm run mcp` (stdio)
+- CLI: `node dist-agent/ghostname.mjs audit <name> --chain <id> [--json]`
 
 ## Networks and keys
 
@@ -117,6 +118,21 @@ Resolver, so they work on both ENS v1 and v2.
   input and output schemas, `structuredContent`, concise text fallback and
   read-only annotations; five `ghostname://` resources; the `improve-ens-privacy`
   prompt. stdio entry emits only MCP messages on stdout, diagnostics on stderr.
+- **CLI** (`cli/`): `audit`, `plan`, `verify-payment`, `verify-exit`, calling
+  the same service functions as the MCP tools and emitting the same schema
+  versions. Verified live: `audit skrillah.eth --chain 1` reads Incomplete;
+  `verify-payment` passes all eight checks on the published Sepolia evidence.
+- **Claude Agent Skill** (`.claude/skills/ens-privacy-advisor/`): SKILL.md with
+  trigger description and standing rules, privacy-model.md, examples.md covering
+  an incomplete name, a malformed record, a private-ready name, an RPC failure
+  and a user asking the agent to write the record itself.
+- **Secure web handoff** (`/create`): accepts only name, chainId, source=agent,
+  reportId and version; states that key generation happens outside the agent;
+  ignores any other parameter by name (an audit status in the URL is listed as
+  ignored); resolves the name again live; discovers the resolver at transaction
+  time; keeps the mainnet guards; warns before any real transaction; offers a
+  re-audit instruction after confirmation. Verified in the browser against live
+  mainnet for skrillah.eth, including the invalid-handoff path.
 - **UI**: `/scan` audit, `/create` identity and record publish, `/pay`, `/receive`
   scan with sweep package, `/privacy` threat model, `/demo`.
 - **Mobula exposure panel** and **encrypted testnet recovery capsule**.
@@ -182,11 +198,13 @@ Resolver, so they work on both ENS v1 and v2.
 - **Agent P0 (done):** agent-safe adapter and schemas, stable finding codes,
   sanitisation, local stdio MCP server, five approved read-only tools, five
   resources, one prompt, 49 new tests (202 total).
+- **Agent P1 (done):** CLI over the same service functions, the
+  ens-privacy-advisor Claude Agent Skill, the secure /create handoff with live
+  re-resolution, and the re-audit instruction. 11 new tests (213 total).
 
 ## Next action
 
-Agent P1: the `ghostname` CLI over the same service functions, the
-`ens-privacy-advisor` Claude Agent Skill, and the secure `/create` handoff that
-accepts only name, chainId, source, reportId and version. Then P2 (MCP App view,
-AGENT_DEMO.md) and P3 (remote stateless HTTP profile, server.json, ENSIP-26
+Agent P2: the MCP App audit view (official MCP Apps extension, with the plain
+text and structured fallback for hosts without Apps) and AGENT_DEMO.md. Then P3
+(remote stateless HTTP profile, server.json, AGENTS.md, llms.txt, ENSIP-26
 discovery records).

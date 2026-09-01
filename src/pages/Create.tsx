@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { saveIdentity, useIdentity } from '../state/identity';
 import type { StealthKeys } from '../crypto/stealth';
 import { encryptCapsule } from '../swarm/capsule';
@@ -8,13 +9,30 @@ import { getMainnetClient, getSepoliaClient } from '../chain/clients';
 import { resolveStealthMetaAddress } from '../ens/resolve';
 import { ENS_STEALTH_RECORD_KEY } from '../crypto/metaAddress';
 import { MAINNET_CHAIN_ID, SEPOLIA_CHAIN_ID } from '../chain/guards';
+import { auditEnsName } from '../audit/auditEnsName';
+import type { PrivacyAuditReport } from '../audit/types';
+import { STATUS_EXPLANATION, STATUS_LABEL, statusPillClass } from '../audit/report';
+import { parseHandoffParams, reauditInstruction } from '../agent/handoff';
 import CopyField from '../components/CopyField';
 import MainnetConfirm from '../components/MainnetConfirm';
 
+/**
+ * Create a private receive identity and publish its record.
+ *
+ * This page is also the secure handoff target for AI agents. An agent can only
+ * pass a name, a chain id, source=agent, a report id and a version. Every
+ * sensitive step happens here: key generation, the live re-resolution of the
+ * name, resolver discovery at transaction time, and the wallet approval.
+ * Nothing in the URL is trusted for the privacy result.
+ */
 export default function Create() {
+  const [searchParams] = useSearchParams();
+  const handoff = useMemo(() => parseHandoffParams(searchParams), [searchParams]);
+  const handoffParams = handoff?.ok ? handoff.params : null;
+
   const { identity, create, clear } = useIdentity();
   const wallet = useWallet();
-  const [ensName, setEnsName] = useState('');
+  const [ensName, setEnsName] = useState(handoffParams?.name ?? '');
   const [importJson, setImportJson] = useState('');
   const [capsulePass, setCapsulePass] = useState('');
   const [capsuleMsg, setCapsuleMsg] = useState<string | null>(null);
@@ -23,13 +41,43 @@ export default function Create() {
   const [verified, setVerified] = useState<string | null>(null);
   const [mainnetConfirmed, setMainnetConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [liveAudit, setLiveAudit] = useState<PrivacyAuditReport | null>(null);
+  const [auditing, setAuditing] = useState(false);
 
   const onSepolia = wallet.chainId === SEPOLIA_CHAIN_ID;
   const onMainnet = wallet.chainId === MAINNET_CHAIN_ID;
-  const explorer = onMainnet ? 'https://etherscan.io' : 'https://sepolia.etherscan.io';
-  const readClient = onMainnet ? getMainnetClient() : getSepoliaClient();
+  // The target chain comes from the handoff when present, otherwise from the wallet.
+  const targetChainId = handoffParams?.chainId ?? (onMainnet ? MAINNET_CHAIN_ID : SEPOLIA_CHAIN_ID);
+  const targetIsMainnet = targetChainId === MAINNET_CHAIN_ID;
+  const chainName = targetIsMainnet ? 'Ethereum mainnet' : 'Sepolia';
+  const explorer = targetIsMainnet ? 'https://etherscan.io' : 'https://sepolia.etherscan.io';
+  const readClient = targetIsMainnet ? getMainnetClient() : getSepoliaClient();
+  const walletOnTarget = wallet.chainId === targetChainId;
   const canPublish =
-    wallet.onWritableNetwork && (!onMainnet || mainnetConfirmed) && !publishing && !!ensName.trim();
+    wallet.onWritableNetwork &&
+    walletOnTarget &&
+    (!targetIsMainnet || mainnetConfirmed) &&
+    !publishing &&
+    !!ensName.trim();
+
+  /** Resolve the name again, live. The handoff link is never trusted for this. */
+  async function runLiveAudit(name: string = ensName) {
+    if (!name.trim()) return;
+    setAuditing(true);
+    try {
+      setLiveAudit(await auditEnsName(readClient, name, { chainId: targetChainId }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAuditing(false);
+    }
+  }
+
+  useEffect(() => {
+    if (handoffParams) void runLiveAudit(handoffParams.name);
+    // Re-run only when the handoff itself changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handoffParams?.name, handoffParams?.chainId]);
 
   async function publish() {
     if (!identity || !wallet.client || !wallet.account || !wallet.chain) return;
@@ -38,6 +86,7 @@ export default function Create() {
     setPublishTx(null);
     setVerified(null);
     try {
+      // The resolver is discovered inside publishStealthRecord, at transaction time.
       const hash = await publishStealthRecord({
         publicClient: readClient,
         walletClient: wallet.client,
@@ -109,6 +158,63 @@ export default function Create() {
         Two keypairs are generated in this browser with a cryptographically secure RNG.
         Private keys never leave this device. There is no server.
       </p>
+
+      {handoff && !handoff.ok && (
+        <div className="card danger">
+          <strong>Invalid agent handoff.</strong>
+          <p className="small" style={{ marginBottom: 0 }}>
+            {handoff.reason} Nothing was pre-filled. You can still use this page normally.
+          </p>
+        </div>
+      )}
+
+      {handoffParams && (
+        <>
+          <div className="card inset" data-testid="agent-handoff">
+            <span className="label">Agent handoff</span>
+            <p className="small" style={{ marginTop: 0 }}>
+              You arrived from an AI agent. It passed only a name, a chain id and a report id.{' '}
+              <strong>Key generation happens here, in this browser, outside the agent.</strong> The
+              agent has not received, and will not receive, any key, record value or transaction
+              authority. Publishing needs your own wallet approval.
+            </p>
+            <p className="small dim" style={{ marginBottom: 0 }}>
+              Name <span className="mono">{handoffParams.name}</span>, chain {targetChainId} ({chainName}),
+              report id <span className="mono">{handoffParams.reportId ?? 'none'}</span>. Nothing in
+              the link is trusted for the privacy result: the name is resolved again live below.
+              {handoff && handoff.ignored.length > 0 && (
+                <> Ignored link parameters: {handoff.ignored.join(', ')}.</>
+              )}
+            </p>
+          </div>
+
+          <div className="card inset" data-testid="live-check">
+            <span className="label">
+              Live check of {handoffParams.name} on {chainName}
+            </span>
+            {auditing ? (
+              <p className="small" style={{ margin: 0 }}>
+                Resolving live…
+              </p>
+            ) : liveAudit ? (
+              <p className="small" style={{ margin: 0 }}>
+                <span className={statusPillClass(liveAudit.overallStatus)}>
+                  {STATUS_LABEL[liveAudit.overallStatus]}
+                </span>{' '}
+                <span className="dim">{STATUS_EXPLANATION[liveAudit.overallStatus]}</span>
+              </p>
+            ) : null}
+            <p className="small dim">
+              Resolver read now:{' '}
+              <span className="mono">{liveAudit?.resolver.address ?? 'not readable'}</span>. The
+              resolver is discovered again at transaction time; publishing fails if none is set.
+            </p>
+            <button className="ghost" onClick={() => void runLiveAudit()} disabled={auditing}>
+              Re-check now
+            </button>
+          </div>
+        </>
+      )}
 
       {!identity && (
         <>
@@ -208,10 +314,22 @@ export default function Create() {
 
           <h2>Publish to an ENS name</h2>
           <p className="small dim">
-            Sepolia by default. {wallet.mainnetEnabled
+            {handoffParams ? `Target: ${chainName}, from the agent handoff. ` : 'Sepolia by default. '}
+            {wallet.mainnetEnabled
               ? 'This build has guarded mainnet mode enabled: a mainnet publish is possible but requires an explicit typed confirmation below.'
               : 'Mainnet writes are blocked in this build. The publish path hard-fails on any chain other than Sepolia.'}
           </p>
+          <div className="card danger">
+            <strong>Before you approve:</strong>
+            <p className="small" style={{ marginBottom: 0 }}>
+              Publishing sends a real transaction from your wallet on {chainName}, writing the{' '}
+              <span className="mono">{ENS_STEALTH_RECORD_KEY}</span> record to the resolver
+              discovered at that moment. Review it in your wallet before approving.{' '}
+              {targetIsMainnet
+                ? 'Mainnet spends real ETH and the record is public and permanent.'
+                : 'Sepolia uses test ETH only.'}
+            </p>
+          </div>
           {!wallet.account ? (
             <button className="secondary" onClick={() => void wallet.connect()}>
               Connect wallet
@@ -220,17 +338,21 @@ export default function Create() {
             <>
               <p className="small">
                 <span className="pill">{wallet.account}</span>{' '}
-                {onSepolia ? (
+                {walletOnTarget && onSepolia ? (
                   <span className="pill ok">Sepolia</span>
-                ) : onMainnet ? (
+                ) : walletOnTarget && onMainnet ? (
                   <span className="pill warn">Mainnet (guarded)</span>
                 ) : (
                   <>
-                    <span className="pill bad">chain {wallet.chainId ?? '?'}, writes blocked</span>{' '}
-                    <button className="ghost" onClick={() => void wallet.switchToSepolia()}>
-                      Switch to Sepolia
-                    </button>
-                    {wallet.mainnetEnabled && (
+                    <span className="pill bad">
+                      chain {wallet.chainId ?? '?'}, expected {targetChainId} ({chainName}), writes blocked
+                    </span>{' '}
+                    {!targetIsMainnet && (
+                      <button className="ghost" onClick={() => void wallet.switchToSepolia()}>
+                        Switch to Sepolia
+                      </button>
+                    )}
+                    {targetIsMainnet && wallet.mainnetEnabled && (
                       <button className="ghost" onClick={() => void wallet.switchToMainnet()}>
                         Switch to Mainnet
                       </button>
@@ -238,7 +360,7 @@ export default function Create() {
                   </>
                 )}
               </p>
-              {onMainnet && (
+              {onMainnet && walletOnTarget && (
                 <MainnetConfirm
                   action="record publish"
                   confirmed={mainnetConfirmed}
@@ -251,7 +373,7 @@ export default function Create() {
                   value={ensName}
                   onChange={(e) => setEnsName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && canPublish && void publish()}
-                  placeholder={onMainnet ? 'your-name.eth (owned by this wallet)' : 'your-test-name.eth (Sepolia)'}
+                  placeholder={targetIsMainnet ? 'your-name.eth (owned by this wallet)' : 'your-test-name.eth (Sepolia)'}
                 />
                 <button onClick={() => void publish()} disabled={!canPublish}>
                   {publishing ? 'Publishing…' : 'Publish record'}
@@ -273,6 +395,27 @@ export default function Create() {
                 </button>
                 {verified && <span className="small dim">{verified}</span>}
               </div>
+            </div>
+          )}
+          {publishTx && handoffParams && (
+            <div className="card inset" data-testid="return-to-agent">
+              <span className="label">Return to your agent</span>
+              <p className="small" style={{ marginTop: 0 }}>
+                Give this to your agent so it can re-audit the name and explain what improved and
+                what remains public. It contains no key.
+              </p>
+              <CopyField
+                label="Re-audit instruction"
+                value={reauditInstruction({
+                  name: handoffParams.name,
+                  chainId: targetChainId,
+                  reportId: handoffParams.reportId,
+                  priorStatus: liveAudit?.overallStatus ?? null,
+                })}
+              />
+              <button className="ghost" onClick={() => void runLiveAudit()} disabled={auditing}>
+                Re-check here
+              </button>
             </div>
           )}
           {wallet.error && <p className="error">{wallet.error}</p>}
