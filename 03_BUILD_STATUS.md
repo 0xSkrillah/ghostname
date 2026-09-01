@@ -32,7 +32,12 @@ deployment, contract/configuration change, and before ending a work period.
 - Production build command/status: `npm run build` — PASS
 - Deployment URL: none yet
 - Demo route: not built yet (M3)
-- Mainnet mode: READ ONLY
+- Mainnet mode: READ by default; guarded WRITE mode available via
+  VITE_ENABLE_MAINNET=true (off in shipped build) + typed per-action
+  confirmation. See tests/mainnet-guard.test.ts.
+- Relayer sweep: client-side EIP-7702 + EIP-3009 signing shipped/tested
+  (src/relay/sweep.ts, /receive SweepPanel, RELAYERS.md). Relayer infra not
+  deployed (needs funded sponsor) — documented.
 - Sepolia test ENS name/subname: not configured yet (M1)
 - Sepolia test wallets funded: not yet
 - RPC endpoints configured: `.env.example` defaults (public RPCs); override via `VITE_MAINNET_RPC_URL` / `VITE_SEPOLIA_RPC_URL`

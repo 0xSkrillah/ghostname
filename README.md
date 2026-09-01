@@ -176,12 +176,36 @@ v2 names.
   `npm run e2e:sepolia` (fresh derivations each run — addresses differ every time,
   which is the point).
 
-## 10. Known limitations
+## 10. Networks: Sepolia by default, guarded mainnet mode
 
-- Sweeping funds *out* of a stealth address is out of scope for the hack:
-  spending from a fresh address needs gas, and funding gas from your main
-  wallet can re-link you. (ERC-5564 ecosystems solve this with relayers /
-  paymasters.)
+The shipped/demo build writes **only on Sepolia**. A build compiled with
+`VITE_ENABLE_MAINNET=true` unlocks **guarded mainnet mode**: mainnet writes
+become possible but every one requires an explicit typed per-action
+confirmation in the UI (you type `SEND ON MAINNET`). Both gates are required —
+the build flag alone, or a confirmation alone, still blocks — enforced in
+`assertWritableNetwork` and covered by `tests/mainnet-guard.test.ts`. Reads,
+including the ENS record read, already work on mainnet through the Universal
+Resolver.
+
+## 11. Spending stealth funds without re-linking (relayers/paymasters)
+
+Funds arrive on a fresh stealth EOA with no gas. Funding that gas from your
+main wallet would re-link the address, so GhostName produces **client-side
+sweep authorizations** a sponsor/relayer can execute while paying gas itself:
+
+- **EIP-7702** sponsored sweep for native ETH (`signSweepAuthorization`).
+- **EIP-3009** relayed transfer for USDC-style tokens (`signErc3009Sweep`).
+
+`/receive` produces a signed EIP-7702 authorization for any recognised payment,
+locally — the stealth key never leaves the device. Executing it needs a
+deployed executor contract + a funded relayer (out of scope to provision here,
+same as the Swarm stamp). Full design in [RELAYERS.md](RELAYERS.md).
+
+## 12. Known limitations
+
+- The relayer/executor infrastructure itself is not deployed (only the
+  client-side signing is shipped and tested); a relayer also learns the
+  destination address it sweeps to (metadata, not custody — see RELAYERS.md).
 - Demo key custody is browser `localStorage` — fine for a testnet demo, not
   a production custody model.
 - Announcement scanning uses bounded `eth_getLogs` ranges over public RPCs;
