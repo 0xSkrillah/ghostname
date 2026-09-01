@@ -39,8 +39,9 @@ deployment, contract/configuration change, and before ending a work period.
 - ERC-5564 announcer: `0x55649E01B5Df198D18D95b5cc5051630cfD45564` (singleton, per EIP-5564)
 - ERC-6538 registry: `0x6538E6bf4B0eBd30A8Ea093027Ac2422ce5d6538` (singleton, per EIP-6538)
 - ENS record key: `stealth-meta-address[1]`, value `st:eth:0x<spend33><view33>` verbatim (per ENS stealth-resolution RFC)
-- Mobula enabled: NO
-- Swarm enabled: NO
+- Mobula enabled: YES (P2) — keyless demo endpoint by default; panel on /scan;
+  balance hidden behind reveal. Optional VITE_MOBULA_PROXY_URL for prod key.
+- Swarm enabled: in progress (P3)
 
 ## What currently works (updated after M3)
 

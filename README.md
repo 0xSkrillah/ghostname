@@ -190,8 +190,16 @@ v2 names.
 
 ## 11. Optional integrations
 
-- Mobula public-exposure panel: not yet enabled.
-- Swarm deployment / encrypted testnet recovery capsule: not yet enabled.
+- **Mobula public-exposure panel: ENABLED.** On `/scan`, after resolving a
+  name, "Assemble public profile" queries the Mobula wallet-portfolio API for
+  the conventional address and shows how much financial information a static
+  ENS→wallet mapping leaks — token count and chain count immediately, total
+  USD value only behind a deliberate reveal (projector-safe). Works keyless
+  via Mobula's demo endpoint; set `VITE_MOBULA_PROXY_URL` to a minimal proxy
+  that injects a production key server-side (the key never ships in the
+  client). Reinforces the core story: this is the exposure GhostName removes
+  from future payments.
+- Swarm deployment / encrypted testnet recovery capsule: in progress.
 
 (Each is only claimed here if actually working; see commit history.)
 

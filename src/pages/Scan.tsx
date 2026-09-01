@@ -7,6 +7,8 @@ import {
 } from '../ens/resolve';
 import { DEMO_MAINNET_NAME } from '../config';
 import Compare from '../components/Compare';
+import ExposurePanel from '../components/ExposurePanel';
+import type { Address } from 'viem';
 
 interface ScanResult {
   name: string;
@@ -97,6 +99,7 @@ export default function Scan() {
               </p>
             )}
           </div>
+          {result.address && <ExposurePanel address={result.address as Address} />}
           <Compare name={result.name} staticAddress={result.address ?? undefined} />
         </>
       )}
