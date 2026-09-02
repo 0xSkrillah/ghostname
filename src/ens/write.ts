@@ -1,9 +1,17 @@
 /**
- * Publishing the `stealth-meta-address[1]` text record for a Sepolia test
- * identity. This is the ONLY ENS write in GhostName and it is hard-gated to
- * Sepolia via assertWritableNetwork — mainnet writes are impossible.
+ * Publishing the `stealth-meta-address[1]` text record. This is the ONLY ENS
+ * write in GhostName. It passes assertWritableNetwork against both the
+ * intended chain and the wallet's reported chain: Sepolia by default, mainnet
+ * only in a build with VITE_ENABLE_MAINNET=true plus a typed per-action
+ * confirmation. It never sets or replaces a resolver.
  */
 import {
+  BaseError,
+  ContractFunctionRevertedError,
+  ContractFunctionZeroDataError,
+  HttpRequestError,
+  RawContractError,
+  TimeoutError,
   namehash,
   zeroAddress,
   type Account,
@@ -12,6 +20,7 @@ import {
   type Hash,
 } from 'viem';
 import { assertWritableNetwork } from '../chain/guards';
+import { describeError } from '../lib/describeError';
 import { ENS_STEALTH_RECORD_KEY, parseStealthMetaAddress } from '../crypto/metaAddress';
 import { normalizeEnsName } from './resolve';
 
@@ -47,21 +56,63 @@ export interface TextWriter {
   }): Promise<Hash>;
 }
 
+export type ResolverLookup =
+  | { status: 'ok'; address: Address }
+  | { status: 'none' }
+  | { status: 'failed'; error: string };
+
 /**
- * Resolver address for a name, or null when none is configured. Uses the
- * Universal Resolver (via viem's getEnsResolver), which covers both the
- * legacy ENS registry and the ENSv2 registry tree on Sepolia.
+ * A revert from the Universal Resolver means the name has no resolver; a
+ * transport, timeout or RPC failure means nothing is known. Only the first
+ * may be reported as "no resolver configured".
+ */
+function classifyResolverError(err: unknown): 'none' | 'failed' {
+  if (err instanceof BaseError) {
+    const transport = err.walk(
+      (e) => e instanceof HttpRequestError || e instanceof TimeoutError,
+    );
+    if (transport) return 'failed';
+    const reverted = err.walk(
+      (e) =>
+        e instanceof ContractFunctionRevertedError ||
+        e instanceof ContractFunctionZeroDataError ||
+        e instanceof RawContractError,
+    );
+    if (reverted) return 'none';
+  }
+  return 'failed';
+}
+
+/**
+ * Resolver lookup for a name through the Universal Resolver (viem's
+ * getEnsResolver), which covers both the legacy ENS registry and the ENSv2
+ * registry tree on Sepolia. Never collapses an RPC failure into "none".
+ */
+export async function lookupResolver(client: ResolverFinder, name: string): Promise<ResolverLookup> {
+  try {
+    const resolver = await client.getEnsResolver({ name: normalizeEnsName(name) });
+    return resolver === zeroAddress ? { status: 'none' } : { status: 'ok', address: resolver };
+  } catch (err) {
+    return classifyResolverError(err) === 'none'
+      ? { status: 'none' }
+      : { status: 'failed', error: describeError(err) };
+  }
+}
+
+/**
+ * Resolver address for a name, or null when none is configured. Throws when
+ * the lookup itself failed, so callers cannot mistake an outage for a
+ * missing resolver.
  */
 export async function getResolverAddress(
   client: ResolverFinder,
   name: string,
 ): Promise<Address | null> {
-  try {
-    const resolver = await client.getEnsResolver({ name: normalizeEnsName(name) });
-    return resolver === zeroAddress ? null : resolver;
-  } catch {
-    return null;
+  const lookup = await lookupResolver(client, name);
+  if (lookup.status === 'failed') {
+    throw new Error(`Could not read the resolver for ${normalizeEnsName(name)}: ${lookup.error} Retry, or switch RPC endpoint.`);
   }
+  return lookup.status === 'ok' ? lookup.address : null;
 }
 
 export interface PublishStealthRecordArgs {
@@ -94,15 +145,21 @@ export async function publishStealthRecord(args: PublishStealthRecordArgs): Prom
   parseStealthMetaAddress(args.stealthMetaAddress);
 
   const normalized = normalizeEnsName(args.name);
-  const resolver = await getResolverAddress(args.publicClient, normalized);
-  if (resolver === null) {
+  const lookup = await lookupResolver(args.publicClient, normalized);
+  if (lookup.status === 'failed') {
+    throw new Error(
+      `Could not read the resolver for ${normalized} from this network: ${lookup.error} ` +
+        'Nothing was sent. Retry, or switch RPC endpoint.',
+    );
+  }
+  if (lookup.status === 'none') {
     throw new Error(
       `${normalized} has no resolver configured on this network. ` +
         'Set a resolver for the name (e.g. in the ENS app) before publishing.',
     );
   }
   return args.walletClient.writeContract({
-    address: resolver,
+    address: lookup.address,
     abi: RESOLVER_SET_TEXT_ABI,
     functionName: 'setText',
     args: [namehash(normalized), ENS_STEALTH_RECORD_KEY, args.stealthMetaAddress],

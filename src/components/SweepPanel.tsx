@@ -1,14 +1,18 @@
 import { useState } from 'react';
-import { isAddress, parseEther, type Address, type Hex } from 'viem';
+import { formatEther, isAddress, type Address, type Hex } from 'viem';
 import {
+  randomSweepNonce,
   signNativeSweepPackage,
   verifyNativeSweepPackage,
   type NativeSweepPackage,
   type SweepPackageVerification,
 } from '../relay/sweep';
-import { SWEEP_EXECUTOR } from '../config';
+import { SEPOLIA_DEMO_SWEEP_EXECUTOR, SWEEP_EXECUTOR } from '../config';
 import { getSepoliaClient } from '../chain/clients';
 import { SEPOLIA_CHAIN_ID } from '../chain/guards';
+import { parseAmountEth } from '../lib/amount';
+import { describeError } from '../lib/describeError';
+import { copyText } from '../lib/clipboard';
 
 const DEFAULT_TTL_MINUTES = 60;
 
@@ -26,16 +30,28 @@ export default function SweepPanel(props: {
   stealthPrivateKey: Hex;
   stealthAddress: Address;
   chainId: number;
+  /** Current balance of the stealth address, used to pre-fill the amount. */
+  balanceWei?: bigint | null;
 }) {
   const [open, setOpen] = useState(false);
   const [destination, setDestination] = useState('');
-  const [amountEth, setAmountEth] = useState('');
+  const [amountEth, setAmountEth] = useState(() =>
+    props.balanceWei && props.balanceWei > 0n ? formatEther(props.balanceWei) : '',
+  );
   const [executor, setExecutor] = useState(SWEEP_EXECUTOR);
   const [ttlMinutes, setTtlMinutes] = useState(String(DEFAULT_TTL_MINUTES));
   const [pkg, setPkg] = useState<NativeSweepPackage | null>(null);
   const [verification, setVerification] = useState<SweepPackageVerification | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [executorAck, setExecutorAck] = useState(false);
+  const [copyState, setCopyState] = useState<string | null>(null);
+  const idBase = `sweep-${props.stealthAddress.slice(2, 10).toLowerCase()}`;
+  // The delegation hands the stealth account's full control to the executor
+  // code. Anything other than the pinned demo executor needs an explicit
+  // acknowledgement, because a hostile executor can take the funds.
+  const executorIsDemo = executor.trim().toLowerCase() === SEPOLIA_DEMO_SWEEP_EXECUTOR.toLowerCase();
+  const executorUnknown = isAddress(executor.trim()) && !executorIsDemo;
 
   async function sign() {
     setError(null);
@@ -46,6 +62,10 @@ export default function SweepPanel(props: {
       setError('Enter a valid EIP-7702 executor contract address.');
       return;
     }
+    if (executorUnknown && !executorAck) {
+      setError('Acknowledge the unknown-executor warning before signing a delegation to it.');
+      return;
+    }
     if (!isAddress(destination)) {
       setError('Enter a valid destination address. It is bound into the signature.');
       return;
@@ -54,15 +74,15 @@ export default function SweepPanel(props: {
       setError('Destination must differ from the stealth address.');
       return;
     }
-    let amount: bigint;
-    try {
-      amount = parseEther(amountEth.trim() || '0');
-    } catch {
-      setError('Amount must be a number in ETH.');
+    const parsed = parseAmountEth(amountEth);
+    if (parsed.error) {
+      setError(parsed.error);
       return;
     }
-    if (amount <= 0n) {
-      setError('Enter the amount to sweep, in ETH.');
+    if (props.balanceWei !== undefined && props.balanceWei !== null && parsed.wei > props.balanceWei) {
+      setError(
+        `Amount exceeds the current balance of ${formatEther(props.balanceWei)} ETH; the executor would revert.`,
+      );
       return;
     }
     const ttl = Number(ttlMinutes);
@@ -88,15 +108,17 @@ export default function SweepPanel(props: {
         chainId: props.chainId,
         executor: executor as Address,
         destination: destination as Address,
-        amount,
+        amount: parsed.wei,
         authorizationNonce,
-        sweepNonce: 0n,
+        // Fresh random replay-guard nonce: a second package for this same
+        // address (after a partial sweep) must not collide on "nonce used".
+        sweepNonce: randomSweepNonce(),
         deadline,
       });
       setPkg(built);
       setVerification(await verifyNativeSweepPackage(built));
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(describeError(err));
     } finally {
       setBusy(false);
     }
@@ -113,16 +135,21 @@ export default function SweepPanel(props: {
     URL.revokeObjectURL(url);
   }
 
-  if (!open) {
-    return (
-      <button className="ghost" style={{ marginTop: '0.5rem' }} onClick={() => setOpen(true)}>
-        Sweep privately (relayer) →
-      </button>
-    );
-  }
+  const panelId = `${idBase}-panel`;
 
   return (
-    <div className="card inset" style={{ marginTop: '0.6rem' }}>
+    <>
+      <button
+        className="ghost"
+        style={{ marginTop: '0.5rem' }}
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={panelId}
+      >
+        {open ? 'Hide sweep panel' : 'Sweep privately via a sponsor (EIP-7702)'}
+      </button>
+      {open && (
+    <div className="card inset" style={{ marginTop: '0.6rem' }} id={panelId}>
       <span className="label">Sweep without re-linking (EIP-7702 sponsored)</span>
       <p className="small dim" style={{ marginTop: 0 }}>
         Sending gas to this stealth address from your own wallet would re-link it. Instead,
@@ -132,112 +159,170 @@ export default function SweepPanel(props: {
       <p className="small" style={{ color: 'var(--warn)', marginTop: 0 }}>
         Choose a destination that is not your main or publicly known wallet. Sweeping into a
         known address re-links the payment and undoes the privacy gain. The demo executor
-        contract is unaudited and intended for testnet use.
+        contract is unaudited and intended for testnet use only. Building the package asks your
+        RPC for this address's nonce, which reveals your interest in it to that RPC; pin a
+        trusted endpoint if that matters.
       </p>
 
+      <label className="label" htmlFor={`${idBase}-executor`}>
+        EIP-7702 executor contract address
+      </label>
       <div className="row" style={{ marginBottom: '0.4rem' }}>
         <input
+          id={`${idBase}-executor`}
           type="text"
           value={executor}
-          onChange={(e) => setExecutor(e.target.value)}
+          onChange={(e) => {
+            setExecutor(e.target.value);
+            setExecutorAck(false);
+          }}
           placeholder="EIP-7702 executor contract (0x…), see RELAYERS.md"
+          autoComplete="off"
+          spellCheck={false}
         />
       </div>
+      {executorUnknown && (
+        <div className="card danger" style={{ marginTop: 0 }} role="alert">
+          <strong>Unknown executor.</strong>
+          <p className="small" style={{ margin: '0.3rem 0' }}>
+            This is not the GhostName Sepolia demo executor. An EIP-7702 delegation gives that
+            contract full control of the stealth account; a hostile executor can take the funds.
+            Only continue if you deployed or audited it yourself.
+          </p>
+          <label className="small" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <input type="checkbox" checked={executorAck} onChange={(e) => setExecutorAck(e.target.checked)} />
+            I trust this executor and accept that it controls the swept account.
+          </label>
+        </div>
+      )}
+      <label className="label" htmlFor={`${idBase}-destination`}>
+        Destination address, bound into the signature
+      </label>
       <div className="row" style={{ marginBottom: '0.4rem' }}>
         <input
+          id={`${idBase}-destination`}
           type="text"
           value={destination}
           onChange={(e) => setDestination(e.target.value)}
           placeholder="destination address (0x…), bound into the signature"
+          autoComplete="off"
+          spellCheck={false}
         />
       </div>
+      <label className="label" htmlFor={`${idBase}-amount`}>
+        Amount to sweep (ETH) and validity window (minutes)
+      </label>
       <div className="row">
         <input
+          id={`${idBase}-amount`}
           type="text"
+          inputMode="decimal"
           style={{ maxWidth: '150px', minWidth: '110px' }}
           value={amountEth}
           onChange={(e) => setAmountEth(e.target.value)}
           placeholder="amount"
+          autoComplete="off"
         />
         <span className="dim small">ETH</span>
         <input
+          id={`${idBase}-ttl`}
+          aria-label="Validity window in minutes"
           type="text"
+          inputMode="numeric"
           style={{ maxWidth: '110px', minWidth: '90px' }}
           value={ttlMinutes}
           onChange={(e) => setTtlMinutes(e.target.value)}
           placeholder="60"
+          autoComplete="off"
         />
         <span className="dim small">min valid</span>
-        <button className="ghost" onClick={() => void sign()} disabled={busy}>
+        <button className="ghost" onClick={() => void sign()} disabled={busy} aria-busy={busy}>
           {busy ? 'Signing…' : 'Build sweep package'}
         </button>
       </div>
-
-      {error && <p className="error small">{error}</p>}
-
-      {pkg && verification && (
-        <>
-          <p className="small" style={{ margin: '0.7rem 0 0.3rem' }}>
-            {verification.valid ? (
-              <span className="pill ok">complete and destination-bound ✓</span>
-            ) : (
-              <span className="pill bad">verification failed</span>
-            )}{' '}
-            <button
-              className="ghost"
-              style={{ padding: '0.15rem 0.6rem', fontSize: '0.78rem' }}
-              onClick={download}
-            >
-              Download JSON
-            </button>{' '}
-            <button
-              className="ghost"
-              style={{ padding: '0.15rem 0.6rem', fontSize: '0.78rem' }}
-              onClick={() => void navigator.clipboard.writeText(JSON.stringify(pkg, null, 2))}
-            >
-              Copy
-            </button>
-          </p>
-          <table className="plain" style={{ marginBottom: '0.5rem' }}>
-            <tbody>
-              <tr>
-                <td className="small dim">delegation signed by stealth EOA</td>
-                <td className="small">{verification.checks.delegationSigner ? 'yes' : 'no'}</td>
-              </tr>
-              <tr>
-                <td className="small dim">destination, amount, nonce, deadline bound</td>
-                <td className="small">{verification.checks.sweepSigner ? 'yes' : 'no'}</td>
-              </tr>
-              <tr>
-                <td className="small dim">calldata matches declared fields</td>
-                <td className="small">{verification.checks.calldataMatches ? 'yes' : 'no'}</td>
-              </tr>
-              <tr>
-                <td className="small dim">account nonce (EIP-7702)</td>
-                <td className="small mono">{pkg.authorizationNonce}</td>
-              </tr>
-              <tr>
-                <td className="small dim">executor sweep nonce (replay guard)</td>
-                <td className="small mono">{pkg.sweepNonce}</td>
-              </tr>
-            </tbody>
-          </table>
-          {!verification.valid && (
-            <ul className="small error" style={{ marginTop: 0 }}>
-              {verification.failures.map((f) => (
-                <li key={f}>{f}</li>
-              ))}
-            </ul>
-          )}
-          <p className="small dim" style={{ marginBottom: '0.3rem' }}>
-            Give the whole package to your sponsor. It contains both required signatures and
-            the exact calldata, and no key material.
-          </p>
-          <div className="bigmono small" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-            {JSON.stringify(pkg, null, 2)}
-          </div>
-        </>
+      {props.balanceWei !== undefined && props.balanceWei !== null && (
+        <p className="small dim" style={{ margin: '0.3rem 0 0' }}>
+          Current balance {formatEther(props.balanceWei)} ETH (pre-filled).
+        </p>
       )}
+
+      {error && (
+        <p className="error small" role="alert">
+          {error}
+        </p>
+      )}
+
+      <div aria-live="polite">
+        {pkg && verification && (
+          <>
+            <div className="row" style={{ margin: '0.7rem 0 0.3rem' }}>
+              {verification.valid ? (
+                <span className="pill ok">pass: complete and destination-bound</span>
+              ) : (
+                <span className="pill bad">fail: verification failed</span>
+              )}
+              <button className="ghost btn-sm" onClick={download}>
+                Download JSON
+              </button>
+              <button
+                className="ghost btn-sm"
+                onClick={() =>
+                  void copyText(JSON.stringify(pkg, null, 2)).then((r) =>
+                    setCopyState(r.ok ? 'Package copied to clipboard.' : (r.error ?? 'Copy failed.')),
+                  )
+                }
+              >
+                Copy package
+              </button>
+              {copyState && (
+                <span className="small dim" role="status">
+                  {copyState}
+                </span>
+              )}
+            </div>
+            <table className="plain" style={{ marginBottom: '0.5rem' }}>
+              <tbody>
+                <tr>
+                  <th scope="row" className="small dim">delegation signed by stealth EOA</th>
+                  <td className="small">{verification.checks.delegationSigner ? 'yes' : 'no'}</td>
+                </tr>
+                <tr>
+                  <th scope="row" className="small dim">destination, amount, nonce, deadline bound</th>
+                  <td className="small">{verification.checks.sweepSigner ? 'yes' : 'no'}</td>
+                </tr>
+                <tr>
+                  <th scope="row" className="small dim">calldata matches declared fields</th>
+                  <td className="small">{verification.checks.calldataMatches ? 'yes' : 'no'}</td>
+                </tr>
+                <tr>
+                  <th scope="row" className="small dim">account nonce (EIP-7702)</th>
+                  <td className="small mono">{pkg.authorizationNonce}</td>
+                </tr>
+                <tr>
+                  <th scope="row" className="small dim">executor sweep nonce (replay guard, random)</th>
+                  <td className="small mono" style={{ wordBreak: 'break-all' }}>{pkg.sweepNonce}</td>
+                </tr>
+              </tbody>
+            </table>
+            {!verification.valid && (
+              <ul className="small error" style={{ marginTop: 0 }}>
+                {verification.failures.map((f) => (
+                  <li key={f}>{f}</li>
+                ))}
+              </ul>
+            )}
+            <p className="small dim" style={{ marginBottom: '0.3rem' }}>
+              Give the whole package to your sponsor. It contains both required signatures and
+              the exact calldata, and no key material. The sponsor learns the destination.
+            </p>
+            <div className="bigmono small" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+              {JSON.stringify(pkg, null, 2)}
+            </div>
+          </>
+        )}
+      </div>
     </div>
+      )}
+    </>
   );
 }

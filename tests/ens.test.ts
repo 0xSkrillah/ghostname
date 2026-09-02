@@ -3,7 +3,16 @@
  * names, and the Sepolia-only record write path with hard network guards.
  */
 import { describe, expect, it } from 'vitest';
-import { namehash, zeroAddress, type Address, type Chain, type Hash } from 'viem';
+import {
+  ContractFunctionRevertedError,
+  HttpRequestError,
+  TimeoutError,
+  namehash,
+  zeroAddress,
+  type Address,
+  type Chain,
+  type Hash,
+} from 'viem';
 import { assertWritableNetwork, WrongNetworkError, WRITABLE_CHAIN_ID } from '../src/chain/guards';
 import {
   normalizeEnsName,
@@ -12,7 +21,7 @@ import {
   resolveStealthMetaAddress,
   type EnsReader,
 } from '../src/ens/resolve';
-import { getResolverAddress, publishStealthRecord } from '../src/ens/write';
+import { getResolverAddress, lookupResolver, publishStealthRecord } from '../src/ens/write';
 import { ENS_STEALTH_RECORD_KEY } from '../src/crypto/metaAddress';
 import { generateStealthKeys, generateStealthAddress, checkStealthAddress } from '../src/crypto/stealth';
 
@@ -49,7 +58,7 @@ describe('network guards', () => {
 
 describe('name normalization', () => {
   it('normalizes case and whitespace', () => {
-    expect(normalizeEnsName('  SkRiLLaH.eth ')).toBe('skrillah.eth');
+    expect(normalizeEnsName('  ExAmPlE-Name.eth ')).toBe('example-name.eth');
   });
 
   it('rejects invalid names', () => {
@@ -139,7 +148,8 @@ describe('publishStealthRecord (Sepolia-only write)', () => {
   function fakeRegistry(resolver: Address) {
     return {
       async getEnsResolver() {
-        if (resolver === zeroAddress) throw new Error('no resolver');
+        // A name without a resolver answers with the zero address (or a
+        // ResolverNotFound revert); a plain transport error is NOT "no resolver".
         return resolver;
       },
     };
@@ -255,12 +265,49 @@ describe('publishStealthRecord (Sepolia-only write)', () => {
     expect(seenName).toBe('anything.eth');
   });
 
-  it('returns null when resolver discovery reverts or yields the zero address', async () => {
+  it('returns null when the Universal Resolver reverts or yields the zero address', async () => {
+    const reverted = new ContractFunctionRevertedError({
+      abi: [],
+      functionName: 'findResolver',
+      message: 'ResolverNotFound',
+    });
     expect(
-      await getResolverAddress({ async getEnsResolver() { throw new Error('revert'); } }, 'x.eth'),
+      await getResolverAddress({ async getEnsResolver() { throw reverted; } }, 'x.eth'),
     ).toBeNull();
     expect(
       await getResolverAddress({ async getEnsResolver() { return zeroAddress; } }, 'x.eth'),
     ).toBeNull();
+  });
+
+  it('never reports an RPC failure as "no resolver"', async () => {
+    const outage = new HttpRequestError({ url: 'https://rpc.example/v1/SECRETKEY', details: 'ECONNRESET' });
+    const lookup = await lookupResolver({ async getEnsResolver() { throw outage; } }, 'x.eth');
+    expect(lookup.status).toBe('failed');
+    if (lookup.status === 'failed') {
+      expect(lookup.error).not.toContain('SECRETKEY');
+    }
+    const timeout = new TimeoutError({ body: {}, url: 'https://rpc.example/v1/SECRETKEY' });
+    expect((await lookupResolver({ async getEnsResolver() { throw timeout; } }, 'x.eth')).status).toBe('failed');
+    // Unknown error types are also "failed": honesty over confidence.
+    expect((await lookupResolver({ async getEnsResolver() { throw new Error('weird'); } }, 'x.eth')).status).toBe('failed');
+    await expect(
+      getResolverAddress({ async getEnsResolver() { throw outage; } }, 'x.eth'),
+    ).rejects.toThrow(/Could not read the resolver/);
+  });
+
+  it('publish refuses to proceed, with a distinct message, when the resolver cannot be read', async () => {
+    const wallet = fakeWallet(WRITABLE_CHAIN_ID);
+    const outage = new HttpRequestError({ url: 'https://rpc.example/v1/SECRETKEY', details: 'ECONNRESET' });
+    await expect(
+      publishStealthRecord({
+        publicClient: { async getEnsResolver() { throw outage; } },
+        walletClient: wallet,
+        chain: { id: WRITABLE_CHAIN_ID } as Chain,
+        account: OWNER,
+        name: 'outage.eth',
+        stealthMetaAddress: keys.stealthMetaAddress,
+      }),
+    ).rejects.toThrow(/Could not read the resolver .* Nothing was sent/);
+    expect(wallet.calls).toHaveLength(0);
   });
 });

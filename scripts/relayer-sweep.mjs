@@ -17,31 +17,32 @@
  * demo wallet for convenience; in production the sponsor is an independent
  * relayer so the sender wallet is never linked either.
  */
+import { loadDemoIdentity, loadExecutorArtifact, loadTestnetKey } from './lib/testnet-key.mjs';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import {
   createPublicClient,
   createWalletClient,
   http,
   encodeFunctionData,
+  concatHex,
+  keccak256,
   formatEther,
   parseEther,
   getContractAddress,
-  toHex,
 } from 'viem';
-import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
+import { privateKeyToAccount } from 'viem/accounts';
 import { sepolia } from 'viem/chains';
 import { generateStealthAddress, computeStealthPrivateKey } from '../src/crypto/stealth.ts';
-import { signSweepAuthorization } from '../src/relay/sweep.ts';
+import { randomSweepNonce, signSweepAuthorization } from '../src/relay/sweep.ts';
 
-const RPC = process.env.VITE_SEPOLIA_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com';
-const key = readFileSync('.env', 'utf8').match(/SEPOLIA_PRIVATE_KEY=(0x[0-9a-fA-F]{64})/)[1];
+const { key, rpc: RPC } = loadTestnetKey();
 const sponsor = privateKeyToAccount(key);
 const transport = http(RPC, { timeout: 30_000 });
 const publicClient = createPublicClient({ chain: sepolia, transport });
 const sponsorWallet = createWalletClient({ account: sponsor, chain: sepolia, transport });
 
-const identity = JSON.parse(readFileSync('.demo/identity.json', 'utf8'));
-const artifact = JSON.parse(readFileSync('.demo/executor.json', 'utf8'));
+const identity = loadDemoIdentity();
+const artifact = loadExecutorArtifact();
 const state = existsSync('.demo/sweep-state.json')
   ? JSON.parse(readFileSync('.demo/sweep-state.json', 'utf8'))
   : {};
@@ -86,18 +87,21 @@ const stealthAccount = privateKeyToAccount(stealthPrivateKey);
 if (stealthAccount.address.toLowerCase() !== stealthAddress.toLowerCase())
   throw new Error('recovered key mismatch');
 
-// 4a. EIP-7702 authorization (stealth EOA nonce is 0 — never sent a tx).
+// 4a. EIP-7702 authorization. Read the real account nonce; never assume 0.
+const authorizationNonce = await publicClient.getTransactionCount({ address: stealthAddress });
 const { authorization } = await signSweepAuthorization({
   stealthPrivateKey,
   chainId: sepolia.id,
   executor: EXECUTOR,
-  nonce: 0,
+  nonce: authorizationNonce,
 });
 
 // 4b. EIP-712 Sweep authorization matching the contract.
-const destination = privateKeyToAccount(generatePrivateKey()).address; // a clean address
+// A clean destination that is still recoverable: derived from the sponsor key,
+// so no new secret is created and the swept test ETH is not burned.
+const destination = privateKeyToAccount(keccak256(concatHex([key, '0x01']))).address;
 const sweepAmount = amount; // sweep everything; sponsor pays gas
-const sweepNonce = 0n;
+const sweepNonce = randomSweepNonce(); // executor replay guard; random so retries never collide
 const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
 const signature = await stealthAccount.signTypedData({
   domain: {
@@ -148,7 +152,7 @@ const evidence = {
   sponsor: sponsor.address,
   sweepTx: receipt.transactionHash,
   txType: 'eip7702 (type-4) sponsored',
-  note: 'stealth EOA never held gas; sponsor paid. secret ' + toHex(crypto.getRandomValues(new Uint8Array(4))),
+  note: 'stealth EOA never held gas; sponsor paid.',
 };
 writeFileSync('.demo/sweep-evidence.json', JSON.stringify(evidence, null, 2));
 console.log('\nDONE — sponsored sweep succeeded. Evidence:');

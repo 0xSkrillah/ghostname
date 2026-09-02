@@ -21,6 +21,7 @@ import { normalizeEnsName } from '../ens/resolve';
 import { parseStealthMetaAddress } from '../crypto/metaAddress';
 import { generateStealthAddress } from '../crypto/stealth';
 import { bytesToHex } from 'viem';
+import { describeError } from '../lib/describeError';
 
 const DERIVATION_TRIALS = 3;
 
@@ -83,6 +84,7 @@ export async function auditEnsName(
       chainId: options.chainId,
       overallStatus: 'unknown',
       conventionalAddress: null,
+      conventionalAddressStatus: 'failed',
       staticMappingNote: 'Name could not be normalized, so nothing was resolved.',
       resolver: {
         address: null,
@@ -101,7 +103,7 @@ export async function auditEnsName(
         proves: PROVES_NOTE,
       },
       trustBoundaries: baseTrustBoundaries(),
-      warnings: [err instanceof Error ? err.message : String(err)],
+      warnings: [describeError(err)],
       unknowns: ['Every property: the name could not be normalized.'],
     };
   }
@@ -114,7 +116,7 @@ export async function auditEnsName(
   } catch (err) {
     resolutionFailed = true;
     unknowns.push(
-      `Conventional address could not be resolved: ${err instanceof Error ? err.message : String(err)}`,
+      `Conventional address could not be resolved: ${describeError(err)}`,
     );
   }
 
@@ -155,7 +157,7 @@ export async function auditEnsName(
       value = await client.getEnsText({ name, key: entry.key });
     } catch (err) {
       unknowns.push(
-        `Record ${entry.key} could not be read: ${err instanceof Error ? err.message : String(err)}`,
+        `Record ${entry.key} could not be read: ${describeError(err)}`,
       );
       recordSources.push({ ...entry, value: null, status: 'absent' });
       continue;
@@ -172,7 +174,7 @@ export async function auditEnsName(
         ...entry,
         value,
         status: 'present-invalid',
-        error: err instanceof Error ? err.message : String(err),
+        error: describeError(err),
       });
     }
   }
@@ -240,6 +242,13 @@ export async function auditEnsName(
       // Public keys only. No private material is ever read or emitted here.
       metaAddressValidation.spendingPublicKey = bytesToHex(parsed.spendingPublicKey);
       metaAddressValidation.viewingPublicKey = bytesToHex(parsed.viewingPublicKey);
+      if (metaAddressValidation.spendingPublicKey === metaAddressValidation.viewingPublicKey) {
+        warnings.push(
+          'Single-key meta-address: the viewing key equals the spending key, so anyone who can ' +
+            'detect payments to this name can also spend them. EIP-5564 permits this form; ' +
+            'GhostName-generated identities always use separate keys.',
+        );
+      }
 
       const addresses: Address[] = [];
       for (let i = 0; i < DERIVATION_TRIALS; i++) {
@@ -256,15 +265,27 @@ export async function auditEnsName(
       }
     } catch (err) {
       metaAddressValidation.valid = false;
-      metaAddressValidation.error = err instanceof Error ? err.message : String(err);
+      metaAddressValidation.error = describeError(err);
       localDerivationTest.error = metaAddressValidation.error;
     }
   }
 
   // 6. Overall status. No numeric score.
   let overallStatus: OverallStatus;
+  const nothingFound =
+    !resolver.address && conventionalAddress === null && recordSources.every((s) => s.status === 'absent');
   if (resolutionFailed && recordSources.every((s) => s.status === 'absent')) {
     overallStatus = 'unknown';
+  } else if (nothingFound) {
+    // No resolver, no address, no records: the name is not configured on this
+    // chain at all. Calling that 'incomplete' would imply a static mapping
+    // that does not exist; the honest answer is that nothing is known here.
+    overallStatus = 'unknown';
+    unknowns.push(
+      `No resolver and no records were found for this name on chain ${options.chainId}. ` +
+        'It may be unregistered here, mistyped, or registered on a different network ' +
+        '(mainnet names do not exist on Sepolia and vice versa).',
+    );
   } else if (selectedRecord && metaAddressValidation.valid && localDerivationTest.allDistinct) {
     overallStatus = 'private-ready';
   } else if (invalidAny.length > 0 || legacyOnly || (selectedRecord && !metaAddressValidation.valid)) {
@@ -275,10 +296,19 @@ export async function auditEnsName(
     overallStatus = 'misconfigured';
   }
 
+  const conventionalAddressStatus: PrivacyAuditReport['conventionalAddressStatus'] = conventionalAddress
+    ? 'resolved'
+    : resolutionFailed
+      ? 'failed'
+      : 'absent';
+
   if (overallStatus === 'incomplete') {
     warnings.push(
-      'No stealth meta-address is published, so future payments to this name remain ' +
-        'linkable to its static address.',
+      conventionalAddress
+        ? 'No stealth meta-address is published, so future payments to this name remain ' +
+            'linkable to its static address.'
+        : 'No stealth meta-address is published. This name has no ETH address record either; ' +
+            'once one is set, payments to it would be linkable to that address.',
     );
   }
 
@@ -289,6 +319,7 @@ export async function auditEnsName(
     chainId: options.chainId,
     overallStatus,
     conventionalAddress,
+    conventionalAddressStatus,
     staticMappingNote,
     resolver,
     recordSources,

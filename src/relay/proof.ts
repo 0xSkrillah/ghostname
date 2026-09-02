@@ -14,17 +14,33 @@ import {
   type Address,
   type Hex,
 } from 'viem';
-import { verifyTypedData } from 'viem/utils';
+import { recoverAuthorizationAddress, verifyTypedData } from 'viem/utils';
+import { decodeEventLog } from 'viem';
 import {
   EXECUTOR_SWEEP_ABI,
   SWEEP_DOMAIN_NAME,
   SWEEP_DOMAIN_VERSION,
   SWEEP_TYPES,
+  hasHighS,
 } from './sweep';
 import type { SweepEvidenceRef } from './evidence';
+import { describeError } from '../lib/describeError';
 
 /** keccak256("Swept(address,uint256,uint256)") */
 export const SWEPT_EVENT_TOPIC = keccak256(toHex('Swept(address,uint256,uint256)'));
+
+export const SWEPT_EVENT = {
+  name: 'Swept',
+  type: 'event',
+  inputs: [
+    { name: 'to', type: 'address', indexed: true },
+    { name: 'amount', type: 'uint256', indexed: false },
+    { name: 'nonce', type: 'uint256', indexed: false },
+  ],
+} as const;
+
+/** EIP-7702 delegation designator prefix (EIP-7702: 0xef0100 || address). */
+const DELEGATION_PREFIX = '0xef0100';
 
 export type CheckState = 'pass' | 'fail' | 'unknown';
 
@@ -80,10 +96,14 @@ export interface ProofClient {
     logs: ReadonlyArray<{ address: Address; topics: readonly Hex[]; data: Hex }>;
   }>;
   getBalance(args: { address: Address }): Promise<bigint>;
+  /** Optional: present-state delegation designator of the swept account. */
+  getCode?(args: { address: Address }): Promise<Hex | undefined>;
 }
 
 const NOT_PROVEN = [
   'That the destination address is unrelated to the recipient.',
+  'That the swept account was never separately funded for gas at some earlier point (only this transaction is examined).',
+  'That the sponsor is independent of the payer or recipient (in the published demo it is the same throwaway test wallet).',
   'That no offchain party (relayer, RPC, indexer) logged metadata about this exit.',
   'Historical balances at earlier blocks, without archive-quality RPC access.',
   'Amount privacy: the swept value is public on-chain.',
@@ -132,12 +152,12 @@ export async function verifySweepProof(
           id: 'fetch',
           label: 'Transaction is readable from chain',
           state: 'unknown',
-          detail: `Could not read the transaction: ${err instanceof Error ? err.message : String(err)}`,
+          detail: `Could not read the transaction: ${describeError(err)}`,
         },
       ],
       facts,
       notProven: NOT_PROVEN,
-      error: err instanceof Error ? err.message : String(err),
+      error: describeError(err),
     };
   }
 
@@ -174,8 +194,9 @@ export async function verifySweepProof(
       : 'The transaction sender is the same account being swept.',
   );
 
-  // 4. The delegation points at the expected executor.
-  const auth = tx.authorizationList?.[0];
+  // 4. The delegation points at the expected executor AND was signed by the
+  // account being swept. A type-4 transaction may carry several
+  // authorizations; only one whose recovered authority is tx.to counts.
   if (!tx.authorizationList) {
     add(
       'delegation',
@@ -183,20 +204,57 @@ export async function verifySweepProof(
       'unknown',
       'This RPC did not expose the authorization list, so the delegate could not be checked here.',
     );
-  } else if (!auth) {
+  } else if (tx.authorizationList.length === 0) {
     add('delegation', 'Delegation points at the expected executor', 'fail', 'No authorization present.');
   } else {
-    facts.executor = auth.address;
-    const matches = auth.address.toLowerCase() === ref.expectedExecutor.toLowerCase();
-    const chainOk = auth.chainId === ref.chainId || auth.chainId === 0;
-    add(
-      'delegation',
-      'Delegation points at the expected executor',
-      matches && chainOk ? 'pass' : 'fail',
-      matches
-        ? `Delegated to ${auth.address} on chain ${auth.chainId} (account nonce ${auth.nonce}).`
-        : `Delegated to ${auth.address}, expected ${ref.expectedExecutor}.`,
-    );
+    let matched: (typeof tx.authorizationList)[number] | null = null;
+    let recoveryFailed = false;
+    for (const candidate of tx.authorizationList) {
+      try {
+        const authority = await recoverAuthorizationAddress({
+          authorization: {
+            address: candidate.address,
+            chainId: candidate.chainId,
+            nonce: candidate.nonce,
+            r: candidate.r,
+            s: candidate.s,
+            yParity: candidate.yParity,
+          },
+        });
+        if (tx.to && authority.toLowerCase() === tx.to.toLowerCase()) {
+          matched = candidate;
+          break;
+        }
+      } catch {
+        recoveryFailed = true;
+      }
+    }
+    if (!matched) {
+      add(
+        'delegation',
+        'Delegation points at the expected executor',
+        'fail',
+        recoveryFailed
+          ? 'No authorization in this transaction recovers to the swept account (some could not be recovered).'
+          : 'No authorization in this transaction was signed by the swept account.',
+      );
+    } else {
+      facts.executor = matched.address;
+      const matches = matched.address.toLowerCase() === ref.expectedExecutor.toLowerCase();
+      const chainOk = matched.chainId === ref.chainId;
+      add(
+        'delegation',
+        'Delegation points at the expected executor',
+        matches && chainOk ? 'pass' : 'fail',
+        matches && chainOk
+          ? `The swept account delegated to ${matched.address} on chain ${matched.chainId} (account nonce ${matched.nonce}).`
+          : !matches
+            ? `The swept account delegated to ${matched.address}, expected ${ref.expectedExecutor}.`
+            : matched.chainId === 0
+              ? 'Delegation is chain-agnostic (chainId 0), which would install the executor on every chain; GhostName never produces this.'
+              : `Delegation chain id ${matched.chainId} does not match ${ref.chainId}.`,
+      );
+    }
   }
 
   // 5. Calldata binds destination, amount, nonce and deadline.
@@ -232,6 +290,7 @@ export async function verifySweepProof(
   // executor runs in the EOA's context, so verifyingContract is the EOA.
   if (destination && amount !== null && sweepNonce !== null && deadline !== null && signature && tx.to) {
     try {
+      if (hasHighS(signature)) throw new Error('non-canonical (high-s) signature');
       const ok = await verifyTypedData({
         address: tx.to,
         domain: {
@@ -258,7 +317,7 @@ export async function verifySweepProof(
         'intent',
         'Sweep intent was signed by the stealth address',
         'unknown',
-        `Signature check could not run: ${err instanceof Error ? err.message : String(err)}`,
+        `Signature check could not run: ${describeError(err)}`,
       );
     }
   } else {
@@ -270,23 +329,84 @@ export async function verifySweepProof(
     );
   }
 
-  // 7. The executor emitted its Swept event, from the EOA's own context.
-  const sweptLog = receipt.logs.find((log) => log.topics[0] === SWEPT_EVENT_TOPIC);
-  if (sweptLog) {
-    const emittedByEoa = !!tx.to && sweptLog.address.toLowerCase() === tx.to.toLowerCase();
+  // 7. The executor emitted its Swept event FROM THE SWEPT ACCOUNT. Under
+  // EIP-7702 the executor runs in the EOA's context, so the log address must
+  // be tx.to; a matching topic from any other emitter proves nothing.
+  const sweptLogs = receipt.logs.filter((log) => log.topics[0] === SWEPT_EVENT_TOPIC);
+  const sweptFromEoa = sweptLogs.find(
+    (log) => !!tx.to && log.address.toLowerCase() === tx.to.toLowerCase(),
+  );
+  if (sweptFromEoa) {
+    let fieldsMatch: boolean | null = null;
+    let fieldDetail = '';
+    try {
+      const decoded = decodeEventLog({
+        abi: [SWEPT_EVENT],
+        data: sweptFromEoa.data,
+        topics: sweptFromEoa.topics as [Hex, ...Hex[]],
+      });
+      const ev = decoded.args as unknown as { to: Address; amount: bigint; nonce: bigint };
+      fieldsMatch =
+        destination !== null &&
+        amount !== null &&
+        sweepNonce !== null &&
+        ev.to.toLowerCase() === destination.toLowerCase() &&
+        ev.amount === amount &&
+        ev.nonce === sweepNonce;
+      fieldDetail = fieldsMatch
+        ? ` Event fields (to, amount, nonce) match the calldata.`
+        : ` Event fields (to=${ev.to}, amount=${ev.amount}, nonce=${ev.nonce}) do not match the calldata.`;
+    } catch {
+      fieldsMatch = false;
+      fieldDetail = ' The event data could not be decoded as Swept(address,uint256,uint256).';
+    }
     add(
       'event',
-      'Executor emitted the Swept event',
-      'pass',
-      emittedByEoa
-        ? `Swept emitted from ${sweptLog.address}, the swept account itself, as EIP-7702 delegation implies.`
-        : `Swept emitted from ${sweptLog.address}.`,
+      'Executor emitted the Swept event from the swept account',
+      fieldsMatch ? 'pass' : 'fail',
+      `Swept emitted from ${sweptFromEoa.address}, the swept account itself, as EIP-7702 delegation implies.${fieldDetail}`,
+    );
+  } else if (sweptLogs.length > 0) {
+    add(
+      'event',
+      'Executor emitted the Swept event from the swept account',
+      'fail',
+      `A Swept event was emitted by ${sweptLogs[0]!.address}, not by the swept account ${tx.to ?? 'unknown'}.`,
     );
   } else {
-    add('event', 'Executor emitted the Swept event', 'fail', 'No Swept event found in the receipt.');
+    add(
+      'event',
+      'Executor emitted the Swept event from the swept account',
+      'fail',
+      'No Swept event found in the receipt.',
+    );
   }
 
-  // 8. The stealth address holds nothing now. Current state only: without
+  // 8. Present-state corroboration: under EIP-7702 the delegation persists, so
+  // the swept account's code should still be the designator for the executor.
+  // A different designator only means the account was re-delegated since; it
+  // does not contradict the historical transaction, so it is unknown, not fail.
+  if (tx.to && client.getCode) {
+    try {
+      const code = (await client.getCode({ address: tx.to })) ?? '0x';
+      const expected = `${DELEGATION_PREFIX}${ref.expectedExecutor.slice(2)}`.toLowerCase();
+      const stillDelegated = code.toLowerCase() === expected;
+      add(
+        'designator',
+        'Swept account still carries the executor delegation (present state)',
+        stillDelegated ? 'pass' : 'unknown',
+        stillDelegated
+          ? `Account code is ${DELEGATION_PREFIX}${ref.expectedExecutor.slice(2).toLowerCase()}, the EIP-7702 designator for the expected executor.`
+          : code === '0x'
+            ? 'The account currently has no code; the delegation has been cleared since the sweep.'
+            : `The account currently delegates elsewhere (${code.slice(0, 50)}…); it was re-delegated since the sweep.`,
+      );
+    } catch {
+      add('designator', 'Swept account still carries the executor delegation (present state)', 'unknown', 'Account code could not be read.');
+    }
+  }
+
+  // 9. The stealth address holds nothing now. Current state only: without
   // archive access we cannot prove the historical balance, so we do not claim it.
   if (tx.to) {
     try {

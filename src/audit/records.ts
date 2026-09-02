@@ -7,8 +7,8 @@
  *    `stealth-meta-address[<schemeId>][<coinType>]` chain-specific key are the
  *    CURRENT PROPOSAL in an evolving RFC, not a ratified requirement;
  *  - `coinType = 0x80000000 | chainId` is the existing ENSIP-11 requirement;
- *  - ERC-6538 registry lookups are EXPERIMENTAL DIAGNOSTICS here and never
- *    override the record convention.
+ *  - ERC-6538 registry lookups are deliberately NOT performed; the ENS text
+ *    record is the only source consulted, so nothing can override it.
  */
 import { SCHEME_ID } from '../crypto/metaAddress';
 

@@ -243,3 +243,96 @@ describe('address helpers', () => {
     expect(publicKeyToAddress(pub)).toBe(privateKeyToAddress(priv));
   });
 });
+
+describe('malformed key material is rejected without being echoed', () => {
+  it('names the field but never repeats the offending value', () => {
+    const almostKey = `0x${'ab'.repeat(31)}a`; // 63 hex chars
+    const cases: Array<() => unknown> = [
+      () =>
+        computeStealthPrivateKey({
+          spendingPrivateKey: almostKey as Hex,
+          viewingPrivateKey: FIXED.viewingPrivateKey,
+          ephemeralPublicKey: publicKeyFromPrivate(FIXED.ephemeralPrivateKey),
+        }),
+      () => privateKeyToAddress(almostKey as Hex),
+      () =>
+        generateStealthAddress(fixedIdentity().stealthMetaAddress, {
+          ephemeralPrivateKey: almostKey as Hex,
+        }),
+    ];
+    for (const run of cases) {
+      let message = '';
+      try {
+        run();
+      } catch (err) {
+        message = (err as Error).message;
+      }
+      expect(message).toMatch(/32-byte hex/);
+      expect(message).not.toContain('abab');
+    }
+  });
+
+  it('checkStealthAddress returns false, never throws, for a malformed viewing key', () => {
+    const keys = generateStealthKeys();
+    const announcement = generateStealthAddress(keys.stealthMetaAddress);
+    expect(
+      checkStealthAddress({
+        stealthAddress: announcement.stealthAddress,
+        ephemeralPublicKey: announcement.ephemeralPublicKey,
+        viewingPrivateKey: '0x1234' as Hex,
+        spendingPublicKey: keys.spendingPublicKey,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('hostile announcements are rejected, never recognised', () => {
+  const keys = generateStealthKeys();
+  const genuine = generateStealthAddress(keys.stealthMetaAddress);
+  const recipient = { viewingPrivateKey: keys.viewingPrivateKey, spendingPublicKey: keys.spendingPublicKey };
+
+  it('an on-curve but unrelated ephemeral key with the genuine view tag is not recognised', () => {
+    const otherEphemeral = bytesToHex(secp256k1.getPublicKey(generateRandomPrivateKey(), true));
+    expect(
+      checkStealthAddress({
+        stealthAddress: genuine.stealthAddress,
+        ephemeralPublicKey: otherEphemeral,
+        viewTag: genuine.viewTag,
+        ...recipient,
+      }),
+    ).toBe(false);
+  });
+
+  it('off-curve, uncompressed and short ephemeral keys return false and never throw', () => {
+    const offCurve = `0x02${'ff'.repeat(32)}` as Hex;
+    const uncompressed = bytesToHex(secp256k1.getPublicKey(generateRandomPrivateKey(), false));
+    for (const ephemeralPublicKey of [offCurve, uncompressed, '0x02' as Hex, '0x' as Hex]) {
+      expect(
+        checkStealthAddress({
+          stealthAddress: genuine.stealthAddress,
+          ephemeralPublicKey,
+          viewTag: genuine.viewTag,
+          ...recipient,
+        }),
+      ).toBe(false);
+    }
+  });
+
+  it('recovery refuses non-compressed ephemeral keys with a clear error', () => {
+    const uncompressed = bytesToHex(secp256k1.getPublicKey(generateRandomPrivateKey(), false));
+    expect(() =>
+      computeStealthPrivateKey({
+        spendingPrivateKey: keys.spendingPrivateKey,
+        viewingPrivateKey: keys.viewingPrivateKey,
+        ephemeralPublicKey: uncompressed,
+      }),
+    ).toThrow(/33-byte compressed/);
+    expect(() =>
+      computeStealthPrivateKey({
+        spendingPrivateKey: keys.spendingPrivateKey,
+        viewingPrivateKey: keys.viewingPrivateKey,
+        ephemeralPublicKey: `0x02${'ff'.repeat(32)}` as Hex,
+      }),
+    ).toThrow();
+  });
+});

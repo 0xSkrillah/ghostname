@@ -16,6 +16,7 @@ import { STATUS_EXPLANATION, STATUS_LABEL, statusPillClass } from '../audit/repo
 import { generateStealthAddress } from '../crypto/stealth';
 import { checkStealthAddress, generateStealthKeys } from '../crypto/stealth';
 import { DEMO_MAINNET_NAME, DEMO_SEPOLIA_NAME } from '../config';
+import { describeError } from '../lib/describeError';
 import SweepProofPanel from '../components/SweepProofPanel';
 import PaymentProofPanel from '../components/PaymentProofPanel';
 import Compare from '../components/Compare';
@@ -36,7 +37,7 @@ export default function Demo() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const fail = (err: unknown) => setError(err instanceof Error ? err.message : String(err));
+  const fail = (err: unknown) => setError(describeError(err));
 
   async function step1() {
     setBusy('audit');
@@ -121,32 +122,57 @@ export default function Demo() {
       <h1>GhostName in two minutes</h1>
       <p className="lead">
         Audit an ENS name, upgrade it without replacing it, and prove the whole private
-        payment lifecycle. Every result below is read live from chain data. Inputs are
-        pre-filled; no output is precomputed.
+        payment lifecycle. Every result below is read live from chain data.{' '}
+        {DEMO_MAINNET_NAME || DEMO_SEPOLIA_NAME
+          ? 'Inputs are pre-filled from your local configuration; no output is precomputed.'
+          : 'Type an established mainnet name for step 1 and a Sepolia name that publishes a stealth record for step 2 (the controlled demo identity is listed in DEMO.md); no output is precomputed.'}
       </p>
-      {error && <p className="error">{error}</p>}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
 
       <ol className="steps">
         {/* 1. AUDIT */}
-        <li className={audit ? 'done' : 'active'}>
+        <li className={audit ? 'done' : 'active'} aria-current={audit ? undefined : 'step'}>
           <strong>Audit: what does an established name commit to today?</strong>
-          <div className="row" style={{ marginTop: '0.4rem' }}>
+          <label className="label" htmlFor="demo-audit-name" style={{ marginTop: '0.4rem' }}>
+            Established mainnet name
+          </label>
+          <div className="row">
             <input
+              id="demo-audit-name"
               type="text"
               value={auditName}
               onChange={(e) => setAuditName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && busy !== 'audit' && void step1()}
+              onKeyDown={(e) =>
+                e.key === 'Enter' && busy !== 'audit' && auditName.trim() && void step1()
+              }
+              placeholder="name.eth"
+              autoComplete="off"
+              spellCheck={false}
+              autoCapitalize="none"
             />
-            <button onClick={() => void step1()} disabled={busy === 'audit'}>
+            <button onClick={() => void step1()} disabled={busy === 'audit' || !auditName.trim()}>
               {busy === 'audit' ? 'Auditing…' : 'Audit on mainnet (read-only)'}
             </button>
           </div>
           {audit && (
-            <div className="card inset" style={{ marginBottom: 0 }}>
+            <div className="card inset" style={{ marginBottom: 0 }} aria-live="polite">
               <div className="bigmono">
                 {audit.name} →{' '}
-                <span style={{ color: 'var(--static-col)' }}>
-                  {audit.conventionalAddress ?? 'no address record'}
+                <span
+                  style={{
+                    color: audit.conventionalAddressStatus === 'resolved' ? 'var(--static-col)' : 'var(--warn)',
+                  }}
+                >
+                  {audit.conventionalAddress ??
+                    (audit.conventionalAddressStatus === 'failed'
+                      ? 'not determined (resolution failed)'
+                      : audit.overallStatus === 'unknown'
+                        ? 'nothing found on mainnet'
+                        : 'no address record')}
                 </span>
               </div>
               <p className="small" style={{ margin: '0.5rem 0 0.3rem' }}>
@@ -156,32 +182,47 @@ export default function Demo() {
                 <span className="dim">{STATUS_EXPLANATION[audit.overallStatus]}</span>
               </p>
               <p className="small dim" style={{ marginBottom: 0 }}>
-                {audit.staticMappingNote} This history cannot be deleted.
+                {audit.staticMappingNote}
+                {audit.conventionalAddress ? ' This history cannot be deleted.' : ''}
               </p>
             </div>
           )}
         </li>
 
         {/* 2. UPGRADE */}
-        <li className={upgrade ? 'done' : audit ? 'active' : ''}>
+        <li
+          className={upgrade ? 'done' : audit ? 'active' : ''}
+          aria-current={!upgrade && audit ? 'step' : undefined}
+        >
           <strong>Upgrade: the same identity, now publishing a stealth record.</strong>
           <p className="small dim" style={{ margin: '0.2rem 0 0.4rem' }}>
             The name is kept. No service-owned subdomain, no new wallet.
+            {!DEMO_SEPOLIA_NAME &&
+              ' Enter a Sepolia name that already publishes stealth-meta-address[1]; the controlled demo identity is named in DEMO.md and README.md.'}
           </p>
+          <label className="label" htmlFor="demo-upgrade-name">
+            GhostName-enabled Sepolia name
+          </label>
           <div className="row">
             <input
+              id="demo-upgrade-name"
               type="text"
               value={upgradeName}
               onChange={(e) => setUpgradeName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && busy !== 'upgrade' && void step2()}
+              onKeyDown={(e) =>
+                e.key === 'Enter' && busy !== 'upgrade' && upgradeName.trim() && void step2()
+              }
               placeholder="GhostName-enabled name (Sepolia)"
+              autoComplete="off"
+              spellCheck={false}
+              autoCapitalize="none"
             />
             <button onClick={() => void step2()} disabled={busy === 'upgrade' || !upgradeName.trim()}>
               {busy === 'upgrade' ? 'Checking…' : 'Check conformance'}
             </button>
           </div>
           {upgrade && (
-            <div className="card inset" style={{ marginBottom: 0 }}>
+            <div className="card inset" style={{ marginBottom: 0 }} aria-live="polite">
               <p className="small" style={{ marginTop: 0 }}>
                 <span className={statusPillClass(upgrade.overallStatus)}>
                   {STATUS_LABEL[upgrade.overallStatus]}
@@ -202,7 +243,10 @@ export default function Demo() {
         </li>
 
         {/* 3. DERIVE */}
-        <li className={derived.length ? 'done' : upgrade ? 'active' : ''}>
+        <li
+          className={derived.length ? 'done' : upgrade ? 'active' : ''}
+          aria-current={!derived.length && upgrade ? 'step' : undefined}
+        >
           <strong>Derive: every sender computes a different destination, locally.</strong>
           <div className="row" style={{ marginTop: '0.4rem' }}>
             <button onClick={step3} disabled={!upgrade?.selectedRecord}>
@@ -212,31 +256,38 @@ export default function Demo() {
               <span className="small dim">Fresh ephemeral randomness each time.</span>
             )}
           </div>
-          {derived.map((address, i) => (
-            <div key={address} className="bigmono" style={{ color: 'var(--stealth-col)' }}>
-              {String.fromCharCode(65 + i)}: {address}
-            </div>
-          ))}
+          <div aria-live="polite">
+            {derived.map((address, i) => (
+              <div key={address} className="bigmono" style={{ color: 'var(--stealth-col)' }}>
+                {String.fromCharCode(65 + i)}: {address}
+              </div>
+            ))}
+          </div>
           {derived.length === 3 && (
             <p className="small" style={{ color: allDistinct ? 'var(--accent)' : 'var(--danger)' }}>
               {allDistinct
-                ? 'A, B and C are all different. Same name, a new one-time address every time.'
-                : 'Repeated destination detected. This must not happen.'}
+                ? 'Pass: A, B and C are all different. Same name, a new one-time address every time.'
+                : 'Fail: repeated destination detected. This must not happen.'}
             </p>
           )}
         </li>
 
         {/* 4. PROVE RECEIVE */}
-        <li className={recognition ? 'done' : derived.length ? 'active' : ''}>
+        <li
+          className={recognition ? 'done' : derived.length ? 'active' : ''}
+          aria-current={!recognition && derived.length ? 'step' : undefined}
+        >
           <strong>Prove receive: only the right viewing key finds the money.</strong>
           <div className="row" style={{ marginTop: '0.4rem' }}>
-            <button onClick={step4}>Run recognition test</button>
+            <button onClick={step4} disabled={derived.length === 0}>
+              Run recognition test
+            </button>
             <span className="small dim">
               Live, using the same code the recipient scanner uses.
             </span>
           </div>
           {recognition && (
-            <div className="card inset" style={{ marginBottom: 0 }}>
+            <div className="card inset" style={{ marginBottom: 0 }} aria-live="polite">
               <div className="bigmono small" style={{ color: 'var(--stealth-col)' }}>
                 {recognition.stealthAddress}
               </div>
@@ -263,7 +314,7 @@ export default function Demo() {
         </li>
 
         {/* 5. PROVE EXIT */}
-        <li className={recognition ? 'active' : ''}>
+        <li className={recognition ? 'active' : ''} aria-current={recognition ? 'step' : undefined}>
           <strong>Prove exit: the funds leave without the stealth address paying gas.</strong>
           <SweepProofPanel />
         </li>
@@ -275,7 +326,10 @@ export default function Demo() {
             <div className="col stealth">
               <div className="title">Protected</div>
               <ul className="small" style={{ margin: 0, paddingLeft: '1.1rem' }}>
-                <li>Future receiving addresses are unlinkable to the name.</li>
+                <li>
+                  Future receiving addresses cannot be linked to the name by a passive observer
+                  without the viewing key.
+                </li>
                 <li>Derivation is local, so no gateway learns the destination.</li>
                 <li>Recipient address reuse is avoided.</li>
               </ul>
