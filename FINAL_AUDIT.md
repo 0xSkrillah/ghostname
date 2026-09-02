@@ -126,9 +126,14 @@ documentation corrected. Residual = accepted and documented, with reason.
 | F-30 | Low | docs | README contradicted itself on mainnet posture and executor deployment; stale test counts; duplicated section numbers | Docs |
 | F-31 | Low | usability | Bare "HTTP request failed" errors; stale report after input change; placeholder addresses in the comparison; missing hand-offs | Fixed |
 | F-32 | Low | proofs | Payment proof matched the ETH marker by substring; announcer caller not surfaced | Fixed |
-| F-33 | Info | supply chain | Two copies of @noble/curves in the bundle (viem pins 1.9.1) | Residual |
+| F-33 | Medium | operations | A plain `npm test` performed Sepolia writes whenever `SEPOLIA_PRIVATE_KEY` was present in `.env` | Fixed |
+| F-36 | Low | untrusted input | Sweep package top-level `authorizationNonce` not checked against the signed nonce; high-s delegation signatures accepted | Fixed |
+| F-37 | Low | operations | Operator scripts trusted `.demo/identity.json` and the compiled executor artifact unvalidated; sweep destination key discarded; commitment secret printed | Fixed |
+| F-38 | Low | accessibility | Focus lost when controls unmounted after activation; no route titles, skip link or focus move on navigation; row headers, target sizes, nested live regions | Fixed |
+| F-39 | Info | supply chain | Two copies of @noble/curves in the bundle (viem pins 1.9.1) | Residual |
 | F-34 | Info | crypto | Deployed executor accepts high-s signatures via `ecrecover` | Residual |
 | F-35 | Info | privacy | Plaintext keys in `localStorage` and plaintext backup download | Residual |
+| F-40 | Info | agent surfaces | No MCP server, CLI, Agent Skill or HTTP interface exists; docs referred to "the agent" in two places | Docs |
 
 No Critical finding was confirmed. No unresolved Critical or High finding
 remains.
@@ -390,6 +395,32 @@ positionally with the announcer caller surfaced. Verification:
 `tests/stealth.test.ts`, `tests/interop.test.ts`, `tests/sweep.package.test.ts`,
 `tests/mobula.test.ts`, `tests/inputGuards.test.ts`, `tests/evidence.test.ts`,
 `tests/paymentProof.test.ts`.
+
+### F-33 Plain `npm test` could spend testnet ETH (Medium)
+
+Reproduction: with `SEPOLIA_PRIVATE_KEY` in a local `.env`, `npm test`
+included `tests/live.sepolia.test.ts` and `tests/live.sweep.test.ts`, which
+publish a record, send ETH and deploy or delegate to a contract.
+
+Fix: both suites require `RUN_LIVE=1` in addition to the key; the
+`e2e:sepolia` and `sweep:sepolia` scripts set it explicitly; the plain
+`test` script does not. Verification: `tests/liveGate.test.ts`.
+
+### F-36 to F-38 Verifier rules, operator inputs, focus and navigation (Low)
+
+Fixes: the package verifier requires the top-level `authorizationNonce` to
+equal the signed `authorization.nonce` and rejects high-s delegation
+signatures (`tests/sweep.package.test.ts`); operator scripts and live suites
+load the demo identity through the strict backup parser, refuse
+world-readable key files, validate the compiled executor artifact (ABI array
+with `sweep`, hex bytecode) before deploying it, derive the sweep destination
+from the sponsor key instead of discarding a fresh one, and never print the
+commitment secret; the UI keeps the triggering control mounted or moves
+focus to the result when a control unmounts itself, sets a document title
+per route, moves focus to `main` after navigation, offers a skip link, marks
+the current demo step with `aria-current`, uses row headers in key/value
+tables and lists on the Privacy page, meets the 24 px target size for nav
+links and small buttons, and avoids nested live regions.
 
 ### F-28 and F-29 Supply chain and operations (Low)
 
