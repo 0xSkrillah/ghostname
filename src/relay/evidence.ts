@@ -8,7 +8,7 @@
  */
 import type { Address, Hex } from 'viem';
 import { SEPOLIA_CHAIN_ID } from '../chain/guards';
-import { SWEEP_EXECUTOR } from '../config';
+import { SEPOLIA_DEMO_SWEEP_EXECUTOR } from '../config';
 
 export interface SweepEvidenceRef {
   label: string;
@@ -23,7 +23,7 @@ export const SPONSORED_SWEEP_EVIDENCE: SweepEvidenceRef = {
   label: 'Sponsored EIP-7702 exit (Sepolia)',
   chainId: SEPOLIA_CHAIN_ID,
   txHash: '0x75a9da4e44494d5983bdfe5a6774255e938248bbbca9414eefcd9acdb0089c25',
-  expectedExecutor: SWEEP_EXECUTOR as Address,
+  expectedExecutor: SEPOLIA_DEMO_SWEEP_EXECUTOR as Address,
   explorerBase: 'https://sepolia.etherscan.io',
 };
 

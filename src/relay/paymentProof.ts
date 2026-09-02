@@ -22,6 +22,7 @@ import {
 import { SCHEME_ID } from '../crypto/metaAddress';
 import type { PaymentEvidenceRef } from './evidence';
 import type { CheckState, ProofCheck } from './proof';
+import { describeError } from '../lib/describeError';
 
 export interface PaymentProof {
   paymentTxHash: Hex;
@@ -104,12 +105,12 @@ export async function verifyPaymentProof(
           id: 'fetch',
           label: 'Transactions are readable from chain',
           state: 'unknown',
-          detail: `Could not read the transactions: ${err instanceof Error ? err.message : String(err)}`,
+          detail: `Could not read the transactions: ${describeError(err)}`,
         },
       ],
       facts,
       notProven: NOT_PROVEN,
-      error: err instanceof Error ? err.message : String(err),
+      error: describeError(err),
     };
   }
 
@@ -230,7 +231,7 @@ export async function verifyPaymentProof(
         'scheme',
         'Announcement decodes as an ERC-5564 Announcement',
         'fail',
-        `Could not decode the log: ${err instanceof Error ? err.message : String(err)}`,
+        `Could not decode the log: ${describeError(err)}`,
       );
     }
   }

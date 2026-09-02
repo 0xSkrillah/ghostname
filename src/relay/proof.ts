@@ -22,6 +22,7 @@ import {
   SWEEP_TYPES,
 } from './sweep';
 import type { SweepEvidenceRef } from './evidence';
+import { describeError } from '../lib/describeError';
 
 /** keccak256("Swept(address,uint256,uint256)") */
 export const SWEPT_EVENT_TOPIC = keccak256(toHex('Swept(address,uint256,uint256)'));
@@ -132,12 +133,12 @@ export async function verifySweepProof(
           id: 'fetch',
           label: 'Transaction is readable from chain',
           state: 'unknown',
-          detail: `Could not read the transaction: ${err instanceof Error ? err.message : String(err)}`,
+          detail: `Could not read the transaction: ${describeError(err)}`,
         },
       ],
       facts,
       notProven: NOT_PROVEN,
-      error: err instanceof Error ? err.message : String(err),
+      error: describeError(err),
     };
   }
 
@@ -258,7 +259,7 @@ export async function verifySweepProof(
         'intent',
         'Sweep intent was signed by the stealth address',
         'unknown',
-        `Signature check could not run: ${err instanceof Error ? err.message : String(err)}`,
+        `Signature check could not run: ${describeError(err)}`,
       );
     }
   } else {

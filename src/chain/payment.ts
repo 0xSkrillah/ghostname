@@ -72,6 +72,11 @@ export async function executeStealthPayment(args: {
   /** Explicit per-action confirmation, required for a mainnet payment. */
   mainnetConfirmed?: boolean;
 }): Promise<ExecutedStealthPayment> {
+  // A zero or negative payment would still cost gas for two transactions and
+  // announce a payment that never happened. Refuse before touching the wallet.
+  if (args.plan.amountWei <= 0n) {
+    throw new Error('Payment amount must be greater than zero.');
+  }
   const guard = { mainnetConfirmed: args.mainnetConfirmed };
   assertWritableNetwork(args.chain.id, guard);
   assertWritableNetwork(await args.walletClient.getChainId(), guard);

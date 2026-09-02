@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Address } from 'viem';
 import { fetchWalletExposure, type WalletExposure } from '../mobula/portfolio';
+import { describeError } from '../lib/describeError';
 
 /**
  * Public-exposure panel: shows how much financial information a static
@@ -20,7 +21,7 @@ export default function ExposurePanel({ address }: { address: Address }) {
       setExposure(await fetchWalletExposure(address));
       setState('done');
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(describeError(err));
       setState('error');
     }
   }
@@ -35,12 +36,25 @@ export default function ExposurePanel({ address }: { address: Address }) {
             from it. Here is a live sample of what a single lookup reveals.
           </p>
           <button className="secondary" onClick={() => void load()}>
-            Assemble public profile
+            Assemble public profile (queries Mobula)
           </button>
         </>
       )}
-      {state === 'loading' && <p className="dim">Querying public holdings…</p>}
-      {state === 'error' && <p className="error">{error}</p>}
+      {state === 'loading' && (
+        <p className="dim" role="status">
+          Querying public holdings…
+        </p>
+      )}
+      {state === 'error' && (
+        <>
+          <p className="error" role="alert">
+            {error}
+          </p>
+          <button className="ghost" onClick={() => void load()}>
+            Retry
+          </button>
+        </>
+      )}
       {state === 'done' && exposure && (
         <>
           <div className="row" style={{ gap: '1.5rem', marginBottom: '0.6rem' }}>
@@ -66,6 +80,7 @@ export default function ExposurePanel({ address }: { address: Address }) {
                   className="ghost"
                   style={{ padding: '0.1rem 0.5rem', fontSize: '0.75rem' }}
                   onClick={() => setRevealed((r) => !r)}
+                  aria-pressed={revealed}
                 >
                   {revealed ? 'hide' : 'reveal'}
                 </button>

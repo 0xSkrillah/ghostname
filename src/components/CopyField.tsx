@@ -12,10 +12,16 @@ export default function CopyField(props: {
   return (
     <div className="card inset">
       <span className="label">{props.label}</span>
-      <div className={`bigmono${props.size === 'xl' ? ' xl' : ''}`}>{shown}</div>
+      <div
+        className={`bigmono${props.size === 'xl' ? ' xl' : ''}`}
+        aria-label={props.sensitive && !revealed ? `${props.label}, hidden` : undefined}
+      >
+        {shown}
+      </div>
       <div className="row" style={{ marginTop: '0.6rem' }}>
         <button
           className="ghost"
+          aria-label={`Copy ${props.label}`}
           onClick={() => {
             void navigator.clipboard.writeText(props.value).then(() => {
               setCopied(true);
@@ -26,7 +32,12 @@ export default function CopyField(props: {
           {copied ? 'Copied' : 'Copy'}
         </button>
         {props.sensitive && (
-          <button className="ghost" onClick={() => setRevealed((r) => !r)}>
+          <button
+            className="ghost"
+            onClick={() => setRevealed((r) => !r)}
+            aria-pressed={revealed}
+            aria-label={`${revealed ? 'Hide' : 'Reveal'} ${props.label}`}
+          >
             {revealed ? 'Hide' : 'Reveal'}
           </button>
         )}

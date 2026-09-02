@@ -16,6 +16,7 @@ import { STATUS_EXPLANATION, STATUS_LABEL, statusPillClass } from '../audit/repo
 import { generateStealthAddress } from '../crypto/stealth';
 import { checkStealthAddress, generateStealthKeys } from '../crypto/stealth';
 import { DEMO_MAINNET_NAME, DEMO_SEPOLIA_NAME } from '../config';
+import { describeError } from '../lib/describeError';
 import SweepProofPanel from '../components/SweepProofPanel';
 import PaymentProofPanel from '../components/PaymentProofPanel';
 import Compare from '../components/Compare';
@@ -36,7 +37,7 @@ export default function Demo() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const fail = (err: unknown) => setError(err instanceof Error ? err.message : String(err));
+  const fail = (err: unknown) => setError(describeError(err));
 
   async function step1() {
     setBusy('audit');
@@ -124,9 +125,13 @@ export default function Demo() {
         payment lifecycle. Every result below is read live from chain data. Inputs are
         pre-filled; no output is precomputed.
       </p>
-      {error && <p className="error">{error}</p>}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
 
-      <ol className="steps">
+      <ol className="steps" aria-live="polite" aria-busy={busy !== null}>
         {/* 1. AUDIT */}
         <li className={audit ? 'done' : 'active'}>
           <strong>Audit: what does an established name commit to today?</strong>
@@ -140,6 +145,9 @@ export default function Demo() {
               }
               placeholder="name.eth"
               aria-label="Established ENS name to audit on mainnet"
+              autoComplete="off"
+              spellCheck={false}
+              autoCapitalize="none"
             />
             <button onClick={() => void step1()} disabled={busy === 'audit' || !auditName.trim()}>
               {busy === 'audit' ? 'Auditing…' : 'Audit on mainnet (read-only)'}
@@ -179,6 +187,10 @@ export default function Demo() {
               onChange={(e) => setUpgradeName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && busy !== 'upgrade' && void step2()}
               placeholder="GhostName-enabled name (Sepolia)"
+              aria-label="GhostName-enabled ENS name to check on Sepolia"
+              autoComplete="off"
+              spellCheck={false}
+              autoCapitalize="none"
             />
             <button onClick={() => void step2()} disabled={busy === 'upgrade' || !upgradeName.trim()}>
               {busy === 'upgrade' ? 'Checking…' : 'Check conformance'}
@@ -224,8 +236,8 @@ export default function Demo() {
           {derived.length === 3 && (
             <p className="small" style={{ color: allDistinct ? 'var(--accent)' : 'var(--danger)' }}>
               {allDistinct
-                ? 'A, B and C are all different. Same name, a new one-time address every time.'
-                : 'Repeated destination detected. This must not happen.'}
+                ? 'Pass: A, B and C are all different. Same name, a new one-time address every time.'
+                : 'Fail: repeated destination detected. This must not happen.'}
             </p>
           )}
         </li>

@@ -21,6 +21,7 @@ import { normalizeEnsName } from '../ens/resolve';
 import { parseStealthMetaAddress } from '../crypto/metaAddress';
 import { generateStealthAddress } from '../crypto/stealth';
 import { bytesToHex } from 'viem';
+import { describeError } from '../lib/describeError';
 
 const DERIVATION_TRIALS = 3;
 
@@ -101,7 +102,7 @@ export async function auditEnsName(
         proves: PROVES_NOTE,
       },
       trustBoundaries: baseTrustBoundaries(),
-      warnings: [err instanceof Error ? err.message : String(err)],
+      warnings: [describeError(err)],
       unknowns: ['Every property: the name could not be normalized.'],
     };
   }
@@ -114,7 +115,7 @@ export async function auditEnsName(
   } catch (err) {
     resolutionFailed = true;
     unknowns.push(
-      `Conventional address could not be resolved: ${err instanceof Error ? err.message : String(err)}`,
+      `Conventional address could not be resolved: ${describeError(err)}`,
     );
   }
 
@@ -155,7 +156,7 @@ export async function auditEnsName(
       value = await client.getEnsText({ name, key: entry.key });
     } catch (err) {
       unknowns.push(
-        `Record ${entry.key} could not be read: ${err instanceof Error ? err.message : String(err)}`,
+        `Record ${entry.key} could not be read: ${describeError(err)}`,
       );
       recordSources.push({ ...entry, value: null, status: 'absent' });
       continue;
@@ -172,7 +173,7 @@ export async function auditEnsName(
         ...entry,
         value,
         status: 'present-invalid',
-        error: err instanceof Error ? err.message : String(err),
+        error: describeError(err),
       });
     }
   }
@@ -256,7 +257,7 @@ export async function auditEnsName(
       }
     } catch (err) {
       metaAddressValidation.valid = false;
-      metaAddressValidation.error = err instanceof Error ? err.message : String(err);
+      metaAddressValidation.error = describeError(err);
       localDerivationTest.error = metaAddressValidation.error;
     }
   }

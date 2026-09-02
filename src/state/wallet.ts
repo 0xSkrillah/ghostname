@@ -16,6 +16,7 @@ import {
 } from 'viem';
 import { mainnet, sepolia } from 'viem/chains';
 import { MAINNET_CHAIN_ID, SEPOLIA_CHAIN_ID, isMainnetWriteEnabled } from '../chain/guards';
+import { describeError } from '../lib/describeError';
 
 declare global {
   interface Window {
@@ -73,6 +74,20 @@ export function useWallet(): WalletState {
     };
     provider.on?.('chainChanged', onChain);
     provider.on?.('accountsChanged', onAccounts);
+    // Restore an already-authorised connection after a reload without
+    // prompting: eth_accounts never opens a wallet dialog.
+    void (async () => {
+      try {
+        const accounts = (await provider.request({ method: 'eth_accounts' })) as Address[];
+        if (accounts.length > 0) {
+          const chainHex = (await provider.request({ method: 'eth_chainId' })) as string;
+          setAccount(accounts[0] ?? null);
+          setChainId(Number(chainHex));
+        }
+      } catch {
+        // Not connected yet; the user can connect explicitly.
+      }
+    })();
     return () => {
       provider.removeListener?.('chainChanged', onChain);
       provider.removeListener?.('accountsChanged', onAccounts);
@@ -94,7 +109,7 @@ export function useWallet(): WalletState {
       setAccount(accounts[0] ?? null);
       setChainId(Number(chainHex));
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(describeError(err));
     }
   }, []);
 
@@ -107,7 +122,7 @@ export function useWallet(): WalletState {
         params: [{ chainId: `0x${id.toString(16)}` }],
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(describeError(err));
     }
   }, []);
 
