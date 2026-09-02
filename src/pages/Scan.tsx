@@ -18,6 +18,10 @@ const NETWORK_LABEL: Record<Network, string> = {
   sepolia: 'Sepolia testnet',
 };
 
+function otherNetwork(network: Network): Network {
+  return network === 'mainnet' ? 'sepolia' : 'mainnet';
+}
+
 /**
  * GhostCheck: audit any ENS name against the emerging stealth-resolution
  * convention. Read-only, live, and honest about what it cannot establish.
@@ -31,24 +35,30 @@ export default function Scan() {
   const [report, setReport] = useState<PrivacyAuditReport | null>(null);
   const [reportNetwork, setReportNetwork] = useState<Network>('mainnet');
 
-  async function audit() {
+  async function audit(target: Network = network) {
     setBusy(true);
     setError(null);
     setReport(null);
     try {
-      const client = network === 'mainnet' ? getMainnetClient() : getSepoliaClient();
-      const chainId = network === 'mainnet' ? MAINNET_CHAIN_ID : SEPOLIA_CHAIN_ID;
+      const client = target === 'mainnet' ? getMainnetClient() : getSepoliaClient();
+      const chainId = target === 'mainnet' ? MAINNET_CHAIN_ID : SEPOLIA_CHAIN_ID;
       const result = await auditEnsName(client, name, { chainId, derivationPath: 'local-client' });
       setReport(result);
-      setReportNetwork(network);
+      setReportNetwork(target);
     } catch (err) {
       setError(
-        `Audit on ${NETWORK_LABEL[network]} failed: ${describeError(err)} Retry; if it persists, ` +
+        `Audit on ${NETWORK_LABEL[target]} failed: ${describeError(err)} Retry; if it persists, ` +
           'set VITE_MAINNET_RPC_URL or VITE_SEPOLIA_RPC_URL in .env to a provider you control.',
       );
     } finally {
       setBusy(false);
     }
+  }
+
+  /** One click to re-run the same name on the other network. */
+  function auditOn(target: Network) {
+    setNetwork(target);
+    void audit(target);
   }
 
   // The report on screen must visibly belong to the name and network in the inputs.
@@ -67,11 +77,7 @@ export default function Scan() {
       <h1>Audit an ENS identity</h1>
       <p className="lead">
         GhostCheck reads any ENS name live and reports whether it is ready to receive private
-        payments. Read-only: nothing is written and no data about you is uploaded. Enter any
-        name; nothing is queried until you run the audit. A name lives on one network, so pick
-        the network it was registered on. Two things do leave your browser: RPC requests naming
-        the audited name, and, if a name uses an offchain (CCIP-read) resolver, a request to
-        that resolver's gateway. The optional Mobula panel sends the resolved address to Mobula.
+        payments. Read-only: nothing is written and nothing about you is uploaded.
       </p>
       <label className="label" htmlFor="scan-name">
         ENS name to audit
@@ -110,6 +116,12 @@ export default function Scan() {
           {busy ? 'Auditing…' : 'Run privacy audit'}
         </button>
       </form>
+      <p className="small dim" style={{ margin: '0.5rem 0 0' }}>
+        Nothing is queried until you run the audit. A name lives on one network, so pick the
+        one it was registered on. Two things leave your browser: RPC requests naming the
+        audited name and, for names with an offchain (CCIP-read) resolver, a request to that
+        resolver's gateway. The optional Mobula panel sends the resolved address to Mobula.
+      </p>
       {error && (
         <p className="error" role="alert">
           {error}
@@ -149,6 +161,20 @@ export default function Scan() {
               <p className="small dim" style={{ marginBottom: 0 }}>
                 {report.staticMappingNote}
               </p>
+              {report.overallStatus === 'unknown' && !addressFailed && (
+                <div className="row" style={{ marginTop: '0.7rem' }}>
+                  <button
+                    className="secondary"
+                    onClick={() => auditOn(otherNetwork(reportNetwork))}
+                    disabled={busy}
+                  >
+                    Try on {NETWORK_LABEL[otherNetwork(reportNetwork)]}
+                  </button>
+                  <span className="small dim">
+                    A name registered on the other network reports as unknown here.
+                  </span>
+                </div>
+              )}
             </div>
 
             {report.conventionalAddress && (

@@ -122,12 +122,27 @@ export class ScanRangeError extends Error {
  * or is beyond the latest block, is rejected with a message the user can act
  * on instead of a raw BigInt conversion error.
  */
-export function resolveScanStart(input: string, latest: bigint, defaultLookback: bigint): bigint {
-  const text = input.trim();
-  if (text === '') return latest > defaultLookback ? latest - defaultLookback : 0n;
-  if (!/^[0-9]+$/.test(text)) {
+/**
+ * A typed block number with the separators people paste from explorers
+ * ("11,612,900", "11 612 900", "11_612_900") reduced to digits. Returns the
+ * cleaned text; the caller decides whether it is a whole number.
+ */
+export function normalizeScanStartInput(input: string): string {
+  return input.replace(/[\s,_]/g, '');
+}
+
+/** Syntax check only, safe to run before any RPC call. Throws ScanRangeError. */
+export function assertScanStartSyntax(input: string): void {
+  const text = normalizeScanStartInput(input);
+  if (text !== '' && !/^[0-9]+$/.test(text)) {
     throw new ScanRangeError('Start block must be a whole number, for example 11612900.');
   }
+}
+
+export function resolveScanStart(input: string, latest: bigint, defaultLookback: bigint): bigint {
+  assertScanStartSyntax(input);
+  const text = normalizeScanStartInput(input);
+  if (text === '') return latest > defaultLookback ? latest - defaultLookback : 0n;
   const from = BigInt(text);
   if (from > latest) {
     throw new ScanRangeError(`Start block ${from} is after the latest block ${latest}.`);

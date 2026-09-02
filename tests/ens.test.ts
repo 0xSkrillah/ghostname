@@ -21,7 +21,12 @@ import {
   resolveStealthMetaAddress,
   type EnsReader,
 } from '../src/ens/resolve';
-import { getResolverAddress, lookupResolver, publishStealthRecord } from '../src/ens/write';
+import {
+  checkStealthRecordWritable,
+  getResolverAddress,
+  lookupResolver,
+  publishStealthRecord,
+} from '../src/ens/write';
 import { ENS_STEALTH_RECORD_KEY } from '../src/crypto/metaAddress';
 import { generateStealthKeys, generateStealthAddress, checkStealthAddress } from '../src/crypto/stealth';
 
@@ -309,5 +314,61 @@ describe('publishStealthRecord (Sepolia-only write)', () => {
       }),
     ).rejects.toThrow(/Could not read the resolver .* Nothing was sent/);
     expect(wallet.calls).toHaveLength(0);
+  });
+});
+
+describe('checkStealthRecordWritable (pre-sign simulation)', () => {
+  const keys = generateStealthKeys();
+  const node = namehash('mytest.eth');
+
+  it('reports ok when the resolver accepts a simulated setText from the account', async () => {
+    const calls: unknown[] = [];
+    const result = await checkStealthRecordWritable({
+      publicClient: {
+        async simulateContract(args: unknown) {
+          calls.push(args);
+          return {};
+        },
+      },
+      account: OWNER,
+      resolver: RESOLVER,
+      node,
+      stealthMetaAddress: keys.stealthMetaAddress,
+    });
+    expect(result).toEqual({ status: 'ok' });
+    const call = calls[0] as { address: Address; functionName: string; args: unknown[]; account: Address };
+    expect(call.address).toBe(RESOLVER);
+    expect(call.functionName).toBe('setText');
+    expect(call.args).toEqual([node, ENS_STEALTH_RECORD_KEY, keys.stealthMetaAddress]);
+    expect(call.account).toBe(OWNER);
+  });
+
+  it('reports blocked when the resolver reverts (the wallet does not control the name)', async () => {
+    const reverted = new ContractFunctionRevertedError({
+      abi: [],
+      functionName: 'setText',
+      message: 'Unauthorised',
+    });
+    const result = await checkStealthRecordWritable({
+      publicClient: { async simulateContract() { throw reverted; } },
+      account: OWNER,
+      resolver: RESOLVER,
+      node,
+      stealthMetaAddress: keys.stealthMetaAddress,
+    });
+    expect(result.status).toBe('blocked');
+  });
+
+  it('never reports a transport failure as a permission answer, and scrubs the endpoint', async () => {
+    const outage = new HttpRequestError({ url: 'https://rpc.example/v1/SECRETKEY', details: 'ECONNRESET' });
+    const result = await checkStealthRecordWritable({
+      publicClient: { async simulateContract() { throw outage; } },
+      account: OWNER,
+      resolver: RESOLVER,
+      node,
+      stealthMetaAddress: keys.stealthMetaAddress,
+    });
+    expect(result.status).toBe('unknown');
+    expect(JSON.stringify(result)).not.toContain('SECRETKEY');
   });
 });
