@@ -9,6 +9,7 @@ import PaymentProofPanel from '../components/PaymentProofPanel';
 import {
   declaredEthAmount,
   fetchAnnouncements,
+  groupAnnouncementsByAddress,
   recogniseOwnedAnnouncements,
   recogniseOwnedAnnouncementsAsync,
   resolveScanStart,
@@ -225,13 +226,20 @@ export default function Receive() {
               </p>
             </div>
 
-            {outcome.owned.map((a) => {
+            {groupAnnouncementsByAddress(outcome.owned).map(({ announcement: a, duplicateTxHashes }) => {
               const verification = outcome.verified.find((v) => v.address === a.stealthAddress);
               const balance = outcome.balances[a.stealthAddress.toLowerCase()];
               const declared = declaredEthAmount(a.metadata);
+              const funded = balance !== undefined && balance !== null && balance > 0n;
               return (
-                <div className="card ok" key={a.transactionHash + a.stealthAddress}>
-                  <span className="label">Payment recognised</span>
+                <div className={`card ${funded ? 'ok' : ''}`} key={a.stealthAddress}>
+                  <span className="label">
+                    {balance === undefined || balance === null
+                      ? 'Announcement recognised'
+                      : funded
+                        ? 'Payment recognised'
+                        : 'Announcement recognised, no funds at this address'}
+                  </span>
                   <div className="bigmono" style={{ color: 'var(--stealth-col)' }}>
                     {a.stealthAddress}
                   </div>
@@ -266,6 +274,13 @@ export default function Receive() {
                     >
                       announcement tx
                     </a>
+                    {duplicateTxHashes.length > 0 && (
+                      <>
+                        {' '}
+                        · {duplicateTxHashes.length} duplicate announcement
+                        {duplicateTxHashes.length === 1 ? '' : 's'} for this address ignored
+                      </>
+                    )}
                   </p>
                   <p className="small" style={{ margin: '0.4rem 0 0' }}>
                     Spending-key check:{' '}

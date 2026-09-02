@@ -304,8 +304,11 @@ export async function auditEnsName(
 
   if (overallStatus === 'incomplete') {
     warnings.push(
-      'No stealth meta-address is published, so future payments to this name remain ' +
-        'linkable to its static address.',
+      conventionalAddress
+        ? 'No stealth meta-address is published, so future payments to this name remain ' +
+            'linkable to its static address.'
+        : 'No stealth meta-address is published. This name has no ETH address record either; ' +
+            'once one is set, payments to it would be linkable to that address.',
     );
   }
 

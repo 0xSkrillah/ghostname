@@ -34,6 +34,12 @@ if (run('git status --porcelain')) {
   console.error('Working tree is dirty. Commit or stash before deploying.');
   process.exit(1);
 }
+// The public demo is Sepolia-only. A mainnet-enabled build is never deployed here.
+const envFile = existsSync('.env') ? readFileSync('.env', 'utf8') : '';
+if (/^\s*VITE_ENABLE_MAINNET\s*=\s*true/im.test(envFile) || String(process.env.VITE_ENABLE_MAINNET).toLowerCase() === 'true') {
+  console.error('VITE_ENABLE_MAINNET is true; refusing to deploy a mainnet-enabled build to the public demo.');
+  process.exit(1);
+}
 const commit = run('git rev-parse --short=12 HEAD');
 const branch = run('git rev-parse --abbrev-ref HEAD');
 console.log(`Deploying commit ${commit} (${branch}) to gh-pages`);
@@ -58,6 +64,10 @@ if (!html.includes('http-equiv="Content-Security-Policy"')) {
 }
 if (!html.includes(`name="ghostname-commit" content="${commit}"`)) {
   console.error('dist/index.html does not name the source commit; aborting.');
+  process.exit(1);
+}
+if (/VITE_ENABLE_MAINNET:"true"/.test(readFileSync(files.find((f) => /assets\/index-.*\.js$/.test(f)) ?? 'dist/index.html', 'utf8'))) {
+  console.error('The built bundle enables mainnet writes; refusing to deploy it to the public demo.');
   process.exit(1);
 }
 for (const file of files) {

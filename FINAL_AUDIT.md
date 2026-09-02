@@ -134,9 +134,15 @@ documentation corrected. Residual = accepted and documented, with reason.
 | F-34 | Info | crypto | Deployed executor accepts high-s signatures via `ecrecover` | Residual |
 | F-35 | Info | privacy | Plaintext keys in `localStorage` and plaintext backup download | Residual |
 | F-40 | Info | agent surfaces | No MCP server, CLI, Agent Skill or HTTP interface exists; docs referred to "the agent" in two places | Docs |
+| F-41 | High | usability | Skip link `href="#main"` was a hash navigation, so under HashRouter it blanked the whole app; no catch-all route | Fixed |
+| F-42 | Medium | honesty | Resolver lookup swallowed RPC failures as "no resolver configured" on the Create page and in the publish path | Fixed |
+| F-43 | Low | usability | Announcement-failure message had its payment hash redacted by the error scrubber; clipboard calls unguarded; a spent one-time plan stayed payable; Demo step 2 Enter bypassed the empty guard | Fixed |
+| F-44 | Low | usability | Interactive reads retried three times per endpoint (up to two minutes of "Scanning"); Mobula fetch had no timeout; empty exposure reported a fabricated chain | Fixed |
+| F-45 | Low | secrets | No build-time guard against credential-like values in the bundle; deploy script did not refuse a mainnet-enabled build; import textarea unmasked with no off-camera note | Fixed |
+| F-46 | Low | untrusted input | Duplicate announcements for one stealth address rendered as separate payments; zero-balance cards said "Payment recognised" | Fixed |
 
 No Critical finding was confirmed. No unresolved Critical or High finding
-remains.
+remains, including after the independent verification pass (section 4b).
 
 ## 4. Findings in detail
 
@@ -442,6 +448,69 @@ RELAYERS documents the verifier guarantees and residual executor behaviours;
 ARCHITECTURE and PRIVACY describe the new modules and data-handling facts;
 SWARM states the real KDF parameters; 03_BUILD_STATUS carries the exact
 verified counts (section 8).
+
+### F-41 to F-46 Items raised by the independent verification pass
+
+F-41 (High): the skip link was `<a href="#main">`; under HashRouter that is a
+navigation to the route `main`, which matched nothing and unmounted the whole
+app with no nav and an empty body. Fix: the link is an in-page action
+(prevent default, focus and scroll `main`), and a catch-all route renders a
+not-found page that keeps the navigation and sets an honest title. Verified
+by reading; the not-found page renders in the headless run.
+
+F-42 (Medium): `getResolverAddress` returned `null` for every error, so a
+transport failure was reported as "has no resolver configured" and the
+publish path gave the user configuration advice for an outage. Fix:
+`lookupResolver` returns ok / none / failed, classifying only Universal
+Resolver reverts as none and everything else as failed; the publish path and
+the Create preflight show "Could not read the resolver … nothing was sent"
+for failures. Verification: `tests/ens.test.ts` (revert versus outage versus
+timeout versus unknown error; publish refuses with a distinct message and
+the wallet is untouched; no URL in the error text).
+
+F-43 to F-46 (Low): the announcement-failure error no longer embeds the hash
+that the scrubber would redact (it is shown from the recovery card); all
+clipboard writes go through one guarded helper with feedback; a paid plan is
+dropped so the same one-time address cannot be paid twice; Demo step 2 has
+the same empty-input guard on Enter as its button; interactive RPC reads
+retry the endpoint list once instead of three times per endpoint; Mobula
+requests time out after ten seconds with a retry, and an empty portfolio no
+longer claims one chain; `npm run build` runs `scripts/check-bundle.mjs`,
+which fails on credential-like query parameters, provider-key-like URL
+paths, non-allowlisted 32-byte hex values in the app chunk, source maps and
+non-allowlisted ENS names; the build refuses a keyed Mobula proxy URL; the
+deploy script refuses a mainnet-enabled build; identity import prefers a
+file picker that never shows the file, the pasted text is cleared on
+unmount and the page says to import off camera; announcements for one
+stealth address collapse into one card and a card whose balance is zero says
+"Announcement recognised, no funds at this address". Verification:
+`tests/mobula.test.ts`, `tests/inputGuards.test.ts`, `tests/audit.test.ts`.
+
+## 4b. Independent verification pass
+
+After the fixes above were committed, ten independent finder passes
+(secrets and PII, untrusted input, chain safety, cryptography, contract and
+proofs, supply chain and deployment, desktop journeys, accessibility and
+mobile, docs versus reality, agent surfaces) produced 113 findings; with the
+lead's 17 candidates they were merged into 93 canonical findings (5 High,
+31 Medium, 54 Low, 3 Info). Every High and Medium finding was then
+re-checked against the fixed tree by five verifier batches with file and
+line evidence, and a completeness critic looked for gaps:
+
+| Verdict on the 36 High and Medium canonical findings | Count |
+|---|---|
+| Fixed, with regression test or plainly correct change | 27 |
+| Partially fixed (remaining work named) | 9 |
+| Open | 0 |
+| Refuted | 0 |
+
+The critic added two open items (F-41, F-42) and seven Low or Info items.
+All nine partial items and all critic items were then addressed (F-43 to
+F-46 above, plus the header comments, README wording, connect-src note,
+deployed-commit record and ExposurePanel focus target). The 54 Low and 3
+Info canonical findings were reviewed by the lead: all but the three
+residuals listed in section 6 (custody model, executor high-s acceptance,
+duplicate @noble/curves) are fixed in this branch.
 
 ## 5. Refuted or not applicable
 

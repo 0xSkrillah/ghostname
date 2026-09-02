@@ -254,8 +254,9 @@ sweep authorizations** a sponsor/relayer can execute while paying gas itself:
 - **EIP-7702** sponsored sweep for native ETH (`signSweepAuthorization`).
 - **EIP-3009** relayed transfer for USDC-style tokens (`signErc3009Sweep`).
 
-`/receive` produces a signed EIP-7702 authorization for any recognised payment,
-locally, the stealth key never leaves the device.
+`/receive` produces the complete destination-bound sweep package for any
+recognised payment (the EIP-7702 delegation plus the EIP-712 sweep intent and
+the executor calldata), locally; the stealth key never leaves the device.
 
 **Both halves of the evidence are verified live, not asserted.** `/receive` and
 `/demo` re-derive every claim from chain data, with only transaction hashes

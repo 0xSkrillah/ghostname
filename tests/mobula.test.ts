@@ -117,3 +117,23 @@ describe('untrusted Mobula payloads', () => {
     expect(validateProxyUrl('https://proxy.example.com/portfolio')).toBe('https://proxy.example.com/portfolio');
   });
 });
+
+describe('stalled endpoint and honest chain reporting', () => {
+  it('turns a timeout into an actionable retry message', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        const err = new Error('The operation was aborted due to timeout');
+        err.name = 'TimeoutError';
+        throw err;
+      }),
+    );
+    await expect(fetchWalletExposure(ADDR)).rejects.toThrow(/did not answer within/);
+  });
+
+  it('does not invent a chain when Mobula reports none', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: {} }), { status: 200 })));
+    const exposure = await fetchWalletExposure(ADDR);
+    expect(exposure.chains).toEqual([]);
+  });
+});

@@ -15,6 +15,7 @@ import { useWallet } from '../state/wallet';
 import { DEMO_PAYMENT_ETH, DEMO_SEPOLIA_NAME } from '../config';
 import { parseAmountEth } from '../lib/amount';
 import { describeError } from '../lib/describeError';
+import { copyText } from '../lib/clipboard';
 import Compare from '../components/Compare';
 import MainnetConfirm from '../components/MainnetConfirm';
 
@@ -50,6 +51,7 @@ export default function Pay() {
   const [confirmToken, setConfirmToken] = useState(0);
   const [result, setResult] = useState<PaymentResult | null>(null);
   const [pending, setPending] = useState<PendingAnnouncement | null>(null);
+  const [copyState, setCopyState] = useState<string | null>(null);
   const walletStatusRef = useRef<HTMLParagraphElement>(null);
 
   // Mainnet is only a write target when the build opted in; otherwise a wallet
@@ -122,6 +124,9 @@ export default function Pay() {
         mainnetConfirmed,
       });
       setResult({ ...executed, chainId: wallet.chain.id });
+      // The destination is one-time: drop the spent plan so the same address
+      // cannot be paid twice by a second click. Derive again for a new one.
+      setPlans([]);
     } catch (err) {
       if (err instanceof AnnouncementFailedError) {
         setPending({ paymentTx: err.paymentTx, plan: err.plan });
@@ -149,6 +154,7 @@ export default function Pay() {
       });
       setResult({ paymentTx: pending.paymentTx, announcementTx, chainId: wallet.chain.id });
       setPending(null);
+      setPlans([]);
     } catch (err) {
       setError(describeError(err));
     } finally {
@@ -391,87 +397,98 @@ export default function Pay() {
               </>
             )}
 
-            {pending && (
-              <div className="card danger" role="alert">
-                <span className="label">Transfer sent, announcement missing. Do not close this page.</span>
-                <p className="small">
-                  The ETH left your wallet but the ERC-5564 announcement was not emitted, so the
-                  recipient cannot yet discover the payment. Retry the announcement below. If
-                  you must leave, copy these values and announce later with any ERC-5564 tool.
-                </p>
-                <table className="plain">
-                  <tbody>
-                    <tr>
-                      <th scope="row" className="small dim">payment tx</th>
-                      <td className="mono small" style={{ wordBreak: 'break-all' }}>
-                        <a href={`${explorerFor(pending.plan.chainId)}/tx/${pending.paymentTx}`} target="_blank" rel="noreferrer">
-                          {pending.paymentTx}
-                        </a>
-                      </td>
-                    </tr>
-                    <tr>
-                      <th scope="row" className="small dim">stealth address</th>
-                      <td className="mono small" style={{ wordBreak: 'break-all' }}>{pending.plan.derivation.stealthAddress}</td>
-                    </tr>
-                    <tr>
-                      <th scope="row" className="small dim">ephemeral public key</th>
-                      <td className="mono small" style={{ wordBreak: 'break-all' }}>{pending.plan.derivation.ephemeralPublicKey}</td>
-                    </tr>
-                    <tr>
-                      <th scope="row" className="small dim">metadata</th>
-                      <td className="mono small" style={{ wordBreak: 'break-all' }}>
-                        {buildEthAnnouncementMetadata(pending.plan.derivation.viewTag, pending.plan.amountWei)}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-                <div className="row" style={{ marginTop: '0.5rem' }}>
-                  <button onClick={() => void retryAnnouncement()} disabled={!canRetry} aria-busy={busy === 'announcing'}>
-                    {busy === 'announcing' ? 'Confirm in wallet…' : 'Retry announcement'}
-                  </button>
-                  <button
-                    className="ghost"
-                    onClick={() =>
-                      void navigator.clipboard.writeText(
-                        JSON.stringify(
-                          {
-                            paymentTx: pending.paymentTx,
-                            chainId: pending.plan.chainId,
-                            stealthAddress: pending.plan.derivation.stealthAddress,
-                            ephemeralPublicKey: pending.plan.derivation.ephemeralPublicKey,
-                            viewTag: pending.plan.derivation.viewTag,
-                            amountWei: pending.plan.amountWei.toString(),
-                          },
-                          null,
-                          2,
-                        ),
-                      )
-                    }
-                  >
-                    Copy recovery data
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {result && (
-              <div className="card ok" aria-live="polite">
-                <span className="label">Payment complete on {networkName(result.chainId)}</span>
-                <div className="bigmono small">
-                  payment:{' '}
-                  <a href={`${explorerFor(result.chainId)}/tx/${result.paymentTx}`} target="_blank" rel="noreferrer">
-                    {result.paymentTx}
-                  </a>
-                </div>
-                <div className="bigmono small">
-                  announcement:{' '}
-                  <a href={`${explorerFor(result.chainId)}/tx/${result.announcementTx}`} target="_blank" rel="noreferrer">
-                    {result.announcementTx}
-                  </a>
-                </div>
-              </div>
-            )}
           </>
+        )}
+        {pending && (
+          <div className="card danger" role="alert">
+            <span className="label">Transfer sent, announcement missing. Do not close this page.</span>
+            <p className="small">
+              The ETH left your wallet but the ERC-5564 announcement was not emitted, so the
+              recipient cannot yet discover the payment. Retry the announcement below. If
+              you must leave, copy these values and announce later with any ERC-5564 tool.
+            </p>
+            <table className="plain">
+              <tbody>
+                <tr>
+                  <th scope="row" className="small dim">payment tx</th>
+                  <td className="mono small" style={{ wordBreak: 'break-all' }}>
+                    <a href={`${explorerFor(pending.plan.chainId)}/tx/${pending.paymentTx}`} target="_blank" rel="noreferrer">
+                      {pending.paymentTx}
+                    </a>
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row" className="small dim">stealth address</th>
+                  <td className="mono small" style={{ wordBreak: 'break-all' }}>{pending.plan.derivation.stealthAddress}</td>
+                </tr>
+                <tr>
+                  <th scope="row" className="small dim">ephemeral public key</th>
+                  <td className="mono small" style={{ wordBreak: 'break-all' }}>{pending.plan.derivation.ephemeralPublicKey}</td>
+                </tr>
+                <tr>
+                  <th scope="row" className="small dim">metadata</th>
+                  <td className="mono small" style={{ wordBreak: 'break-all' }}>
+                    {buildEthAnnouncementMetadata(pending.plan.derivation.viewTag, pending.plan.amountWei)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div className="row" style={{ marginTop: '0.5rem' }}>
+              <button onClick={() => void retryAnnouncement()} disabled={!canRetry} aria-busy={busy === 'announcing'}>
+                {busy === 'announcing' ? 'Confirm in wallet…' : 'Retry announcement'}
+              </button>
+              <button
+                className="ghost"
+                onClick={() =>
+                  void copyText(
+                    JSON.stringify(
+                      {
+                        paymentTx: pending.paymentTx,
+                        chainId: pending.plan.chainId,
+                        stealthAddress: pending.plan.derivation.stealthAddress,
+                        ephemeralPublicKey: pending.plan.derivation.ephemeralPublicKey,
+                        viewTag: pending.plan.derivation.viewTag,
+                        amountWei: pending.plan.amountWei.toString(),
+                      },
+                      null,
+                      2,
+                    ),
+                  ).then((r) => setCopyState(r.ok ? 'Recovery data copied.' : (r.error ?? 'Copy failed.')))
+                }
+              >
+                Copy recovery data
+              </button>
+              {copyState && (
+                <span className="small dim" role="status">
+                  {copyState}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {result && (
+          <div className="card ok" aria-live="polite">
+            <span className="label">Payment complete on {networkName(result.chainId)}</span>
+            <div className="bigmono small">
+              payment:{' '}
+              <a href={`${explorerFor(result.chainId)}/tx/${result.paymentTx}`} target="_blank" rel="noreferrer">
+                {result.paymentTx}
+              </a>
+            </div>
+            <div className="bigmono small">
+              announcement:{' '}
+              <a href={`${explorerFor(result.chainId)}/tx/${result.announcementTx}`} target="_blank" rel="noreferrer">
+                {result.announcementTx}
+              </a>
+            </div>
+          </div>
+        )}
+        {result && plans.length === 0 && (
+          <p className="small dim">
+            That destination is spent. Derive again to pay the same name a second time; every
+            payment gets a new one-time address.
+          </p>
         )}
       </div>
     </>

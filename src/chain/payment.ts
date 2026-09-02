@@ -70,9 +70,11 @@ export class AnnouncementFailedError extends Error {
   readonly paymentTx: Hash;
   readonly plan: StealthPaymentPlan;
   constructor(paymentTx: Hash, plan: StealthPaymentPlan, cause: unknown) {
+    // The hash is carried in a field, not in the message: user-facing error
+    // text is passed through describeError, which redacts 32-byte hex values.
     super(
-      `The ETH transfer was sent (${paymentTx}) but the ERC-5564 announcement was not: ` +
-        `${describeError(cause)}. Keep the recovery data and retry the announcement; ` +
+      'The ETH transfer was sent but the ERC-5564 announcement was not: ' +
+        `${describeError(cause)}. Keep the recovery data shown and retry the announcement; ` +
         'without it the recipient cannot discover this payment.',
     );
     this.name = 'AnnouncementFailedError';

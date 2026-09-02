@@ -12,6 +12,7 @@ import { getSepoliaClient } from '../chain/clients';
 import { SEPOLIA_CHAIN_ID } from '../chain/guards';
 import { parseAmountEth } from '../lib/amount';
 import { describeError } from '../lib/describeError';
+import { copyText } from '../lib/clipboard';
 
 const DEFAULT_TTL_MINUTES = 60;
 
@@ -44,6 +45,7 @@ export default function SweepPanel(props: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [executorAck, setExecutorAck] = useState(false);
+  const [copyState, setCopyState] = useState<string | null>(null);
   const idBase = `sweep-${props.stealthAddress.slice(2, 10).toLowerCase()}`;
   // The delegation hands the stealth account's full control to the executor
   // code. Anything other than the pinned demo executor needs an explicit
@@ -264,10 +266,19 @@ export default function SweepPanel(props: {
               </button>
               <button
                 className="ghost btn-sm"
-                onClick={() => void navigator.clipboard?.writeText(JSON.stringify(pkg, null, 2))}
+                onClick={() =>
+                  void copyText(JSON.stringify(pkg, null, 2)).then((r) =>
+                    setCopyState(r.ok ? 'Package copied to clipboard.' : (r.error ?? 'Copy failed.')),
+                  )
+                }
               >
                 Copy package
               </button>
+              {copyState && (
+                <span className="small dim" role="status">
+                  {copyState}
+                </span>
+              )}
             </div>
             <table className="plain" style={{ marginBottom: '0.5rem' }}>
               <tbody>

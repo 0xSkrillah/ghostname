@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { copyText } from '../lib/clipboard';
 
 export default function CopyField(props: {
   label: string;
@@ -14,17 +15,14 @@ export default function CopyField(props: {
 
   function copy() {
     setCopyError(null);
-    if (!navigator.clipboard) {
-      setCopyError('Clipboard is unavailable here (insecure origin). Reveal and select the value instead.');
-      return;
-    }
-    navigator.clipboard.writeText(props.value).then(
-      () => {
+    void copyText(props.value).then((result) => {
+      if (result.ok) {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
-      },
-      () => setCopyError('Copy was blocked by the browser. Reveal and select the value instead.'),
-    );
+      } else {
+        setCopyError(result.error ?? 'Copy failed.');
+      }
+    });
   }
 
   return (

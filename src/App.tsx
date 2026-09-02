@@ -9,6 +9,7 @@ import Pay from './pages/Pay';
 import Receive from './pages/Receive';
 import Privacy from './pages/Privacy';
 import Demo from './pages/Demo';
+import NotFound from './pages/NotFound';
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="/receive" element={<Receive />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/demo" element={<Demo />} />
+          <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
     </HashRouter>

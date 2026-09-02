@@ -361,3 +361,13 @@ describe('honest handling of RPC failure and unconfigured names', () => {
     expect(report.warnings.join(' ')).not.toMatch(/linkable to its static address/);
   });
 });
+
+describe('incomplete wording depends on whether a static address exists', () => {
+  it('does not claim linkability to a static address the name does not have', async () => {
+    const client = fakeClient({ address: null, resolver: RESOLVER });
+    const report = await auditEnsName(client, 'no-addr.eth', { chainId: SEPOLIA, now: NOW });
+    expect(report.overallStatus).toBe('incomplete');
+    expect(report.warnings.join(' ')).not.toMatch(/linkable to its static address/);
+    expect(report.warnings.join(' ')).toMatch(/no ETH address record either/);
+  });
+});

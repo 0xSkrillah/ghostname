@@ -29,7 +29,7 @@ export default function Layout() {
   // moves to the main region so keyboard and screen-reader users land on the
   // new content rather than at the top of the nav.
   useEffect(() => {
-    const label = TITLES[location.pathname] ?? 'GhostName';
+    const label = TITLES[location.pathname] ?? 'Page not found';
     document.title = location.pathname === '/' ? 'GhostName' : `${label} · GhostName`;
     if (firstRender.current) {
       firstRender.current = false;
@@ -40,7 +40,16 @@ export default function Layout() {
 
   return (
     <>
-      <a className="skip-link" href="#main">
+      {/* An in-page action, not a hash navigation: under HashRouter "#main" would be a route. */}
+      <a
+        className="skip-link"
+        href="#main"
+        onClick={(e) => {
+          e.preventDefault();
+          mainRef.current?.focus();
+          mainRef.current?.scrollIntoView();
+        }}
+      >
         Skip to content
       </a>
       <nav className="topnav" aria-label="Primary">

@@ -1,11 +1,11 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { namehash, type Address, type Hex } from 'viem';
 import { saveIdentity, useIdentity } from '../state/identity';
 import { parseIdentityBackup } from '../crypto/identityBackup';
 import { MIN_PASSPHRASE_LENGTH, assertTestnetOnly, decryptCapsule, encryptCapsule } from '../swarm/capsule';
 import { useWallet } from '../state/wallet';
-import { getResolverAddress, publishStealthRecord } from '../ens/write';
+import { lookupResolver, publishStealthRecord } from '../ens/write';
 import { getMainnetClient, getSepoliaClient } from '../chain/clients';
 import {
   normalizeEnsName,
@@ -87,6 +87,25 @@ export default function Create() {
     }
   }
 
+  /** Preferred import path: the file never appears on screen. */
+  function importIdentityFile(file: File | undefined) {
+    if (!file) return;
+    setImportError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        saveIdentity(parseIdentityBackup(String(reader.result ?? '')));
+      } catch (err) {
+        setImportError(describeError(err));
+      }
+    };
+    reader.onerror = () => setImportError('The file could not be read.');
+    reader.readAsText(file);
+  }
+
+  // Pasted key material must not outlive the page.
+  useEffect(() => () => setImportJson(''), []);
+
   /** Decrypt a capsule locally, validate the identity inside, then store it. */
   async function restoreCapsule() {
     setImportError(null);
@@ -115,15 +134,21 @@ export default function Create() {
     setOverwriteAck(false);
     try {
       const name = normalizeEnsName(ensName);
-      const resolver = await getResolverAddress(readClient, name);
-      if (!resolver) {
+      const lookup = await lookupResolver(readClient, name);
+      if (lookup.status === 'failed') {
+        throw new Error(
+          `Could not read the resolver for ${name} from ${networkLabel}: ${lookup.error} ` +
+            'Nothing is known yet. Retry, or set your own RPC endpoint in .env.',
+        );
+      }
+      if (lookup.status === 'none') {
         throw new Error(
           `${name} has no resolver configured on ${networkLabel}. Set a resolver for the name ` +
             '(for example in the ENS app) before publishing. GhostName never replaces resolvers.',
         );
       }
       const current = await resolveStealthMetaAddress(readClient, name);
-      setPrepared({ name, chainId: targetChainId, resolver, node: namehash(name), existing: current });
+      setPrepared({ name, chainId: targetChainId, resolver: lookup.address, node: namehash(name), existing: current });
     } catch (err) {
       setError(describeError(err));
     } finally {
@@ -225,12 +250,23 @@ export default function Create() {
           </button>
           <h2>Or import an existing identity</h2>
           <p className="small dim">
-            Paste the <code>ghostname-identity.json</code> backup. It is validated locally
-            (both keys must be valid and must match the meta-address) and stored only in this
-            browser. Never paste keys that hold real assets.
+            Choose the <code>ghostname-identity.json</code> backup file, or paste its contents.
+            Either way it is validated locally (both keys must be valid and must match the
+            meta-address) and stored only in this browser. Do this off camera and with screen
+            sharing paused: the pasted text is not masked. Never import keys that hold real
+            assets.
           </p>
-          <label className="label" htmlFor="import-json">
-            Identity backup JSON
+          <label className="label" htmlFor="import-file">
+            Identity backup file (preferred, never shown on screen)
+          </label>
+          <input
+            id="import-file"
+            type="file"
+            accept="application/json,.json"
+            onChange={(e) => importIdentityFile(e.target.files?.[0])}
+          />
+          <label className="label" htmlFor="import-json" style={{ marginTop: '0.6rem' }}>
+            Or paste the identity backup JSON
           </label>
           <textarea
             id="import-json"
