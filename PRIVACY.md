@@ -82,7 +82,9 @@ operated (see RELAYERS.md).
   values before it is shown or exported.
 - No analytics, no cookies, no backend, no telemetry, no third-party scripts;
   the production page carries a Content-Security-Policy that allows scripts
-  only from itself and refuses to run inside a frame.
+  only from itself and refuses to run inside a frame. Its `connect-src` is
+  any https origin on purpose, so that you can pin your own RPC endpoint
+  without rebuilding; the script restriction is the control that matters.
 - RPC endpoints see your IP and your queries, like any dapp: which names you
   audit, which addresses' balances and nonces you read. Pin your own
   endpoints in `.env` if this matters to you. Every `VITE_*` value is inlined

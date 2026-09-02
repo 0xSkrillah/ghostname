@@ -4,6 +4,23 @@ import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { cspMetaTag } from './src/security/csp';
 
+/** A proxy URL with a query string or credentials would ship a key to every visitor. */
+function assertProxyUrlSafe(): void {
+  const url = process.env['VITE_MOBULA_PROXY_URL'];
+  if (!url) return;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error('VITE_MOBULA_PROXY_URL is not a valid URL.');
+  }
+  if (parsed.protocol !== 'https:' || parsed.search || parsed.username || parsed.password) {
+    throw new Error(
+      'VITE_MOBULA_PROXY_URL must be an https URL without a query string or credentials; the proxy must hold the API key server-side.',
+    );
+  }
+}
+
 /** Short commit hash of the tree being built, plus a -dirty marker; 'unknown' outside git. */
 function buildCommit(): string {
   try {
@@ -30,6 +47,7 @@ function productionCsp(): Plugin {
     name: 'ghostname-production-csp',
     configResolved(config) {
       isBuild = config.command === 'build';
+      if (isBuild) assertProxyUrlSafe();
     },
     transformIndexHtml(html) {
       if (!isBuild) return html;

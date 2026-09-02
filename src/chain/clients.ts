@@ -1,6 +1,8 @@
 /**
- * viem public clients. Mainnet is READ-ONLY in this application: no wallet
- * client is ever created for mainnet and no write path accepts it.
+ * viem public clients for reads on mainnet and Sepolia. No wallet client is
+ * created here. Writes live behind assertWritableNetwork (Sepolia by default;
+ * mainnet only in a build with VITE_ENABLE_MAINNET=true plus a typed
+ * per-action confirmation).
  */
 import { createPublicClient, fallback, http, type PublicClient } from 'viem';
 import { mainnet, sepolia } from 'viem/chains';
@@ -15,7 +17,13 @@ function transports(primaryVar: string, fallbackVar: string, defaultUrls: string
   const extra = env(fallbackVar)?.split(',').map((u) => u.trim()).filter(Boolean) ?? [];
   // User-configured endpoints first, then the built-in defaults as fallbacks.
   const urls = [...new Set([...(primary ? [primary] : []), ...extra, ...defaultUrls])];
-  return fallback(urls.map((url) => http(url, { timeout: 10_000 })));
+  // One pass over every endpoint, then one retry of the whole list. viem's
+  // default of three retries would keep an interactive read spinning for up
+  // to two minutes when the network is unreachable.
+  return fallback(
+    urls.map((url) => http(url, { timeout: 10_000 })),
+    { retryCount: 1 },
+  );
 }
 
 const MAINNET_DEFAULT_RPCS = [

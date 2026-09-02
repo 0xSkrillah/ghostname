@@ -15,6 +15,8 @@
 import type { Address } from 'viem';
 
 const DEMO_ENDPOINT = 'https://demo-api.mobula.io/api/1/wallet/portfolio';
+/** A stalled endpoint must surface a retry, not an endless spinner. */
+export const MOBULA_TIMEOUT_MS = 10_000;
 
 function env(name: string): string | undefined {
   const value = (import.meta as { env?: Record<string, string | undefined> }).env?.[name];
@@ -103,7 +105,8 @@ export function parseExposure(json: unknown, address: Address, source: 'demo' | 
   return {
     address,
     assetCount: assets.length,
-    chains: chains.length ? chains : ['Ethereum'],
+    // Report only what Mobula reported; never invent a chain count.
+    chains,
     totalUsd: finiteNumber(data['total_wallet_balance']),
     assets: assets.sort((a, b) => b.usdValue - a.usdValue),
     source,
@@ -120,7 +123,20 @@ export async function fetchWalletExposure(address: Address): Promise<WalletExpos
   const base = proxy ? validateProxyUrl(proxy) : DEMO_ENDPOINT;
   const url = `${base}?wallet=${address}&blockchains=ethereum`;
 
-  const res = await fetch(url, { headers: { accept: 'application/json' } });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(MOBULA_TIMEOUT_MS),
+    });
+  } catch (err) {
+    const timedOut = err instanceof Error && err.name === 'TimeoutError';
+    throw new Error(
+      timedOut
+        ? `Mobula did not answer within ${MOBULA_TIMEOUT_MS / 1000} seconds; try again shortly.`
+        : 'Mobula could not be reached; check your connection and try again.',
+    );
+  }
   if (!res.ok) {
     throw new Error(`Mobula request failed (${res.status}). The demo endpoint is rate-limited; try again shortly.`);
   }

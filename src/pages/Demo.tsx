@@ -209,7 +209,9 @@ export default function Demo() {
               type="text"
               value={upgradeName}
               onChange={(e) => setUpgradeName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && busy !== 'upgrade' && void step2()}
+              onKeyDown={(e) =>
+                e.key === 'Enter' && busy !== 'upgrade' && upgradeName.trim() && void step2()
+              }
               placeholder="GhostName-enabled name (Sepolia)"
               autoComplete="off"
               spellCheck={false}

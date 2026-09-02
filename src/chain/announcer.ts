@@ -3,8 +3,9 @@
  * and scanning/recognising them with the viewing key.
  *
  * The announcer is the canonical CREATE2 singleton from EIP-5564, deployed at
- * the same address on mainnet and Sepolia. GhostName only ever CALLS it on
- * Sepolia (enforced by assertWritableNetwork); scanning is read-only.
+ * the same address on mainnet and Sepolia. Calls to it go through
+ * assertWritableNetwork (Sepolia by default; mainnet only in an opt-in build
+ * behind a typed confirmation); scanning is read-only.
  */
 import { concatHex, numberToHex, padHex, type Address, type Hex } from 'viem';
 import { checkStealthAddress } from '../crypto/stealth';
@@ -238,6 +239,29 @@ export async function recogniseOwnedAnnouncementsAsync(
     }
   }
   return owned;
+}
+
+/**
+ * Collapse several announcements for the same stealth address into one entry
+ * (the first seen) plus the extra transaction hashes. Anyone can re-announce a
+ * public address, so duplicates must not read as duplicate payments.
+ */
+export function groupAnnouncementsByAddress(
+  announcements: Announcement[],
+): Array<{ announcement: Announcement; duplicateTxHashes: Hex[] }> {
+  const byAddress = new Map<string, { announcement: Announcement; duplicateTxHashes: Hex[] }>();
+  for (const a of announcements) {
+    const key = a.stealthAddress.toLowerCase();
+    const existing = byAddress.get(key);
+    if (existing) {
+      if (existing.announcement.transactionHash !== a.transactionHash) {
+        existing.duplicateTxHashes.push(a.transactionHash);
+      }
+    } else {
+      byAddress.set(key, { announcement: a, duplicateTxHashes: [] });
+    }
+  }
+  return [...byAddress.values()];
 }
 
 /**

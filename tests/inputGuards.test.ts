@@ -324,3 +324,24 @@ describe('announcement metadata is parsed positionally and recognition yields', 
     expect(progress).toEqual([[10, 45], [20, 45], [30, 45], [40, 45], [45, 45]]);
   });
 });
+
+describe('duplicate announcements for one stealth address collapse into one entry', () => {
+  it('keeps the first announcement and lists the extra transaction hashes', async () => {
+    const { groupAnnouncementsByAddress } = await import('../src/chain/announcer');
+    const base = {
+      schemeId: 1n,
+      caller: '0x0000000000000000000000000000000000000000' as Address,
+      ephemeralPublicKey: `0x02${'11'.repeat(32)}` as `0x${string}`,
+      metadata: '0x' as `0x${string}`,
+      viewTag: '0x11' as `0x${string}`,
+    };
+    const a1 = { ...base, stealthAddress: '0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' as Address, blockNumber: 1n, transactionHash: `0x${'01'.repeat(32)}` as `0x${string}` };
+    const a2 = { ...base, stealthAddress: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address, blockNumber: 2n, transactionHash: `0x${'02'.repeat(32)}` as `0x${string}` };
+    const b1 = { ...base, stealthAddress: '0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB' as Address, blockNumber: 3n, transactionHash: `0x${'03'.repeat(32)}` as `0x${string}` };
+    const grouped = groupAnnouncementsByAddress([a1, a2, b1, a1]);
+    expect(grouped).toHaveLength(2);
+    expect(grouped[0]!.announcement.transactionHash).toBe(a1.transactionHash);
+    expect(grouped[0]!.duplicateTxHashes).toEqual([a2.transactionHash]);
+    expect(grouped[1]!.duplicateTxHashes).toEqual([]);
+  });
+});

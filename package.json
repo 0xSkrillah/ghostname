@@ -6,7 +6,7 @@
   "description": "Keep the ENS name. Break the payment graph. Forward privacy for established ENS identities via ERC-5564 stealth addresses.",
   "scripts": {
     "dev": "vite",
-    "build": "npm run typecheck && vite build",
+    "build": "npm run typecheck && vite build && node scripts/check-bundle.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

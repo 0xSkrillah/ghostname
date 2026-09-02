@@ -45,14 +45,14 @@ export default function ExposurePanel({ address }: { address: Address }) {
       )}
       {state === 'loading' && <p className="dim">Querying public holdings…</p>}
       {state === 'error' && (
-        <>
+        <div ref={resultsRef} tabIndex={-1}>
           <p className="error" role="alert">
             {error}
           </p>
           <button className="ghost" onClick={() => void load()}>
             Retry
           </button>
-        </>
+        </div>
       )}
       {state === 'done' && exposure && (
         <div ref={resultsRef} tabIndex={-1} aria-live="polite">
@@ -65,9 +65,13 @@ export default function ExposurePanel({ address }: { address: Address }) {
             </div>
             <div>
               <div className="bigmono" style={{ fontSize: '1.6rem' }}>
-                {exposure.chains.length}
+                {exposure.chains.length > 0 ? exposure.chains.length : 'none'}
               </div>
-              <span className="small dim">chain{exposure.chains.length === 1 ? '' : 's'}</span>
+              <span className="small dim">
+                {exposure.chains.length > 0
+                  ? `chain${exposure.chains.length === 1 ? '' : 's'} reported`
+                  : 'chains reported'}
+              </span>
             </div>
             <div>
               <div className="bigmono" style={{ fontSize: '1.6rem' }}>
@@ -100,7 +104,7 @@ export default function ExposurePanel({ address }: { address: Address }) {
                     <td>
                       {a.name} <span className="dim">{a.symbol}</span>
                     </td>
-                    <td className="small dim">{a.chains.join(', ') || 'Ethereum'}</td>
+                    <td className="small dim">{a.chains.join(', ') || 'not reported'}</td>
                     <td className="mono">
                       ${a.usdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                     </td>
