@@ -135,9 +135,13 @@ export default function Demo() {
               type="text"
               value={auditName}
               onChange={(e) => setAuditName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && busy !== 'audit' && void step1()}
+              onKeyDown={(e) =>
+                e.key === 'Enter' && busy !== 'audit' && auditName.trim() && void step1()
+              }
+              placeholder="name.eth"
+              aria-label="Established ENS name to audit on mainnet"
             />
-            <button onClick={() => void step1()} disabled={busy === 'audit'}>
+            <button onClick={() => void step1()} disabled={busy === 'audit' || !auditName.trim()}>
               {busy === 'audit' ? 'Auditing…' : 'Audit on mainnet (read-only)'}
             </button>
           </div>

@@ -28,7 +28,7 @@ are. Sequence mirrors `/demo` in the app.
 
 ## Script
 
-1. **Open `/demo`.** "This is `skrillah.eth`, an established public
+1. **Open `/demo`.** "This is an established public ENS
    identity." Click *Resolve on mainnet* (read-only). Point at the static
    address: "Years of history. Anyone can see every payment. I cannot
    delete any of it, blockchains have no delete button."

@@ -42,7 +42,8 @@ export default function Scan() {
       <h1>Audit an ENS identity</h1>
       <p className="lead">
         GhostCheck reads any ENS name live on Ethereum mainnet and reports whether it is ready
-        to receive private payments. Read-only. Nothing is written and nothing is uploaded.
+        to receive private payments. Read-only. Nothing is written and nothing is uploaded. Enter
+        any name; nothing is queried until you run the audit.
       </p>
       <div className="row">
         <input
@@ -50,6 +51,7 @@ export default function Scan() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="name.eth"
+          aria-label="ENS name to audit"
           onKeyDown={(e) => e.key === 'Enter' && !busy && name.trim() && void audit()}
         />
         <button onClick={() => void audit()} disabled={busy || !name.trim()}>

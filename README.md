@@ -40,7 +40,7 @@ fresh one-time receiving address, locally, with no gateway.
 
 ## 1. The problem
 
-An ENS name like `skrillah.eth` is a great identity, and a privacy
+An established ENS name is a great identity, and a privacy
 liability. If it always resolves to one static wallet address, then every
 payment anyone ever sends becomes public, permanently linkable history:
 balances, counterparties, timing. **Blockchain history cannot be deleted.**

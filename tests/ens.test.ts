@@ -49,7 +49,7 @@ describe('network guards', () => {
 
 describe('name normalization', () => {
   it('normalizes case and whitespace', () => {
-    expect(normalizeEnsName('  SkRiLLaH.eth ')).toBe('skrillah.eth');
+    expect(normalizeEnsName('  ExAmPlE-Name.eth ')).toBe('example-name.eth');
   });
 
   it('rejects invalid names', () => {
