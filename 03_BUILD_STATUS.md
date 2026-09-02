@@ -22,8 +22,8 @@ Tagline unchanged: *Keep the ENS name. Break the payment graph.*
 |---|---|---|
 | `npm ci` | PASS | lockfile v3, Node 20+, `npm audit` reports 0 vulnerabilities |
 | `npm run typecheck` | PASS | no errors |
-| `npm test` | PASS | 231 passed, 11 skipped, 0 failed (25 files, 242 tests) |
-| `npm run build` | PASS | app shell ~304 kB, viem ~334 kB, react ~49 kB, noble ~29 kB; CSP meta and build commit embedded |
+| `npm test` | PASS | 237 passed, 11 skipped, 0 failed (25 files, 248 tests) |
+| `npm run build` | PASS | typecheck, vite build, then `scripts/check-bundle.mjs` (no personal name, credential pattern, private-key-shaped value or source map); app shell ~308 kB, viem ~334 kB, react ~49 kB, noble ~29 kB; CSP meta and build commit embedded |
 | `npx vitest run tests/no-personal-name.test.ts tests/csp.test.ts` | PASS | release guards, including over `dist/` |
 | `RUN_LIVE=1 npm run e2e:sepolia` | gated | needs `SEPOLIA_PRIVATE_KEY`; skipped otherwise |
 | `RUN_LIVE=1 npm run sweep:sepolia` | gated | needs `SEPOLIA_PRIVATE_KEY`; skipped otherwise |
@@ -37,9 +37,13 @@ Skipped tests are the network-gated live suites: `tests/live.ens.test.ts`
 
 - Repository: https://github.com/0xSkrillah/ghostname (public)
 - Deployed app: https://0xskrillah.github.io/ghostname/ (gh-pages branch,
-  published with `npm run deploy:pages`, which refuses a dirty tree, rebuilds
-  from `npm ci`, verifies the CSP, the embedded commit and the no-personal-name
-  guard, then appends to gh-pages)
+  published with `npm run deploy:pages`, which refuses a dirty tree or a
+  mainnet-enabled build, rebuilds from `npm ci`, verifies the CSP, the embedded
+  commit and the no-personal-name guard, then appends to gh-pages).
+  Current deployment: gh-pages commit `d5c5a00`, built from source commit
+  `7765e3a` of this branch with `VITE_DEMO_SEPOLIA_NAME=ghostname-3c7714.eth`
+  and `VITE_SCAN_START_BLOCK=11612900`; later commits on the branch change
+  documentation only.
 - Routes: `/` `/scan` `/create` `/pay` `/receive` `/privacy` `/demo` (hash router,
   so every route deep-links on a static host). The footer shows the commit the
   served bundle was built from.
@@ -151,9 +155,10 @@ Resolver, so they work on both ENS v1 and v2.
 - **Phase 3 (done):** `/demo` rebuilt as one guided route.
 - **Phase 4 (done):** competitive position documented.
 - **Final audit (done):** personal ENS name removed from source, config, tests,
-  docs, bundle and deployment; 5 High and 16 Medium findings fixed with
-  regression tests; docs reconciled with verified behaviour. Details, refuted
-  items and residual risks in `FINAL_AUDIT.md`.
+  docs, bundle and deployment; 6 High and 17 Medium findings fixed with
+  regression tests, plus the Low items an independent verification pass
+  raised; docs reconciled with verified behaviour. Details, verification
+  verdicts and residual risks in `FINAL_AUDIT.md`.
 
 ## Next action
 

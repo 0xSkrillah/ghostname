@@ -576,8 +576,8 @@ Final run on the audited head (`npm ci` from the lockfile, Node 22):
 | Check | Result |
 |---|---|
 | `npm run typecheck` | pass |
-| `npm test` | 231 passed, 11 skipped (network-gated), 0 failed, 25 files, 242 tests |
-| `npm run build` | pass; CSP meta and build commit embedded; no source maps |
+| `npm test` | 237 passed, 11 skipped (network-gated), 0 failed, 25 files, 248 tests |
+| `npm run build` | pass; CSP meta and build commit embedded; `scripts/check-bundle.mjs` clean; no source maps |
 | `npm audit` | 0 vulnerabilities |
 | Release guards over `dist/` | pass (no non-allowlisted ENS name, CSP present) |
 | Headless render at 320, 375, 768 CSS px, every route | no horizontal overflow; per-route titles; inputs full width |
@@ -598,20 +598,23 @@ advisory; personal name in bundle and deployment.
 ## 9. Deployment
 
 - The gh-pages branch was rebuilt and republished with `npm run deploy:pages`
-  from commit `7a6d265` of this branch: gh-pages commit `c007d71` ("deploy:
-  7a6d265c617b from claude/ghostname-audit-release-bvi2yf"), appended on top
-  of the previous deployment `9c55418`; history was not rewritten.
+  twice during the audit: first from commit `7a6d265` (gh-pages `c007d71`),
+  then, after the independent verification fixes, from commit `7765e3a`
+  (gh-pages `d5c5a00`, "deploy: 7765e3a6f45d from
+  claude/ghostname-audit-release-bvi2yf"). Both were appended on top of the
+  previous deployment `9c55418`; history was not rewritten.
 - Build configuration: `VITE_DEMO_SEPOLIA_NAME=ghostname-3c7714.eth` and
   `VITE_SCAN_START_BLOCK=11612900` (the controlled Sepolia identity, matching
   the previous deployment), `VITE_DEMO_MAINNET_NAME` empty. No RPC URL, key or
   personal name is inlined.
 - Verified on the pushed branch: every file grepped case-insensitively for the
   personal name (no hits); `index.html` carries the Content-Security-Policy
-  meta tag and `<meta name="ghostname-commit" content="7a6d265c617b">`; the
+  meta tag and `<meta name="ghostname-commit" content="7765e3a6f45d">`; the
   footer of the served app shows the same commit.
-- GitHub Pages build and deployment run 11 for head `c007d71` completed with
-  conclusion `success` at 2026-09-02 08:04:41 UTC
-  (https://github.com/0xSkrillah/ghostname/actions/runs/33606775111).
+- GitHub Pages build and deployment runs for both heads completed with
+  conclusion `success` (run 11 for `c007d71` at 2026-09-02 08:04:41 UTC,
+  https://github.com/0xSkrillah/ghostname/actions/runs/33606775111, and the
+  following run for `d5c5a00`).
 - Not verified from this environment: an HTTP fetch of
   https://0xskrillah.github.io/ghostname/ itself, because the sandbox's egress
   policy rejects connections to `github.io`. The served content is the
