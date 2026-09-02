@@ -10,6 +10,7 @@ import {
   MAX_SCAN_BLOCKS,
   SCAN_CHUNK_BLOCKS,
   ScanRangeError,
+  assertScanStartSyntax,
   fetchAnnouncements,
   resolveScanStart,
   type LogReader,
@@ -49,6 +50,19 @@ describe('resolveScanStart', () => {
   it('accepts a whole number at or below the latest block', () => {
     expect(resolveScanStart('11999000', latest, 50_000n)).toBe(11_999_000n);
     expect(resolveScanStart(String(latest), latest, 50_000n)).toBe(latest);
+  });
+
+  it('accepts the separators people paste from explorers', () => {
+    expect(resolveScanStart('11,999,000', latest, 50_000n)).toBe(11_999_000n);
+    expect(resolveScanStart('11 999 000', latest, 50_000n)).toBe(11_999_000n);
+    expect(resolveScanStart('11_999_000', latest, 50_000n)).toBe(11_999_000n);
+  });
+
+  it('exposes a syntax-only check that runs before any RPC call', () => {
+    expect(() => assertScanStartSyntax('')).not.toThrow();
+    expect(() => assertScanStartSyntax('11,999,000')).not.toThrow();
+    expect(() => assertScanStartSyntax('abc')).toThrow(ScanRangeError);
+    expect(() => assertScanStartSyntax('12.5')).toThrow(/whole number/);
   });
 
   it('rejects non-numeric, future and oversized ranges with clear messages', () => {

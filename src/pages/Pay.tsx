@@ -257,16 +257,34 @@ export default function Pay() {
 
             <h2>Send {guardedMainnet ? 'ETH' : 'Sepolia ETH'} to the latest destination</h2>
             {!wallet.account ? (
-              <button
-                className="secondary"
-                onClick={() => {
-                  void wallet.connect().then(() => setTimeout(() => walletStatusRef.current?.focus(), 0));
-                }}
-              >
-                Connect wallet
-              </button>
+              <div className="row">
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    void wallet.connect().then(() => setTimeout(() => walletStatusRef.current?.focus(), 0));
+                  }}
+                >
+                  Connect wallet
+                </button>
+                {!wallet.available && !wallet.error && (
+                  <span className="small dim">
+                    No browser wallet detected. Install MetaMask or a similar wallet, switch it to{' '}
+                    {networkLabel}, then reload this page.
+                  </span>
+                )}
+                {wallet.error && (
+                  <span className="small error" role="alert">
+                    {wallet.error}
+                  </span>
+                )}
+              </div>
             ) : (
               <>
+                {wallet.error && (
+                  <p className="error small" role="alert">
+                    {wallet.error}
+                  </p>
+                )}
                 <p className="small" ref={walletStatusRef} tabIndex={-1}>
                   <span className="pill">{wallet.account}</span>{' '}
                   {wallet.chainId === SEPOLIA_CHAIN_ID ? (

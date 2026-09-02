@@ -43,7 +43,11 @@ export default function ExposurePanel({ address }: { address: Address }) {
           </button>
         </>
       )}
-      {state === 'loading' && <p className="dim">Querying public holdings…</p>}
+      {state === 'loading' && (
+        <p className="dim" role="status">
+          Querying public holdings… this waits up to 10 seconds, then gives up with a retry.
+        </p>
+      )}
       {state === 'error' && (
         <div ref={resultsRef} tabIndex={-1}>
           <p className="error" role="alert">

@@ -1,7 +1,7 @@
 /**
  * The guided demo: audit, upgrade, prove, in one route.
  *
- * Every claim is verified live from chain data. Inputs are pre-filled but no
+ * Every claim is verified live from chain data. Inputs may be pre-filled but no
  * output is ever precomputed, and no step sends the presenter to another page.
  * The route stays usable when no fresh transaction is sent live, because the
  * published evidence is re-verified rather than asserted.
@@ -27,6 +27,20 @@ interface RecognitionDemo {
   strangerRecognised: boolean;
 }
 
+/** Which inputs the local configuration pre-fills; the copy says exactly that. */
+function prefillNote(): string {
+  const filled = [
+    DEMO_MAINNET_NAME ? 'the established mainnet name' : '',
+    DEMO_SEPOLIA_NAME ? 'the GhostName-enabled Sepolia name' : '',
+  ].filter(Boolean);
+  if (filled.length === 2) return 'Both names are pre-filled from your local configuration.';
+  if (filled.length === 1) return `Pre-filled from your local configuration: ${filled[0]}. Type the other.`;
+  return (
+    'Type an established mainnet name for step 1 and a Sepolia name that publishes a stealth ' +
+    'record for step 2 (the controlled demo identity is listed in DEMO.md).'
+  );
+}
+
 export default function Demo() {
   const [auditName, setAuditName] = useState(DEMO_MAINNET_NAME);
   const [upgradeName, setUpgradeName] = useState(DEMO_SEPOLIA_NAME);
@@ -34,6 +48,8 @@ export default function Demo() {
   const [upgrade, setUpgrade] = useState<PrivacyAuditReport | null>(null);
   const [derived, setDerived] = useState<string[]>([]);
   const [recognition, setRecognition] = useState<RecognitionDemo | null>(null);
+  /** null until the exit proof has run; then whether every check passed. */
+  const [exitVerified, setExitVerified] = useState<boolean | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -116,16 +132,19 @@ export default function Demo() {
   }
 
   const allDistinct = derived.length === 3 && new Set(derived).size === 3;
+  const recognitionPassed =
+    recognition !== null && recognition.ownerRecognised && !recognition.strangerRecognised;
+  // Every action step done, in order, with the proofs actually passing.
+  const complete =
+    audit !== null && upgrade !== null && allDistinct && recognitionPassed && exitVerified === true;
 
   return (
     <>
       <h1>GhostName in two minutes</h1>
       <p className="lead">
         Audit an ENS name, upgrade it without replacing it, and prove the whole private
-        payment lifecycle. Every result below is read live from chain data.{' '}
-        {DEMO_MAINNET_NAME || DEMO_SEPOLIA_NAME
-          ? 'Inputs are pre-filled from your local configuration; no output is precomputed.'
-          : 'Type an established mainnet name for step 1 and a Sepolia name that publishes a stealth record for step 2 (the controlled demo identity is listed in DEMO.md); no output is precomputed.'}
+        payment lifecycle. Every result below is read live from chain data; no output is
+        precomputed. {prefillNote()}
       </p>
       {error && (
         <p className="error" role="alert">
@@ -133,7 +152,7 @@ export default function Demo() {
         </p>
       )}
 
-      <ol className="steps">
+      <ol className="steps" aria-label="Demo steps">
         {/* 1. AUDIT */}
         <li className={audit ? 'done' : 'active'} aria-current={audit ? undefined : 'step'}>
           <strong>Audit: what does an established name commit to today?</strong>
@@ -314,57 +333,68 @@ export default function Demo() {
         </li>
 
         {/* 5. PROVE EXIT */}
-        <li className={recognition ? 'active' : ''} aria-current={recognition ? 'step' : undefined}>
+        <li
+          className={exitVerified ? 'done' : recognition ? 'active' : ''}
+          aria-current={!exitVerified && recognition ? 'step' : undefined}
+        >
           <strong>Prove exit: the funds leave without the stealth address paying gas.</strong>
-          <SweepProofPanel />
-        </li>
-
-        {/* 6. BOUNDARY */}
-        <li>
-          <strong>The boundary, stated plainly.</strong>
-          <div className="compare" style={{ marginTop: '0.5rem' }}>
-            <div className="col stealth">
-              <div className="title">Protected</div>
-              <ul className="small" style={{ margin: 0, paddingLeft: '1.1rem' }}>
-                <li>
-                  Future receiving addresses cannot be linked to the name by a passive observer
-                  without the viewing key.
-                </li>
-                <li>Derivation is local, so no gateway learns the destination.</li>
-                <li>Recipient address reuse is avoided.</li>
-              </ul>
-            </div>
-            <div className="col static">
-              <div className="title">Not protected</div>
-              <ul className="small" style={{ margin: 0, paddingLeft: '1.1rem' }}>
-                <li>Past transaction history, which cannot be erased.</li>
-                <li>ENS ownership, amounts, and sender identity.</li>
-                <li>Timing and RPC metadata.</li>
-              </ul>
-            </div>
-          </div>
-        </li>
-
-        {/* 7. CLOSE */}
-        <li>
-          <strong>Close.</strong>
-          <p className="small" style={{ margin: '0.3rem 0 0' }}>
-            GhostName does not replace your ENS identity or ask you to trust another wallet
-            provider. It audits, upgrades and proves private ENS payments.
-          </p>
-          <p style={{ margin: '0.4rem 0 0', color: 'var(--accent)' }}>
-            <strong>Keep the ENS name. Break the payment graph.</strong>
-          </p>
+          <SweepProofPanel onResult={setExitVerified} />
         </li>
       </ol>
+
+      {complete && (
+        <div className="card ok" role="status">
+          <span className="label">Complete: all five steps ran live and passed</span>
+          <p style={{ margin: 0 }}>
+            <span className="mono">{audit.name}</span> was audited on mainnet,{' '}
+            <span className="mono">{upgrade.name}</span> conformed on Sepolia, three
+            derivations gave three different destinations, only the intended viewing key
+            recognised the payment, and the published sponsored exit verified from chain data.
+          </p>
+          <p className="small dim" style={{ margin: '0.5rem 0 0' }}>
+            Nothing above was precomputed. The boundary below says what this does not protect.
+          </p>
+        </div>
+      )}
 
       {derived.length === 3 && (
         <Compare
           name={upgrade?.name ?? 'name.eth'}
-          staticAddress={audit?.conventionalAddress ?? undefined}
+          staticAddress={upgrade?.conventionalAddress ?? undefined}
           stealthAddresses={derived}
         />
       )}
+
+      <h2>The boundary, stated plainly</h2>
+      <div className="compare" style={{ marginTop: '0.5rem' }}>
+        <div className="col stealth">
+          <div className="title">Protected</div>
+          <ul className="small" style={{ margin: 0, paddingLeft: '1.1rem' }}>
+            <li>
+              Future receiving addresses cannot be linked to the name by a passive observer
+              without the viewing key.
+            </li>
+            <li>Derivation is local, so no gateway learns the destination.</li>
+            <li>Recipient address reuse is avoided.</li>
+          </ul>
+        </div>
+        <div className="col static">
+          <div className="title">Not protected</div>
+          <ul className="small" style={{ margin: 0, paddingLeft: '1.1rem' }}>
+            <li>Past transaction history, which cannot be erased.</li>
+            <li>ENS ownership, amounts, and sender identity.</li>
+            <li>Timing and RPC metadata.</li>
+          </ul>
+        </div>
+      </div>
+
+      <p className="small" style={{ margin: '1rem 0 0' }}>
+        GhostName does not replace your ENS identity or ask you to trust another wallet
+        provider. It audits, upgrades and proves private ENS payments.
+      </p>
+      <p style={{ margin: '0.4rem 0 0', color: 'var(--accent)' }}>
+        <strong>Keep the ENS name. Break the payment graph.</strong>
+      </p>
     </>
   );
 }
