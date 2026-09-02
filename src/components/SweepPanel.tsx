@@ -133,21 +133,21 @@ export default function SweepPanel(props: {
     URL.revokeObjectURL(url);
   }
 
-  if (!open) {
-    return (
+  const panelId = `${idBase}-panel`;
+
+  return (
+    <>
       <button
         className="ghost"
         style={{ marginTop: '0.5rem' }}
-        onClick={() => setOpen(true)}
-        aria-expanded={false}
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={panelId}
       >
-        Sweep privately via a sponsor (EIP-7702)
+        {open ? 'Hide sweep panel' : 'Sweep privately via a sponsor (EIP-7702)'}
       </button>
-    );
-  }
-
-  return (
-    <div className="card inset" style={{ marginTop: '0.6rem' }}>
+      {open && (
+    <div className="card inset" style={{ marginTop: '0.6rem' }} id={panelId}>
       <span className="label">Sweep without re-linking (EIP-7702 sponsored)</span>
       <p className="small dim" style={{ marginTop: 0 }}>
         Sending gas to this stealth address from your own wallet would re-link it. Instead,
@@ -162,10 +162,10 @@ export default function SweepPanel(props: {
         trusted endpoint if that matters.
       </p>
 
+      <label className="label" htmlFor={`${idBase}-executor`}>
+        EIP-7702 executor contract address
+      </label>
       <div className="row" style={{ marginBottom: '0.4rem' }}>
-        <label className="sr-only" htmlFor={`${idBase}-executor`}>
-          EIP-7702 executor contract address
-        </label>
         <input
           id={`${idBase}-executor`}
           type="text"
@@ -193,10 +193,10 @@ export default function SweepPanel(props: {
           </label>
         </div>
       )}
+      <label className="label" htmlFor={`${idBase}-destination`}>
+        Destination address, bound into the signature
+      </label>
       <div className="row" style={{ marginBottom: '0.4rem' }}>
-        <label className="sr-only" htmlFor={`${idBase}-destination`}>
-          Destination address, bound into the signature
-        </label>
         <input
           id={`${idBase}-destination`}
           type="text"
@@ -207,10 +207,10 @@ export default function SweepPanel(props: {
           spellCheck={false}
         />
       </div>
+      <label className="label" htmlFor={`${idBase}-amount`}>
+        Amount to sweep (ETH) and validity window (minutes)
+      </label>
       <div className="row">
-        <label className="sr-only" htmlFor={`${idBase}-amount`}>
-          Amount to sweep in ETH
-        </label>
         <input
           id={`${idBase}-amount`}
           type="text"
@@ -222,11 +222,9 @@ export default function SweepPanel(props: {
           autoComplete="off"
         />
         <span className="dim small">ETH</span>
-        <label className="sr-only" htmlFor={`${idBase}-ttl`}>
-          Validity window in minutes
-        </label>
         <input
           id={`${idBase}-ttl`}
+          aria-label="Validity window in minutes"
           type="text"
           inputMode="numeric"
           style={{ maxWidth: '110px', minWidth: '90px' }}
@@ -255,47 +253,42 @@ export default function SweepPanel(props: {
       <div aria-live="polite">
         {pkg && verification && (
           <>
-            <p className="small" style={{ margin: '0.7rem 0 0.3rem' }}>
+            <div className="row" style={{ margin: '0.7rem 0 0.3rem' }}>
               {verification.valid ? (
                 <span className="pill ok">pass: complete and destination-bound</span>
               ) : (
                 <span className="pill bad">fail: verification failed</span>
-              )}{' '}
-              <button
-                className="ghost"
-                style={{ padding: '0.15rem 0.6rem', fontSize: '0.78rem' }}
-                onClick={download}
-              >
+              )}
+              <button className="ghost btn-sm" onClick={download}>
                 Download JSON
-              </button>{' '}
+              </button>
               <button
-                className="ghost"
-                style={{ padding: '0.15rem 0.6rem', fontSize: '0.78rem' }}
-                onClick={() => void navigator.clipboard.writeText(JSON.stringify(pkg, null, 2))}
+                className="ghost btn-sm"
+                onClick={() => void navigator.clipboard?.writeText(JSON.stringify(pkg, null, 2))}
               >
                 Copy package
               </button>
-            </p>
+            </div>
             <table className="plain" style={{ marginBottom: '0.5rem' }}>
               <tbody>
                 <tr>
-                  <td className="small dim">delegation signed by stealth EOA</td>
+                  <th scope="row" className="small dim">delegation signed by stealth EOA</th>
                   <td className="small">{verification.checks.delegationSigner ? 'yes' : 'no'}</td>
                 </tr>
                 <tr>
-                  <td className="small dim">destination, amount, nonce, deadline bound</td>
+                  <th scope="row" className="small dim">destination, amount, nonce, deadline bound</th>
                   <td className="small">{verification.checks.sweepSigner ? 'yes' : 'no'}</td>
                 </tr>
                 <tr>
-                  <td className="small dim">calldata matches declared fields</td>
+                  <th scope="row" className="small dim">calldata matches declared fields</th>
                   <td className="small">{verification.checks.calldataMatches ? 'yes' : 'no'}</td>
                 </tr>
                 <tr>
-                  <td className="small dim">account nonce (EIP-7702)</td>
+                  <th scope="row" className="small dim">account nonce (EIP-7702)</th>
                   <td className="small mono">{pkg.authorizationNonce}</td>
                 </tr>
                 <tr>
-                  <td className="small dim">executor sweep nonce (replay guard, random)</td>
+                  <th scope="row" className="small dim">executor sweep nonce (replay guard, random)</th>
                   <td className="small mono" style={{ wordBreak: 'break-all' }}>{pkg.sweepNonce}</td>
                 </tr>
               </tbody>
@@ -318,5 +311,7 @@ export default function SweepPanel(props: {
         )}
       </div>
     </div>
+      )}
+    </>
   );
 }

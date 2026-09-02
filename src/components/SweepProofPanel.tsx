@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { formatEther } from 'viem';
 import { getSepoliaClient } from '../chain/clients';
 import { SPONSORED_SWEEP_EVIDENCE } from '../relay/evidence';
@@ -18,6 +18,7 @@ const STATE_PILL: Record<string, string> = {
 export default function SweepProofPanel({ autoRun = false }: { autoRun?: boolean }) {
   const [proof, setProof] = useState<SweepProof | null>(null);
   const [busy, setBusy] = useState(false);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   async function run() {
     setBusy(true);
@@ -25,6 +26,7 @@ export default function SweepProofPanel({ autoRun = false }: { autoRun?: boolean
       setProof(await verifySweepProof(getSepoliaClient() as never, SPONSORED_SWEEP_EVIDENCE));
     } finally {
       setBusy(false);
+      setTimeout(() => resultsRef.current?.focus(), 0);
     }
   }
 
@@ -43,13 +45,11 @@ export default function SweepProofPanel({ autoRun = false }: { autoRun?: boolean
         re-verified live. The executor is an unaudited testnet demo contract.
       </p>
 
-      {!proof && (
-        <button className="secondary" onClick={() => void run()} disabled={busy}>
-          {busy ? 'Verifying…' : 'Verify the sponsored exit'}
-        </button>
-      )}
+      <button className="secondary" onClick={() => void run()} disabled={busy} aria-busy={busy}>
+        {busy ? 'Verifying…' : proof ? 'Re-verify' : 'Verify the sponsored exit'}
+      </button>
 
-      <div aria-live="polite" aria-busy={busy}>
+      <div aria-live="polite" aria-busy={busy} ref={resultsRef} tabIndex={-1}>
       {proof && (
         <>
           <p className="small" style={{ marginBottom: '0.5rem' }}>
@@ -61,14 +61,7 @@ export default function SweepProofPanel({ autoRun = false }: { autoRun?: boolean
             <a href={proof.explorerUrl} target="_blank" rel="noreferrer" className="mono small">
               view transaction
             </a>{' '}
-            <button
-              className="ghost"
-              style={{ padding: '0.15rem 0.6rem', fontSize: '0.78rem' }}
-              onClick={() => void run()}
-              disabled={busy}
-            >
-              {busy ? 'Re-checking…' : 'Re-verify'}
-            </button>
+
           </p>
 
           <table className="plain">

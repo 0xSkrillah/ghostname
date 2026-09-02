@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { namehash, type Address, type Hex } from 'viem';
 import { saveIdentity, useIdentity } from '../state/identity';
@@ -51,6 +51,9 @@ export default function Create() {
   const [mainnetConfirmed, setMainnetConfirmed] = useState(false);
   const [confirmToken, setConfirmToken] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  // Focus targets for controls that unmount themselves after activation.
+  const recordRef = useRef<HTMLDivElement>(null);
+  const walletStatusRef = useRef<HTMLParagraphElement>(null);
 
   const onSepolia = wallet.chainId === SEPOLIA_CHAIN_ID;
   // Mainnet is a write target only when the build opted in; otherwise a wallet
@@ -212,14 +215,21 @@ export default function Create() {
 
       {!identity && (
         <>
-          <button onClick={() => create()}>Generate keys locally</button>
+          <button
+            onClick={() => {
+              create();
+              setTimeout(() => recordRef.current?.focus(), 0);
+            }}
+          >
+            Generate keys locally
+          </button>
           <h2>Or import an existing identity</h2>
           <p className="small dim">
             Paste the <code>ghostname-identity.json</code> backup. It is validated locally
             (both keys must be valid and must match the meta-address) and stored only in this
             browser. Never paste keys that hold real assets.
           </p>
-          <label className="sr-only" htmlFor="import-json">
+          <label className="label" htmlFor="import-json">
             Identity backup JSON
           </label>
           <textarea
@@ -241,7 +251,7 @@ export default function Create() {
             Paste the <code>ghostname-capsule.json</code> contents and its passphrase. Decryption
             and validation happen in this browser; nothing is sent anywhere.
           </p>
-          <label className="sr-only" htmlFor="capsule-json">
+          <label className="label" htmlFor="capsule-json">
             Encrypted capsule JSON
           </label>
           <textarea
@@ -252,17 +262,16 @@ export default function Create() {
             autoComplete="off"
             spellCheck={false}
           />
+          <label className="label" htmlFor="capsule-restore-pass" style={{ marginTop: '0.5rem' }}>
+            Capsule passphrase
+          </label>
           <form
             className="row"
-            style={{ marginTop: '0.5rem' }}
             onSubmit={(e) => {
               e.preventDefault();
               if (!restoring && capsuleJson.trim() && capsuleRestorePass) void restoreCapsule();
             }}
           >
-            <label className="sr-only" htmlFor="capsule-restore-pass">
-              Capsule passphrase
-            </label>
             <input
               id="capsule-restore-pass"
               type="password"
@@ -290,11 +299,13 @@ export default function Create() {
 
       {identity && (
         <>
-          <CopyField
-            label={`ENS text record, key: ${ENS_STEALTH_RECORD_KEY}`}
-            value={identity.stealthMetaAddress}
-            size="xl"
-          />
+          <div ref={recordRef} tabIndex={-1}>
+            <CopyField
+              label={`ENS text record, key: ${ENS_STEALTH_RECORD_KEY}`}
+              value={identity.stealthMetaAddress}
+              size="xl"
+            />
+          </div>
           <p className="small dim">
             Publish this value under the text record key{' '}
             <code>{ENS_STEALTH_RECORD_KEY}</code> on any ENS name you own. Senders resolve
@@ -331,6 +342,9 @@ export default function Create() {
               not a strength guarantee: a short dictionary phrase is still guessable offline.
               Restore it later with "Restore from an encrypted capsule".
             </p>
+            <label className="label" htmlFor="capsule-pass">
+              Capsule passphrase, at least {MIN_PASSPHRASE_LENGTH} characters
+            </label>
             <form
               className="row"
               onSubmit={(e) => {
@@ -338,9 +352,6 @@ export default function Create() {
                 if (capsulePass.length >= MIN_PASSPHRASE_LENGTH) void downloadEncryptedCapsule();
               }}
             >
-              <label className="sr-only" htmlFor="capsule-pass">
-                Capsule passphrase, at least {MIN_PASSPHRASE_LENGTH} characters
-              </label>
               <input
                 id="capsule-pass"
                 type="password"
@@ -369,11 +380,16 @@ export default function Create() {
               : 'Mainnet writes are blocked in this build. The publish path hard-fails on any chain other than Sepolia.'}
           </p>
           {!wallet.account ? (
-            <button className="secondary" onClick={() => void wallet.connect()}>
+            <button
+              className="secondary"
+              onClick={() => {
+                void wallet.connect().then(() => setTimeout(() => walletStatusRef.current?.focus(), 0));
+              }}
+            >
               Connect wallet
             </button>
           ) : (
-            <p className="small">
+            <p className="small" ref={walletStatusRef} tabIndex={-1}>
               <span className="pill">{wallet.account}</span>{' '}
               {onSepolia ? (
                 <span className="pill ok">Sepolia</span>
@@ -398,6 +414,9 @@ export default function Create() {
               )}
             </p>
           )}
+          <label className="label" htmlFor="publish-name">
+            ENS name you control
+          </label>
           <form
             className="row"
             onSubmit={(e) => {
@@ -405,9 +424,6 @@ export default function Create() {
               if (!preparing && ensName.trim()) void prepare();
             }}
           >
-            <label className="sr-only" htmlFor="publish-name">
-              ENS name you control
-            </label>
             <input
               id="publish-name"
               type="text"
@@ -435,23 +451,23 @@ export default function Create() {
                 <table className="plain">
                   <tbody>
                     <tr>
-                      <td className="small dim">contract (the name's resolver)</td>
+                      <th scope="row" className="small dim">contract (the name's resolver)</th>
                       <td className="mono small" style={{ wordBreak: 'break-all' }}>{prepared.resolver}</td>
                     </tr>
                     <tr>
-                      <td className="small dim">function</td>
+                      <th scope="row" className="small dim">function</th>
                       <td className="mono small">setText(node, key, value)</td>
                     </tr>
                     <tr>
-                      <td className="small dim">node</td>
+                      <th scope="row" className="small dim">node</th>
                       <td className="mono small" style={{ wordBreak: 'break-all' }}>{prepared.node}</td>
                     </tr>
                     <tr>
-                      <td className="small dim">key</td>
+                      <th scope="row" className="small dim">key</th>
                       <td className="mono small">{ENS_STEALTH_RECORD_KEY}</td>
                     </tr>
                     <tr>
-                      <td className="small dim">value</td>
+                      <th scope="row" className="small dim">value</th>
                       <td className="mono small" style={{ wordBreak: 'break-all' }}>{identity.stealthMetaAddress}</td>
                     </tr>
                   </tbody>

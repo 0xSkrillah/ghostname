@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { getSepoliaClient } from '../chain/clients';
 import { STEALTH_PAYMENT_EVIDENCE } from '../relay/evidence';
 import { verifyPaymentProof, type PaymentProof } from '../relay/paymentProof';
@@ -17,6 +17,7 @@ const STATE_PILL: Record<string, string> = {
 export default function PaymentProofPanel() {
   const [proof, setProof] = useState<PaymentProof | null>(null);
   const [busy, setBusy] = useState(false);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   async function run() {
     setBusy(true);
@@ -24,6 +25,7 @@ export default function PaymentProofPanel() {
       setProof(await verifyPaymentProof(getSepoliaClient() as never, STEALTH_PAYMENT_EVIDENCE));
     } finally {
       setBusy(false);
+      setTimeout(() => resultsRef.current?.focus(), 0);
     }
   }
 
@@ -36,13 +38,11 @@ export default function PaymentProofPanel() {
         actually funded, otherwise it is an unrelated log.
       </p>
 
-      {!proof && (
-        <button className="secondary" onClick={() => void run()} disabled={busy}>
-          {busy ? 'Verifying…' : 'Verify the payment and announcement'}
-        </button>
-      )}
+      <button className="secondary" onClick={() => void run()} disabled={busy} aria-busy={busy}>
+        {busy ? 'Verifying…' : proof ? 'Re-verify' : 'Verify the payment and announcement'}
+      </button>
 
-      <div aria-live="polite" aria-busy={busy}>
+      <div aria-live="polite" aria-busy={busy} ref={resultsRef} tabIndex={-1}>
       {proof && (
         <>
           <p className="small" style={{ marginBottom: '0.5rem' }}>
@@ -57,14 +57,7 @@ export default function PaymentProofPanel() {
             <a href={proof.announcementUrl} target="_blank" rel="noreferrer" className="small">
               announcement tx
             </a>{' '}
-            <button
-              className="ghost"
-              style={{ padding: '0.15rem 0.6rem', fontSize: '0.78rem' }}
-              onClick={() => void run()}
-              disabled={busy}
-            >
-              {busy ? 'Re-checking…' : 'Re-verify'}
-            </button>
+
           </p>
 
           <table className="plain">

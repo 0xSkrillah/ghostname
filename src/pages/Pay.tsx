@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { formatEther, type Hash } from 'viem';
 import { getMainnetClient, getSepoliaClient } from '../chain/clients';
 import {
@@ -50,6 +50,7 @@ export default function Pay() {
   const [confirmToken, setConfirmToken] = useState(0);
   const [result, setResult] = useState<PaymentResult | null>(null);
   const [pending, setPending] = useState<PendingAnnouncement | null>(null);
+  const walletStatusRef = useRef<HTMLParagraphElement>(null);
 
   // Mainnet is only a write target when the build opted in; otherwise a wallet
   // on mainnet is simply blocked and the page keeps working against Sepolia.
@@ -173,6 +174,9 @@ export default function Pay() {
         no gateway involved. The record is read on {networkLabel}, the network the payment will
         be sent on.
       </p>
+      <label className="label" htmlFor="pay-name">
+        ENS name to pay
+      </label>
       <form
         className="row"
         onSubmit={(e) => {
@@ -180,9 +184,6 @@ export default function Pay() {
           if (busy === 'idle' && name.trim()) void derive();
         }}
       >
-        <label className="sr-only" htmlFor="pay-name">
-          ENS name to pay
-        </label>
         <input
           id="pay-name"
           type="text"
@@ -203,7 +204,7 @@ export default function Pay() {
         </p>
       )}
       {notice && (
-        <p className="small" style={{ color: 'var(--warn)' }} role="status">
+        <p className="small" style={{ color: 'var(--warn)' }}>
           {notice}
         </p>
       )}
@@ -250,12 +251,17 @@ export default function Pay() {
 
             <h2>Send {guardedMainnet ? 'ETH' : 'Sepolia ETH'} to the latest destination</h2>
             {!wallet.account ? (
-              <button className="secondary" onClick={() => void wallet.connect()}>
+              <button
+                className="secondary"
+                onClick={() => {
+                  void wallet.connect().then(() => setTimeout(() => walletStatusRef.current?.focus(), 0));
+                }}
+              >
                 Connect wallet
               </button>
             ) : (
               <>
-                <p className="small">
+                <p className="small" ref={walletStatusRef} tabIndex={-1}>
                   <span className="pill">{wallet.account}</span>{' '}
                   {wallet.chainId === SEPOLIA_CHAIN_ID ? (
                     <span className="pill ok">Sepolia</span>
@@ -279,10 +285,10 @@ export default function Pay() {
                     </>
                   )}
                 </p>
+                <label className="label" htmlFor="pay-amount">
+                  Amount in ETH
+                </label>
                 <div className="row">
-                  <label className="sr-only" htmlFor="pay-amount">
-                    Amount in ETH
-                  </label>
                   <input
                     id="pay-amount"
                     type="text"
@@ -306,43 +312,43 @@ export default function Pay() {
                   <table className="plain">
                     <tbody>
                       <tr>
-                        <td className="small dim">1. transfer to</td>
+                        <th scope="row" className="small dim">1. transfer to</th>
                         <td className="mono small" style={{ wordBreak: 'break-all', color: 'var(--stealth-col)' }}>
                           {current.derivation.stealthAddress}
                         </td>
                       </tr>
                       <tr>
-                        <td className="small dim">value</td>
+                        <th scope="row" className="small dim">value</th>
                         <td className="mono small">
                           {parsedAmount.error ? 'enter a valid amount' : `${formatEther(parsedAmount.wei)} ETH`}
                         </td>
                       </tr>
                       <tr>
-                        <td className="small dim">2. announcement to</td>
+                        <th scope="row" className="small dim">2. announcement to</th>
                         <td className="mono small" style={{ wordBreak: 'break-all' }}>
                           {ANNOUNCER_ADDRESS} <span className="dim">(ERC-5564 announcer singleton)</span>
                         </td>
                       </tr>
                       <tr>
-                        <td className="small dim">function</td>
+                        <th scope="row" className="small dim">function</th>
                         <td className="mono small">announce(schemeId, stealthAddress, ephemeralPubKey, metadata)</td>
                       </tr>
                       <tr>
-                        <td className="small dim">schemeId</td>
+                        <th scope="row" className="small dim">schemeId</th>
                         <td className="mono small">{SCHEME_ID.toString()}</td>
                       </tr>
                       <tr>
-                        <td className="small dim">ephemeralPubKey</td>
+                        <th scope="row" className="small dim">ephemeralPubKey</th>
                         <td className="mono small" style={{ wordBreak: 'break-all' }}>
                           {current.derivation.ephemeralPublicKey}
                         </td>
                       </tr>
                       <tr>
-                        <td className="small dim">view tag</td>
+                        <th scope="row" className="small dim">view tag</th>
                         <td className="mono small">{current.derivation.viewTag}</td>
                       </tr>
                       <tr>
-                        <td className="small dim">metadata</td>
+                        <th scope="row" className="small dim">metadata</th>
                         <td className="mono small" style={{ wordBreak: 'break-all' }}>
                           {parsedAmount.error
                             ? 'enter a valid amount'
@@ -396,7 +402,7 @@ export default function Pay() {
                 <table className="plain">
                   <tbody>
                     <tr>
-                      <td className="small dim">payment tx</td>
+                      <th scope="row" className="small dim">payment tx</th>
                       <td className="mono small" style={{ wordBreak: 'break-all' }}>
                         <a href={`${explorerFor(pending.plan.chainId)}/tx/${pending.paymentTx}`} target="_blank" rel="noreferrer">
                           {pending.paymentTx}
@@ -404,15 +410,15 @@ export default function Pay() {
                       </td>
                     </tr>
                     <tr>
-                      <td className="small dim">stealth address</td>
+                      <th scope="row" className="small dim">stealth address</th>
                       <td className="mono small" style={{ wordBreak: 'break-all' }}>{pending.plan.derivation.stealthAddress}</td>
                     </tr>
                     <tr>
-                      <td className="small dim">ephemeral public key</td>
+                      <th scope="row" className="small dim">ephemeral public key</th>
                       <td className="mono small" style={{ wordBreak: 'break-all' }}>{pending.plan.derivation.ephemeralPublicKey}</td>
                     </tr>
                     <tr>
-                      <td className="small dim">metadata</td>
+                      <th scope="row" className="small dim">metadata</th>
                       <td className="mono small" style={{ wordBreak: 'break-all' }}>
                         {buildEthAnnouncementMetadata(pending.plan.derivation.viewTag, pending.plan.amountWei)}
                       </td>
@@ -449,7 +455,7 @@ export default function Pay() {
             )}
 
             {result && (
-              <div className="card ok" role="status">
+              <div className="card ok" aria-live="polite">
                 <span className="label">Payment complete on {networkName(result.chainId)}</span>
                 <div className="bigmono small">
                   payment:{' '}

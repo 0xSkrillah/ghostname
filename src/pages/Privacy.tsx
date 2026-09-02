@@ -48,45 +48,33 @@ export default function Privacy() {
       </div>
 
       <h2>Protected</h2>
-      <table className="plain">
-        <tbody>
-          <tr>
-            <td>
-              Linkage between your ENS name and <em>future</em> one-time receiving addresses,
-              against ordinary passive blockchain observers.
-            </td>
-          </tr>
-          <tr>
-            <td>Recipient-address reuse (each payment gets a fresh destination).</td>
-          </tr>
-          <tr>
-            <td>
-              No gateway dependency: ephemeral keys and stealth addresses are generated in
-              the sender's client, so no third party learns destinations by construction.
-            </td>
-          </tr>
-          <tr>
-            <td>
-              Recipient discovery without revealing viewing/spending secrets: scanning uses
-              your private viewing key locally.
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <ul className="plain-list">
+        <li>
+          Linkage between your ENS name and <em>future</em> one-time receiving addresses,
+          against ordinary passive blockchain observers.
+        </li>
+        <li>Recipient-address reuse (each payment gets a fresh destination).</li>
+        <li>
+          No gateway dependency: ephemeral keys and stealth addresses are generated in the
+          sender's client, so no third party learns destinations by construction.
+        </li>
+        <li>
+          Recipient discovery without revealing viewing/spending secrets: scanning uses your
+          private viewing key locally.
+        </li>
+      </ul>
 
       <h2>Not protected</h2>
-      <table className="plain">
-        <tbody>
-          <tr><td>Historical blockchain activity. Nothing can delete it.</td></tr>
-          <tr><td>Existence and ownership of the ENS name itself.</td></tr>
-          <tr><td>The public stealth meta-address record (it is meant to be public).</td></tr>
-          <tr><td>Sender identity, if the sender pays from a public wallet.</td></tr>
-          <tr><td>Amounts of ordinary ETH/ERC-20 transfers, visible on-chain.</td></tr>
-          <tr><td>Timing, network, RPC and browser-fingerprint correlation attacks.</td></tr>
-          <tr><td>A compromised device, or leaked viewing/spending keys.</td></tr>
-          <tr><td>Your identity to a sender who already knows who they are paying.</td></tr>
-        </tbody>
-      </table>
+      <ul className="plain-list">
+        <li>Historical blockchain activity. Nothing can delete it.</li>
+        <li>Existence and ownership of the ENS name itself.</li>
+        <li>The public stealth meta-address record (it is meant to be public).</li>
+        <li>Sender identity, if the sender pays from a public wallet.</li>
+        <li>Amounts of ordinary ETH/ERC-20 transfers, visible on-chain.</li>
+        <li>Timing, network, RPC and browser-fingerprint correlation attacks.</li>
+        <li>A compromised device, or leaked viewing/spending keys.</li>
+        <li>Your identity to a sender who already knows who they are paying.</li>
+      </ul>
 
       <p className="small dim">
         Mechanism: ERC-5564 scheme 1 (secp256k1 + view tags), resolved from the ENS text

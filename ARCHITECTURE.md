@@ -38,7 +38,8 @@ is what "privacy-assurance layer" means in practice.
   orchestrates resolution, validation and three local derivation trials.
   Standards status is labelled at the point of use: the record convention is a
   current RFC proposal, ENSIP-11 is an existing requirement, and ERC-6538
-  lookups are experimental diagnostics.
+  registry lookups are deliberately not performed; the ENS text record is the
+  only source consulted.
 - `src/relay/sweep.ts`: the sweep package. A sponsored sweep needs **two**
   signatures, and only the second one binds the destination. See RELAYERS.md.
 - `src/relay/proof.ts`: re-derives every claim about the published sponsored
@@ -70,8 +71,11 @@ is what "privacy-assurance layer" means in practice.
 - `resolve.ts`: ENSIP-15 normalization; conventional `addr` resolution;
   `stealth-meta-address[1]` text-record resolution returning
   `none | invalid | ok` (payment path refuses to fall back silently).
-- `write.ts`: resolver lookup via the ENS registry, then `setText` with
+- `write.ts`: resolver discovery through the ENS Universal Resolver (viem
+  `getEnsResolver`, works for legacy and ENSv2 names), then `setText` with
   the RFC key and the verbatim meta-address string. Double network guard.
+  Never sets or replaces a resolver; the UI shows and requires acknowledgement
+  of any record it would replace.
 
 ### `src/chain`
 
