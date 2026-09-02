@@ -24,7 +24,7 @@ layer. GhostName sits at the assurance layer.
 - **GhostName** is the open conformance, migration and lifecycle-assurance layer
   for ENS identities users already own. It custodies nothing and issues nothing.
 
-What that buys you in practice: its strict mode derives addresses in the sender
+What that buys you in practice: it always derives addresses in the sender
 client, so no gateway learns the destination; it makes resolver, record and
 withdrawal trust assumptions visible instead of implicit; and it exports
 evidence you can inspect independently, including a sponsored exit that is

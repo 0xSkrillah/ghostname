@@ -151,6 +151,9 @@ export default function Receive() {
         RPC about the recognised addresses specifically; pin a trusted endpoint in .env if
         that linkage matters to you.
       </p>
+      <label className="label" htmlFor="scan-from-block">
+        Start block for the announcement scan
+      </label>
       <form
         className="row"
         onSubmit={(e) => {
@@ -158,9 +161,6 @@ export default function Receive() {
           if (!busy) void scan();
         }}
       >
-        <label className="sr-only" htmlFor="scan-from-block">
-          Start block for the announcement scan
-        </label>
         <input
           id="scan-from-block"
           type="text"
@@ -182,7 +182,7 @@ export default function Receive() {
 
       <div aria-live="polite" aria-busy={busy}>
         {busy && (
-          <p className="dim small" role="status">
+          <p className="dim small">
             {progress ?? 'Reading announcements from Sepolia and checking them with your viewing key…'}
           </p>
         )}

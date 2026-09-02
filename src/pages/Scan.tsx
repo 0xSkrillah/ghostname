@@ -73,6 +73,9 @@ export default function Scan() {
         the audited name, and, if a name uses an offchain (CCIP-read) resolver, a request to
         that resolver's gateway. The optional Mobula panel sends the resolved address to Mobula.
       </p>
+      <label className="label" htmlFor="scan-name">
+        ENS name to audit
+      </label>
       <form
         className="row"
         onSubmit={(e) => {
@@ -80,9 +83,6 @@ export default function Scan() {
           if (!busy && name.trim()) void audit();
         }}
       >
-        <label className="sr-only" htmlFor="scan-name">
-          ENS name to audit
-        </label>
         <input
           id="scan-name"
           type="text"
@@ -117,15 +117,11 @@ export default function Scan() {
       )}
 
       <div aria-live="polite" aria-busy={busy}>
-        {busy && (
-          <p className="dim small" role="status">
-            Reading ENS records on {NETWORK_LABEL[network]}…
-          </p>
-        )}
+        {busy && <p className="dim small">Reading ENS records on {NETWORK_LABEL[network]}…</p>}
         {report && (
           <>
             {reportStale && (
-              <p className="small" style={{ color: 'var(--warn)' }} role="status">
+              <p className="small" style={{ color: 'var(--warn)' }}>
                 The result below is for <span className="mono">{report.name}</span> on{' '}
                 {NETWORK_LABEL[reportNetwork]}; the inputs have changed since. Run the audit
                 again to refresh it.

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Address } from 'viem';
 import { fetchWalletExposure, type WalletExposure } from '../mobula/portfolio';
 import { describeError } from '../lib/describeError';
@@ -13,6 +13,7 @@ export default function ExposurePanel({ address }: { address: Address }) {
   const [exposure, setExposure] = useState<WalletExposure | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   async function load() {
     setState('loading');
@@ -23,6 +24,8 @@ export default function ExposurePanel({ address }: { address: Address }) {
     } catch (err) {
       setError(describeError(err));
       setState('error');
+    } finally {
+      setTimeout(() => resultsRef.current?.focus(), 0);
     }
   }
 
@@ -40,11 +43,7 @@ export default function ExposurePanel({ address }: { address: Address }) {
           </button>
         </>
       )}
-      {state === 'loading' && (
-        <p className="dim" role="status">
-          Querying public holdings…
-        </p>
-      )}
+      {state === 'loading' && <p className="dim">Querying public holdings…</p>}
       {state === 'error' && (
         <>
           <p className="error" role="alert">
@@ -56,7 +55,7 @@ export default function ExposurePanel({ address }: { address: Address }) {
         </>
       )}
       {state === 'done' && exposure && (
-        <>
+        <div ref={resultsRef} tabIndex={-1} aria-live="polite">
           <div className="row" style={{ gap: '1.5rem', marginBottom: '0.6rem' }}>
             <div>
               <div className="bigmono" style={{ fontSize: '1.6rem', color: 'var(--static-col)' }}>
@@ -77,8 +76,7 @@ export default function ExposurePanel({ address }: { address: Address }) {
               <span className="small dim">
                 total value{' '}
                 <button
-                  className="ghost"
-                  style={{ padding: '0.1rem 0.5rem', fontSize: '0.75rem' }}
+                  className="ghost btn-sm"
                   onClick={() => setRevealed((r) => !r)}
                   aria-pressed={revealed}
                 >
@@ -116,7 +114,7 @@ export default function ExposurePanel({ address }: { address: Address }) {
             lands on a fresh address that cannot be assembled into a profile like this.
             {exposure.source === 'demo' && ' (Mobula keyless demo endpoint.)'}
           </p>
-        </>
+        </div>
       )}
     </div>
   );

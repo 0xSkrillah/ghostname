@@ -98,7 +98,7 @@ upgrades and proves the identity you already own, and custodies nothing.
 
 **Every claim here is live on Sepolia, not mocked.**
 
-Real ENS name registered, record published, payment sent, scanned, recovered, and swept via a sponsored EIP-7702 transaction. Standards-correct ERC-5564, 90-plus tests, byte-identical to the reference implementation.
+Real ENS name registered, record published, payment sent, scanned, recovered, and swept via a sponsored EIP-7702 transaction. Standards-correct ERC-5564, more than 220 deterministic tests, byte-identical to the reference implementation.
 
 > Speaker: "None of this is slideware. Real transactions, standards-correct cryptography, and a scope we state honestly."
 
@@ -118,7 +118,7 @@ Keep the ENS name. Break the payment graph.
 
 ## Fifteen-second version
 
-> "An ENS name ties your identity to one wallet forever. GhostName keeps the name but sends every future payment to a fresh, unlinkable address. Real ERC-5564 stealth addresses, resolved through ENS, proven live on Sepolia."
+> "An ENS name ties your identity to one wallet forever. GhostName keeps the name but sends every future payment to a fresh one-time address that a passive observer cannot link to the name. Real ERC-5564 stealth addresses, resolved through ENS, proven live on Sepolia."
 
 ## Title-slide alternates
 

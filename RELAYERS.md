@@ -69,9 +69,14 @@ The full sponsored sweep runs on-chain, not just as signatures:
   [`0x75a9da4e…89c25`](https://sepolia.etherscan.io/tx/0x75a9da4e44494d5983bdfe5a6774255e938248bbbca9414eefcd9acdb0089c25);
   an earlier run of the same mechanism is
   [`0x412cca80…efedc0`](https://sepolia.etherscan.io/tx/0x412cca80d621d5d58a38ef190c6a8c323d18adb1be3488f29868d1b4b2efedc0).
-- Reproduce: `npm run sweep:sepolia` (deploys once, then runs the full sweep;
-  needs `SEPOLIA_PRIVATE_KEY` funded with a little test ETH). Evidence lands in
-  `.demo/sweep-evidence.json`.
+- Reproduce, in order: `node scripts/compile-executor.mjs` (writes
+  `.demo/executor.json`), `npm run e2e:sepolia` (creates `.demo/identity.json`
+  and publishes the record), then `npm run sweep:sepolia`. To reuse the
+  published executor instead of deploying a new one, first write
+  `{"executor":"0x94E4C39055fa4a5fCd47E03CbcbCD0503848806b"}` to
+  `.demo/sweep-state.json`. Needs `SEPOLIA_PRIVATE_KEY` (throwaway, testnet
+  only) funded with at least 0.003 Sepolia ETH; the suite skips silently below
+  that. Evidence lands in `.demo/sweep-evidence.json`.
 
 The executor verifies an EIP-712 `Sweep` signature made by the EOA itself
 (`ecrecover == address(this)` under 7702), so anyone, a sponsor/relayer, can
