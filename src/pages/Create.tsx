@@ -1,8 +1,9 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { namehash, type Address, type Hex } from 'viem';
 import { saveIdentity, useIdentity } from '../state/identity';
 import { parseIdentityBackup } from '../crypto/identityBackup';
-import { encryptCapsule } from '../swarm/capsule';
+import { MIN_PASSPHRASE_LENGTH, assertTestnetOnly, decryptCapsule, encryptCapsule } from '../swarm/capsule';
 import { useWallet } from '../state/wallet';
 import { getResolverAddress, publishStealthRecord } from '../ens/write';
 import { getMainnetClient, getSepoliaClient } from '../chain/clients';
@@ -38,21 +39,26 @@ export default function Create() {
   const [importError, setImportError] = useState<string | null>(null);
   const [capsulePass, setCapsulePass] = useState('');
   const [capsuleMsg, setCapsuleMsg] = useState<string | null>(null);
+  const [capsuleJson, setCapsuleJson] = useState('');
+  const [capsuleRestorePass, setCapsuleRestorePass] = useState('');
+  const [restoring, setRestoring] = useState(false);
   const [preparing, setPreparing] = useState(false);
   const [prepared, setPrepared] = useState<Prepared | null>(null);
   const [overwriteAck, setOverwriteAck] = useState(false);
   const [publishing, setPublishing] = useState(false);
-  const [publishTx, setPublishTx] = useState<string | null>(null);
+  const [publishTx, setPublishTx] = useState<{ hash: string; chainId: number } | null>(null);
   const [verified, setVerified] = useState<string | null>(null);
   const [mainnetConfirmed, setMainnetConfirmed] = useState(false);
   const [confirmToken, setConfirmToken] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const onSepolia = wallet.chainId === SEPOLIA_CHAIN_ID;
-  const onMainnet = wallet.chainId === MAINNET_CHAIN_ID;
+  // Mainnet is a write target only when the build opted in; otherwise a wallet
+  // on mainnet is blocked and the page keeps working against Sepolia.
+  const onMainnet = wallet.chainId === MAINNET_CHAIN_ID && wallet.mainnetEnabled;
+  const mainnetBlocked = wallet.chainId === MAINNET_CHAIN_ID && !wallet.mainnetEnabled;
   const targetChainId = onMainnet ? MAINNET_CHAIN_ID : SEPOLIA_CHAIN_ID;
   const networkLabel = onMainnet ? 'Ethereum mainnet' : 'Sepolia';
-  const explorer = onMainnet ? 'https://etherscan.io' : 'https://sepolia.etherscan.io';
   const readClient = onMainnet ? getMainnetClient() : getSepoliaClient();
 
   // A preflight is only valid for the network it was run against.
@@ -75,6 +81,23 @@ export default function Create() {
       setImportJson('');
     } catch (err) {
       setImportError(describeError(err));
+    }
+  }
+
+  /** Decrypt a capsule locally, validate the identity inside, then store it. */
+  async function restoreCapsule() {
+    setImportError(null);
+    setRestoring(true);
+    try {
+      const payload = await decryptCapsule<Record<string, unknown>>(capsuleJson, capsuleRestorePass);
+      assertTestnetOnly(payload as { network?: string });
+      saveIdentity(parseIdentityBackup(payload));
+      setCapsuleJson('');
+      setCapsuleRestorePass('');
+    } catch (err) {
+      setImportError(describeError(err));
+    } finally {
+      setRestoring(false);
     }
   }
 
@@ -121,7 +144,7 @@ export default function Create() {
         stealthMetaAddress: identity.stealthMetaAddress,
         mainnetConfirmed,
       });
-      setPublishTx(hash);
+      setPublishTx({ hash, chainId: wallet.chain.id });
     } catch (err) {
       setError(describeError(err));
     } finally {
@@ -212,6 +235,51 @@ export default function Create() {
               Import
             </button>
           </div>
+
+          <h2>Or restore from an encrypted capsule</h2>
+          <p className="small dim">
+            Paste the <code>ghostname-capsule.json</code> contents and its passphrase. Decryption
+            and validation happen in this browser; nothing is sent anywhere.
+          </p>
+          <label className="sr-only" htmlFor="capsule-json">
+            Encrypted capsule JSON
+          </label>
+          <textarea
+            id="capsule-json"
+            value={capsuleJson}
+            onChange={(e) => setCapsuleJson(e.target.value)}
+            placeholder='{"format":"ghostname-capsule", …}'
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <form
+            className="row"
+            style={{ marginTop: '0.5rem' }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!restoring && capsuleJson.trim() && capsuleRestorePass) void restoreCapsule();
+            }}
+          >
+            <label className="sr-only" htmlFor="capsule-restore-pass">
+              Capsule passphrase
+            </label>
+            <input
+              id="capsule-restore-pass"
+              type="password"
+              value={capsuleRestorePass}
+              onChange={(e) => setCapsuleRestorePass(e.target.value)}
+              placeholder="capsule passphrase"
+              autoComplete="current-password"
+            />
+            <button
+              type="submit"
+              className="secondary"
+              disabled={restoring || !capsuleJson.trim() || !capsuleRestorePass}
+              aria-busy={restoring}
+            >
+              {restoring ? 'Decrypting…' : 'Restore capsule'}
+            </button>
+          </form>
           {importError && (
             <p className="error" role="alert">
               {importError}
@@ -257,28 +325,31 @@ export default function Create() {
           <div className="card inset">
             <span className="label">Encrypted recovery capsule (Swarm-ready, testnet only)</span>
             <p className="small dim" style={{ marginTop: 0 }}>
-              Encrypts this identity locally (AES-256-GCM, passphrase-derived key) so it can be
-              stored on Swarm without exposing keys. The passphrase never leaves this device.
+              Encrypts this identity locally (AES-256-GCM, key derived with PBKDF2-SHA256 at
+              600,000 iterations) so it can be stored on Swarm without exposing keys. The
+              passphrase never leaves this device. {MIN_PASSPHRASE_LENGTH} characters is a floor,
+              not a strength guarantee: a short dictionary phrase is still guessable offline.
+              Restore it later with "Restore from an encrypted capsule".
             </p>
             <form
               className="row"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (capsulePass.length >= 8) void downloadEncryptedCapsule();
+                if (capsulePass.length >= MIN_PASSPHRASE_LENGTH) void downloadEncryptedCapsule();
               }}
             >
               <label className="sr-only" htmlFor="capsule-pass">
-                Capsule passphrase, at least 8 characters
+                Capsule passphrase, at least {MIN_PASSPHRASE_LENGTH} characters
               </label>
               <input
                 id="capsule-pass"
                 type="password"
                 value={capsulePass}
                 onChange={(e) => setCapsulePass(e.target.value)}
-                placeholder="passphrase (min 8 chars)"
+                placeholder={`passphrase (min ${MIN_PASSPHRASE_LENGTH} chars)`}
                 autoComplete="new-password"
               />
-              <button type="submit" className="ghost" disabled={capsulePass.length < 8}>
+              <button type="submit" className="ghost" disabled={capsulePass.length < MIN_PASSPHRASE_LENGTH}>
                 Download encrypted capsule
               </button>
             </form>
@@ -310,7 +381,11 @@ export default function Create() {
                 <span className="pill warn">Mainnet (guarded)</span>
               ) : (
                 <>
-                  <span className="pill bad">chain {wallet.chainId ?? '?'}, writes blocked</span>{' '}
+                  <span className="pill bad">
+                    {mainnetBlocked
+                      ? 'Mainnet: read-only in this build, writes blocked'
+                      : `chain ${wallet.chainId ?? '?'}, writes blocked`}
+                  </span>{' '}
                   <button className="ghost" onClick={() => void wallet.switchToSepolia()}>
                     Switch to Sepolia
                   </button>
@@ -437,8 +512,12 @@ export default function Create() {
               <div className="card ok">
                 <span className="label">Record published. Transaction</span>
                 <div className="bigmono">
-                  <a href={`${explorer}/tx/${publishTx}`} target="_blank" rel="noreferrer">
-                    {publishTx}
+                  <a
+                    href={`${publishTx.chainId === MAINNET_CHAIN_ID ? 'https://etherscan.io' : 'https://sepolia.etherscan.io'}/tx/${publishTx.hash}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {publishTx.hash}
                   </a>
                 </div>
                 <div className="row" style={{ marginTop: '0.6rem' }}>
@@ -451,6 +530,11 @@ export default function Create() {
                     </span>
                   )}
                 </div>
+                <p className="small dim" style={{ margin: '0.6rem 0 0' }}>
+                  Next: <Link to="/pay">pay this name privately</Link> from any wallet, then{' '}
+                  <Link to="/receive">discover the payment</Link> here with the start block set
+                  to just before the payment.
+                </p>
               </div>
             )}
           </div>

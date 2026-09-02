@@ -6,6 +6,7 @@ import type { PrivacyAuditReport } from '../audit/types';
 import { MAINNET_CHAIN_ID, SEPOLIA_CHAIN_ID } from '../chain/guards';
 import { DEMO_MAINNET_NAME } from '../config';
 import { describeError } from '../lib/describeError';
+import { normalizeEnsName } from '../ens/resolve';
 import Compare from '../components/Compare';
 import ExposurePanel from '../components/ExposurePanel';
 import PrivacyReadinessReport from '../components/PrivacyReadinessReport';
@@ -41,20 +42,36 @@ export default function Scan() {
       setReport(result);
       setReportNetwork(network);
     } catch (err) {
-      setError(describeError(err));
+      setError(
+        `Audit on ${NETWORK_LABEL[network]} failed: ${describeError(err)} Retry; if it persists, ` +
+          'set VITE_MAINNET_RPC_URL or VITE_SEPOLIA_RPC_URL in .env to a provider you control.',
+      );
     } finally {
       setBusy(false);
     }
   }
+
+  // The report on screen must visibly belong to the name and network in the inputs.
+  let normalizedInput: string | null = null;
+  try {
+    normalizedInput = name.trim() ? normalizeEnsName(name) : null;
+  } catch {
+    normalizedInput = null;
+  }
+  const reportStale =
+    report !== null && (report.name !== normalizedInput || reportNetwork !== network);
+  const addressFailed = report?.conventionalAddressStatus === 'failed';
 
   return (
     <>
       <h1>Audit an ENS identity</h1>
       <p className="lead">
         GhostCheck reads any ENS name live and reports whether it is ready to receive private
-        payments. Read-only. Nothing is written and nothing is uploaded. Enter any name; nothing
-        is queried until you run the audit. A name lives on one network, so pick the network it
-        was registered on.
+        payments. Read-only: nothing is written and no data about you is uploaded. Enter any
+        name; nothing is queried until you run the audit. A name lives on one network, so pick
+        the network it was registered on. Two things do leave your browser: RPC requests naming
+        the audited name, and, if a name uses an offchain (CCIP-read) resolver, a request to
+        that resolver's gateway. The optional Mobula panel sends the resolved address to Mobula.
       </p>
       <form
         className="row"
@@ -75,6 +92,7 @@ export default function Scan() {
           autoComplete="off"
           spellCheck={false}
           autoCapitalize="none"
+          disabled={busy}
         />
         <label className="small dim" htmlFor="scan-network">
           Network
@@ -83,6 +101,7 @@ export default function Scan() {
           id="scan-network"
           value={network}
           onChange={(e) => setNetwork(e.target.value as Network)}
+          disabled={busy}
         >
           <option value="mainnet">{NETWORK_LABEL.mainnet}</option>
           <option value="sepolia">{NETWORK_LABEL.sepolia}</option>
@@ -105,13 +124,31 @@ export default function Scan() {
         )}
         {report && (
           <>
+            {reportStale && (
+              <p className="small" style={{ color: 'var(--warn)' }} role="status">
+                The result below is for <span className="mono">{report.name}</span> on{' '}
+                {NETWORK_LABEL[reportNetwork]}; the inputs have changed since. Run the audit
+                again to refresh it.
+              </p>
+            )}
             <div className="card inset">
               <span className="label">
                 Conventional resolution on {NETWORK_LABEL[reportNetwork]} (static identity)
               </span>
               <div className="bigmono xl">{report.name}</div>
-              <div className="bigmono" style={{ color: 'var(--static-col)', marginTop: '0.4rem' }}>
-                {report.conventionalAddress ?? 'No ETH address record set.'}
+              <div
+                className="bigmono"
+                style={{
+                  color: addressFailed ? 'var(--warn)' : 'var(--static-col)',
+                  marginTop: '0.4rem',
+                }}
+              >
+                {report.conventionalAddress ??
+                  (addressFailed
+                    ? 'Not determined: address resolution failed.'
+                    : report.overallStatus === 'unknown'
+                      ? 'Nothing found for this name on this network.'
+                      : 'No ETH address record set.')}
               </div>
               <p className="small dim" style={{ marginBottom: 0 }}>
                 {report.staticMappingNote}
@@ -135,7 +172,13 @@ export default function Scan() {
             {report.conventionalAddress && reportNetwork === 'mainnet' && (
               <ExposurePanel address={report.conventionalAddress as Address} />
             )}
-            <Compare name={report.name} staticAddress={report.conventionalAddress ?? undefined} />
+            <Compare
+              name={report.name}
+              staticAddress={report.conventionalAddress ?? undefined}
+              stealthAddresses={
+                report.localDerivationTest.ran ? report.localDerivationTest.addresses : undefined
+              }
+            />
           </>
         )}
       </div>

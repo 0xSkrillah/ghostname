@@ -41,6 +41,8 @@ export default function MainnetConfirm(props: {
         This spends real ETH and permanently, publicly links this action to your wallet on
         Ethereum mainnet. GhostName protects the <em>recipient</em> address, not your sender
         identity or the amount. There is no undo. You must retype the phrase for every action.
+        This app scans and sweeps only on Sepolia: anything received on mainnet must be
+        recovered with the exported identity keys and external tooling.
       </p>
       <label className="label" htmlFor="mainnet-confirm-input">
         Type <code>{MAINNET_CONFIRM_PHRASE}</code> to authorize this one action

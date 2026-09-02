@@ -86,6 +86,12 @@ export interface PrivacyAuditReport {
   overallStatus: OverallStatus;
   /** The static identity-to-wallet mapping, if any. */
   conventionalAddress: Address | null;
+  /**
+   * How conventionalAddress was obtained: resolved to an address, absent (the
+   * RPC answered and there is no record), or failed (the RPC did not answer,
+   * so nothing is known). UIs must never render 'failed' as 'no record'.
+   */
+  conventionalAddressStatus: 'resolved' | 'absent' | 'failed';
   staticMappingNote: string;
   resolver: ResolverInfo;
   recordSources: RecordSource[];

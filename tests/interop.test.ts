@@ -120,3 +120,23 @@ describe('known-answer vector', () => {
     );
   });
 });
+
+describe('interop negative: a flipped view tag from an SDK announcement is rejected', () => {
+  it('does not recognise an SDK announcement whose view tag was altered', () => {
+    const keys = generateStealthKeys();
+    const theirs = sdkGenerateStealthAddress({
+      stealthMetaAddressURI: keys.stealthMetaAddress,
+      schemeId: VALID_SCHEME_ID.SCHEME_ID_1,
+    });
+    const flipped = `0x${((parseInt(theirs.viewTag.slice(2), 16) + 1) % 256).toString(16).padStart(2, '0')}` as Hex;
+    expect(
+      checkStealthAddress({
+        stealthAddress: theirs.stealthAddress,
+        ephemeralPublicKey: theirs.ephemeralPublicKey as Hex,
+        viewTag: flipped,
+        viewingPrivateKey: keys.viewingPrivateKey,
+        spendingPublicKey: keys.spendingPublicKey,
+      }),
+    ).toBe(false);
+  });
+});

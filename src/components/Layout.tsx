@@ -31,7 +31,8 @@ export default function Layout() {
       </main>
       <footer className="foot">
         GhostName: forward privacy for ENS identities via ERC-5564. Not anonymity, not
-        history deletion; see <Link to="/privacy">what is and is not protected</Link>.
+        history deletion; see <Link to="/privacy">what is and is not protected</Link>. Writes
+        go to Sepolia testnet. Build <span className="mono">{__GHOSTNAME_COMMIT__}</span>.
       </footer>
     </>
   );

@@ -122,8 +122,10 @@ export default function Demo() {
       <h1>GhostName in two minutes</h1>
       <p className="lead">
         Audit an ENS name, upgrade it without replacing it, and prove the whole private
-        payment lifecycle. Every result below is read live from chain data. Inputs are
-        pre-filled; no output is precomputed.
+        payment lifecycle. Every result below is read live from chain data.{' '}
+        {DEMO_MAINNET_NAME || DEMO_SEPOLIA_NAME
+          ? 'Inputs are pre-filled from your local configuration; no output is precomputed.'
+          : 'Type an established mainnet name for step 1 and a Sepolia name that publishes a stealth record for step 2 (the controlled demo identity is listed in DEMO.md); no output is precomputed.'}
       </p>
       {error && (
         <p className="error" role="alert">
@@ -157,8 +159,17 @@ export default function Demo() {
             <div className="card inset" style={{ marginBottom: 0 }}>
               <div className="bigmono">
                 {audit.name} →{' '}
-                <span style={{ color: 'var(--static-col)' }}>
-                  {audit.conventionalAddress ?? 'no address record'}
+                <span
+                  style={{
+                    color: audit.conventionalAddressStatus === 'resolved' ? 'var(--static-col)' : 'var(--warn)',
+                  }}
+                >
+                  {audit.conventionalAddress ??
+                    (audit.conventionalAddressStatus === 'failed'
+                      ? 'not determined (resolution failed)'
+                      : audit.overallStatus === 'unknown'
+                        ? 'nothing found on mainnet'
+                        : 'no address record')}
                 </span>
               </div>
               <p className="small" style={{ margin: '0.5rem 0 0.3rem' }}>
@@ -168,7 +179,8 @@ export default function Demo() {
                 <span className="dim">{STATUS_EXPLANATION[audit.overallStatus]}</span>
               </p>
               <p className="small dim" style={{ marginBottom: 0 }}>
-                {audit.staticMappingNote} This history cannot be deleted.
+                {audit.staticMappingNote}
+                {audit.conventionalAddress ? ' This history cannot be deleted.' : ''}
               </p>
             </div>
           )}
@@ -179,6 +191,8 @@ export default function Demo() {
           <strong>Upgrade: the same identity, now publishing a stealth record.</strong>
           <p className="small dim" style={{ margin: '0.2rem 0 0.4rem' }}>
             The name is kept. No service-owned subdomain, no new wallet.
+            {!DEMO_SEPOLIA_NAME &&
+              ' Enter a Sepolia name that already publishes stealth-meta-address[1]; the controlled demo identity is named in DEMO.md and README.md.'}
           </p>
           <div className="row">
             <input
@@ -246,7 +260,9 @@ export default function Demo() {
         <li className={recognition ? 'done' : derived.length ? 'active' : ''}>
           <strong>Prove receive: only the right viewing key finds the money.</strong>
           <div className="row" style={{ marginTop: '0.4rem' }}>
-            <button onClick={step4}>Run recognition test</button>
+            <button onClick={step4} disabled={derived.length === 0}>
+              Run recognition test
+            </button>
             <span className="small dim">
               Live, using the same code the recipient scanner uses.
             </span>

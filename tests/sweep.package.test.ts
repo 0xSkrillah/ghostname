@@ -293,3 +293,71 @@ describe('the package matches what the on-chain executor expects', () => {
     expect(pkg.calldata).toBe(expected);
   });
 });
+
+describe('verifyNativeSweepPackage fails closed on malformed input', () => {
+  it('returns valid:false with a schema failure instead of throwing', async () => {
+    const hostile: unknown[] = [
+      null,
+      'string',
+      {},
+      { schema: SWEEP_PACKAGE_SCHEMA, version: 1 },
+      { schema: SWEEP_PACKAGE_SCHEMA, version: 1, chainId: 1, executor: 'x', stealthAddress: 'y', destination: 'z' },
+    ];
+    for (const input of hostile) {
+      const result = await verifyNativeSweepPackage(input as NativeSweepPackage, { now: NOW });
+      expect(result.valid).toBe(false);
+      expect(result.checks.schema).toBe(false);
+      expect(result.failures.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('rejects empty or non-decimal integer strings rather than coercing them to zero', async () => {
+    const { pkg } = await validPackage();
+    for (const bad of ['', ' 1', '1.0', '0x10', '-1']) {
+      const result = await verifyNativeSweepPackage({ ...pkg, amount: bad }, { now: NOW });
+      expect(result.valid).toBe(false);
+      expect(result.checks.schema).toBe(false);
+    }
+  });
+
+  it('rejects a malformed authorization object without throwing', async () => {
+    const { pkg } = await validPackage();
+    const result = await verifyNativeSweepPackage(
+      { ...pkg, authorization: { ...pkg.authorization, r: '0x12', yParity: 2 } },
+      { now: NOW },
+    );
+    expect(result.valid).toBe(false);
+    expect(result.failures.join(' ')).toMatch(/authorization/);
+  });
+});
+
+describe('signature canonicality and chain binding', () => {
+  it('rejects a malleated high-s intent signature that still recovers to the signer', async () => {
+    const { pkg } = await validPackage();
+    const { hasHighS } = await import('../src/relay/sweep');
+    const { parseSignature, serializeSignature } = await import('viem');
+    const { secp256k1 } = await import('@noble/curves/secp256k1');
+    const sig = parseSignature(pkg.sweepSignature);
+    expect(hasHighS(pkg.sweepSignature)).toBe(false);
+    const highS = serializeSignature({
+      r: sig.r,
+      s: `0x${(secp256k1.CURVE.n - BigInt(sig.s)).toString(16).padStart(64, '0')}` as Hex,
+      yParity: sig.yParity === 0 ? 1 : 0,
+    });
+    expect(hasHighS(highS)).toBe(true);
+    const result = await verifyNativeSweepPackage({ ...pkg, sweepSignature: highS }, { now: NOW });
+    expect(result.checks.sweepSigner).toBe(false);
+    expect(result.valid).toBe(false);
+  });
+
+  it('rejects a chain-agnostic (chainId 0) delegation', async () => {
+    const { pkg } = await validPackage();
+    const result = await verifyNativeSweepPackage(
+      { ...pkg, authorization: { ...pkg.authorization, chainId: 0 } },
+      { now: NOW },
+    );
+    expect(result.checks.chainIdMatches).toBe(false);
+    expect(result.failures.join(' ')).toMatch(/chain-agnostic/);
+    expect(result.valid).toBe(false);
+  });
+});

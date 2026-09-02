@@ -74,3 +74,17 @@ describe('parseStealthMetaAddress', () => {
     expect(isValidStealthMetaAddress(upper)).toBe(true);
   });
 });
+
+describe('odd-length and shifted records are rejected', () => {
+  it('does not silently left-pad an odd number of hex digits', async () => {
+    const { generateStealthKeys } = await import('../src/crypto/stealth');
+    const { parseStealthMetaAddress, isValidStealthMetaAddress } = await import('../src/crypto/metaAddress');
+    const meta = generateStealthKeys().stealthMetaAddress;
+    const oddByDrop = meta.slice(0, 9) + meta.slice(10); // drop one nibble after 0x
+    const oddByAdd = `${meta}f`;
+    expect(() => parseStealthMetaAddress(oddByDrop)).toThrow(/odd number of hex digits/);
+    expect(() => parseStealthMetaAddress(oddByAdd)).toThrow(/odd number of hex digits/);
+    expect(isValidStealthMetaAddress(oddByDrop)).toBe(false);
+    expect(isValidStealthMetaAddress(meta)).toBe(true);
+  });
+});

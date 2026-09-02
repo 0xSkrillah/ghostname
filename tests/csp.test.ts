@@ -22,9 +22,10 @@ describe('Content-Security-Policy', () => {
     expect(CSP_DIRECTIVES['default-src']).toBe("'self'");
   });
 
-  it('allows only https connections (RPC, Mobula), no plain http', () => {
+  it('allows only https connections (RPC, Mobula) and does not force-upgrade the page itself', () => {
     expect(CSP_DIRECTIVES['connect-src']).toBe('https:');
-    expect(CSP_POLICY).toContain('upgrade-insecure-requests');
+    // upgrade-insecure-requests would blank the app on plain-http LAN gateways.
+    expect(CSP_POLICY).not.toContain('upgrade-insecure-requests');
   });
 
   it('renders as a single meta tag', () => {

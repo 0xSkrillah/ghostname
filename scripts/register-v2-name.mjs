@@ -9,6 +9,7 @@
  *   5. verify resolution through the standard viem/Universal Resolver path
  * Testnet only. Idempotent: safe to re-run.
  */
+import { loadTestnetKey } from './lib/testnet-key.mjs';
 import {
   createPublicClient,
   createWalletClient,
@@ -33,7 +34,7 @@ const USDC = '0x768F42455A2D082E23ceeF7d51e5787C82d67a39';
 const ZERO = '0x0000000000000000000000000000000000000000';
 const ALL_ROLES = '0x1111111111111111111111111111111111111111111111111111111111111111';
 
-const key = readFileSync('.env', 'utf8').match(/SEPOLIA_PRIVATE_KEY=(0x[0-9a-fA-F]{64})/)[1];
+const { key } = loadTestnetKey();
 const account = privateKeyToAccount(key);
 const transport = http(RPC, { timeout: 30_000 });
 const client = createPublicClient({ chain: sepolia, transport });

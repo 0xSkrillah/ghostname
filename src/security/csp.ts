@@ -12,6 +12,11 @@
  *   and the Mobula endpoint without enumerating hosts that users may change.
  * - object-src 'none', base-uri 'self', form-action 'none': no plugins, no
  *   base hijacking, no form exfiltration.
+ * - deliberately NO upgrade-insecure-requests: it would white-screen the app
+ *   when served from a plain-http LAN Bee node or gateway, and adds nothing on
+ *   https hosts because connect-src is already https-only.
+ * - frame-ancestors cannot travel in a meta tag; src/main.tsx carries a
+ *   frame-buster instead.
  */
 export const CSP_DIRECTIVES: Record<string, string> = {
   'default-src': "'self'",
@@ -23,7 +28,6 @@ export const CSP_DIRECTIVES: Record<string, string> = {
   'object-src': "'none'",
   'base-uri': "'self'",
   'form-action': "'none'",
-  'upgrade-insecure-requests': '',
 };
 
 export const CSP_POLICY = Object.entries(CSP_DIRECTIVES)

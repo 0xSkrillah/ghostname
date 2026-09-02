@@ -24,7 +24,8 @@
  */
 import { privateKeyToAccount } from 'viem/accounts';
 import { verifyAuthorization, verifyTypedData } from 'viem/utils';
-import { decodeFunctionData, encodeFunctionData, isAddress } from 'viem';
+import { decodeFunctionData, encodeFunctionData, isAddress, parseSignature } from 'viem';
+import { secp256k1 } from '@noble/curves/secp256k1';
 import type { Address, Hex, SignedAuthorization } from 'viem';
 
 /* ------------------------------------------------------------------ */
@@ -40,8 +41,8 @@ export interface SweepAuthorizationParams {
    * smart-account implementation the sponsor's tx will invoke to move funds.
    */
   executor: Address;
-  /** Authorization nonce; a fresh stealth EOA has account nonce 0. */
-  nonce?: number;
+  /** EIP-7702 account nonce of the stealth EOA. Read it from chain; never assume 0. */
+  nonce: number;
 }
 
 export interface SweepAuthorizationResult {
@@ -60,7 +61,7 @@ export async function signSweepAuthorization(
   const authorization = await account.signAuthorization({
     chainId: params.chainId,
     address: params.executor,
-    nonce: params.nonce ?? 0,
+    nonce: params.nonce,
   });
   return { stealthAddress: account.address, authorization };
 }
@@ -275,9 +276,72 @@ export interface SweepPackageVerification {
   stealthAddress: Address | null;
 }
 
+const HALF_ORDER = secp256k1.CURVE.n >> 1n;
+
+/** True when the signature's s value is in the upper half of the curve order (malleable form). */
+export function hasHighS(signature: Hex): boolean {
+  try {
+    return BigInt(parseSignature(signature).s) > HALF_ORDER;
+  } catch {
+    return true;
+  }
+}
+
+const DECIMAL_UINT = /^[0-9]+$/;
+const HEX32 = /^0x[0-9a-fA-F]{64}$/;
+
+/** Structural validation of an untrusted package. Returns a reason or null. */
+export function packageShapeProblem(pkg: unknown): string | null {
+  if (pkg === null || typeof pkg !== 'object') return 'Package is not an object.';
+  const p = pkg as Record<string, unknown>;
+  if (p['schema'] !== SWEEP_PACKAGE_SCHEMA || p['version'] !== SWEEP_PACKAGE_VERSION) {
+    return 'Unrecognised package schema or version.';
+  }
+  if (typeof p['chainId'] !== 'number' || !Number.isInteger(p['chainId']) || p['chainId'] <= 0) {
+    return 'chainId must be a positive integer.';
+  }
+  for (const field of ['executor', 'stealthAddress', 'destination'] as const) {
+    if (typeof p[field] !== 'string' || !isAddress(p[field] as string)) {
+      return `${field} is not a valid address.`;
+    }
+  }
+  for (const field of ['amount', 'sweepNonce', 'deadline'] as const) {
+    if (typeof p[field] !== 'string' || !DECIMAL_UINT.test(p[field] as string)) {
+      return `${field} must be a decimal integer string.`;
+    }
+  }
+  if (typeof p['authorizationNonce'] !== 'number' || !Number.isInteger(p['authorizationNonce']) || p['authorizationNonce'] < 0) {
+    return 'authorizationNonce must be a non-negative integer.';
+  }
+  const auth = p['authorization'];
+  if (auth === null || typeof auth !== 'object') return 'authorization is missing.';
+  const a = auth as Record<string, unknown>;
+  if (typeof a['chainId'] !== 'number' || !Number.isInteger(a['chainId']) || a['chainId'] < 0) {
+    return 'authorization.chainId must be a non-negative integer.';
+  }
+  if (typeof a['address'] !== 'string' || !isAddress(a['address'] as string)) {
+    return 'authorization.address is not a valid address.';
+  }
+  if (typeof a['nonce'] !== 'number' || !Number.isInteger(a['nonce']) || a['nonce'] < 0) {
+    return 'authorization.nonce must be a non-negative integer.';
+  }
+  if (typeof a['r'] !== 'string' || !HEX32.test(a['r'] as string) || typeof a['s'] !== 'string' || !HEX32.test(a['s'] as string)) {
+    return 'authorization.r and authorization.s must be 32-byte hex values.';
+  }
+  if (a['yParity'] !== 0 && a['yParity'] !== 1) return 'authorization.yParity must be 0 or 1.';
+  if (typeof p['sweepSignature'] !== 'string' || !/^0x[0-9a-fA-F]{130}$/.test(p['sweepSignature'] as string)) {
+    return 'sweepSignature must be a 65-byte hex signature.';
+  }
+  if (typeof p['calldata'] !== 'string' || !/^0x[0-9a-fA-F]*$/.test(p['calldata'] as string)) {
+    return 'calldata must be hex.';
+  }
+  return null;
+}
+
 /**
  * Independently verify every bound field of a sweep package. Tampering with the
  * destination, amount, sweep nonce, deadline, executor or chain must fail here.
+ * Structurally malformed input fails closed (valid: false) and never throws.
  *
  * `now` is injectable so expiry is deterministic in tests.
  */
@@ -300,24 +364,18 @@ export async function verifyNativeSweepPackage(
     failures.push(msg);
   };
 
-  if (pkg?.schema === SWEEP_PACKAGE_SCHEMA && pkg.version === SWEEP_PACKAGE_VERSION) {
-    checks.schema = true;
-  } else {
-    fail('Unrecognised package schema or version.');
+  // Shape first: a package is untrusted input (pasted, downloaded, relayed).
+  // Anything structurally wrong fails closed instead of throwing.
+  const shapeProblem = packageShapeProblem(pkg);
+  if (shapeProblem) {
+    fail(shapeProblem);
     return { valid: false, checks, failures, stealthAddress: null };
   }
+  checks.schema = true;
 
-  let amount: bigint;
-  let sweepNonce: bigint;
-  let deadline: bigint;
-  try {
-    amount = BigInt(pkg.amount);
-    sweepNonce = BigInt(pkg.sweepNonce);
-    deadline = BigInt(pkg.deadline);
-  } catch {
-    fail('amount, sweepNonce or deadline is not a valid integer.');
-    return { valid: false, checks, failures, stealthAddress: null };
-  }
+  const amount = BigInt(pkg.amount);
+  const sweepNonce = BigInt(pkg.sweepNonce);
+  const deadline = BigInt(pkg.deadline);
 
   // Executor identity: the delegation must point at the declared executor.
   if (pkg.authorization.address?.toLowerCase() === pkg.executor?.toLowerCase()) {
@@ -326,9 +384,13 @@ export async function verifyNativeSweepPackage(
     fail('Delegation authorization does not point at the declared executor.');
   }
 
-  // Chain binding. EIP-7702 permits chainId 0 (any chain) in the tuple.
-  if (pkg.authorization.chainId === pkg.chainId || pkg.authorization.chainId === 0) {
+  // Chain binding. EIP-7702 permits chainId 0 (any chain) in the tuple, but a
+  // chain-agnostic delegation would install the executor on every chain, and
+  // GhostName never produces one, so it is rejected here.
+  if (pkg.authorization.chainId === pkg.chainId) {
     checks.chainIdMatches = true;
+  } else if (pkg.authorization.chainId === 0) {
+    fail('Delegation is chain-agnostic (chainId 0); GhostName requires a chain-bound delegation.');
   } else {
     fail('Delegation chain id does not match the package chain id.');
   }
@@ -352,7 +414,10 @@ export async function verifyNativeSweepPackage(
   if (!checks.delegationSigner) fail('Delegation signature was not made by the stealth address.');
 
   // The intent signature is what actually binds destination/amount/nonce/deadline.
+  // Only canonical low-s signatures are accepted, so a relayer cannot produce
+  // a second, differently-encoded but equally valid package.
   try {
+    if (hasHighS(pkg.sweepSignature)) throw new Error('high-s signature');
     checks.sweepSigner = await verifyTypedData({
       address: pkg.stealthAddress,
       domain: {

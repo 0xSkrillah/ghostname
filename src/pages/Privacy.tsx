@@ -1,4 +1,7 @@
+import { isMainnetWriteEnabled } from '../chain/guards';
+
 export default function Privacy() {
+  const mainnetEnabled = isMainnetWriteEnabled();
   return (
     <>
       <h1>What GhostName protects, and what it cannot</h1>
@@ -87,8 +90,13 @@ export default function Privacy() {
 
       <p className="small dim">
         Mechanism: ERC-5564 scheme 1 (secp256k1 + view tags), resolved from the ENS text
-        record <code>stealth-meta-address[1]</code> per the ENS stealth-resolution RFC.
-        Mainnet is read-only in this app; writes are hard-gated to Sepolia.
+        record <code>stealth-meta-address[1]</code> per the ENS stealth-resolution RFC.{' '}
+        {mainnetEnabled
+          ? 'This build has guarded mainnet mode enabled: mainnet reads work everywhere, and a mainnet write is possible only behind a typed per-action confirmation. Sepolia is the default write network.'
+          : 'In this build mainnet is read-only; writes are hard-gated to Sepolia.'}{' '}
+        Private keys live in this browser's local storage for the demo; that is a testnet
+        custody model, not a production one. Reading records and balances tells your RPC
+        endpoint which names and addresses you are interested in.
       </p>
     </>
   );

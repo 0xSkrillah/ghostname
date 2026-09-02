@@ -166,3 +166,36 @@ describe('verifyPaymentProof rejects unsound evidence', () => {
     expect(proof.error).toMatch(/rpc down/);
   });
 });
+
+describe('metadata layout is checked positionally', () => {
+  it('fails when the ETH marker appears but not at bytes 5-24', async () => {
+    const { ETH_TOKEN_MARKER } = await import('../src/chain/announcer');
+    const { concatHex, padHex, numberToHex } = await import('viem');
+    // Wrong selector at bytes 1-4 while the marker is still present later on,
+    // so a substring search for the marker would still have passed.
+    const shifted = concatHex([
+      '0x08',
+      '0xdeadbeef',
+      ETH_TOKEN_MARKER,
+      padHex(numberToHex(AMOUNT), { size: 32 }),
+    ]);
+    const base = scenario({});
+    const client: PaymentProofClient = {
+      getTransaction: base.getTransaction,
+      async getTransactionReceipt(args) {
+        const receipt = await base.getTransactionReceipt(args);
+        return {
+          ...receipt,
+          logs: receipt.logs.map((log) => ({
+            ...log,
+            data: encodeAbiParameters([{ type: 'bytes' }, { type: 'bytes' }], [EPHEMERAL, shifted]),
+          })),
+        };
+      },
+    };
+    const proof = await verifyPaymentProof(client, REF);
+    expect(proof.checks.find((c) => c.id === 'metadata')!.state).toBe('fail');
+    expect(proof.checks.find((c) => c.id === 'metadata')!.detail).toMatch(/selector wrong/);
+    expect(proof.facts.announcementCaller?.toLowerCase()).toBe(PAYER.toLowerCase());
+  });
+});

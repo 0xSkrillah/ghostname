@@ -84,6 +84,7 @@ export async function auditEnsName(
       chainId: options.chainId,
       overallStatus: 'unknown',
       conventionalAddress: null,
+      conventionalAddressStatus: 'failed',
       staticMappingNote: 'Name could not be normalized, so nothing was resolved.',
       resolver: {
         address: null,
@@ -241,6 +242,13 @@ export async function auditEnsName(
       // Public keys only. No private material is ever read or emitted here.
       metaAddressValidation.spendingPublicKey = bytesToHex(parsed.spendingPublicKey);
       metaAddressValidation.viewingPublicKey = bytesToHex(parsed.viewingPublicKey);
+      if (metaAddressValidation.spendingPublicKey === metaAddressValidation.viewingPublicKey) {
+        warnings.push(
+          'Single-key meta-address: the viewing key equals the spending key, so anyone who can ' +
+            'detect payments to this name can also spend them. EIP-5564 permits this form; ' +
+            'GhostName-generated identities always use separate keys.',
+        );
+      }
 
       const addresses: Address[] = [];
       for (let i = 0; i < DERIVATION_TRIALS; i++) {
@@ -264,8 +272,20 @@ export async function auditEnsName(
 
   // 6. Overall status. No numeric score.
   let overallStatus: OverallStatus;
+  const nothingFound =
+    !resolver.address && conventionalAddress === null && recordSources.every((s) => s.status === 'absent');
   if (resolutionFailed && recordSources.every((s) => s.status === 'absent')) {
     overallStatus = 'unknown';
+  } else if (nothingFound) {
+    // No resolver, no address, no records: the name is not configured on this
+    // chain at all. Calling that 'incomplete' would imply a static mapping
+    // that does not exist; the honest answer is that nothing is known here.
+    overallStatus = 'unknown';
+    unknowns.push(
+      `No resolver and no records were found for this name on chain ${options.chainId}. ` +
+        'It may be unregistered here, mistyped, or registered on a different network ' +
+        '(mainnet names do not exist on Sepolia and vice versa).',
+    );
   } else if (selectedRecord && metaAddressValidation.valid && localDerivationTest.allDistinct) {
     overallStatus = 'private-ready';
   } else if (invalidAny.length > 0 || legacyOnly || (selectedRecord && !metaAddressValidation.valid)) {
@@ -275,6 +295,12 @@ export async function auditEnsName(
   } else {
     overallStatus = 'misconfigured';
   }
+
+  const conventionalAddressStatus: PrivacyAuditReport['conventionalAddressStatus'] = conventionalAddress
+    ? 'resolved'
+    : resolutionFailed
+      ? 'failed'
+      : 'absent';
 
   if (overallStatus === 'incomplete') {
     warnings.push(
@@ -290,6 +316,7 @@ export async function auditEnsName(
     chainId: options.chainId,
     overallStatus,
     conventionalAddress,
+    conventionalAddressStatus,
     staticMappingNote,
     resolver,
     recordSources,

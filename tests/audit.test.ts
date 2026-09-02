@@ -316,3 +316,48 @@ describe('reports contain no secret material', () => {
     expect(summary).toMatch(/takes precedence/);
   });
 });
+
+describe('single-key meta-addresses are flagged', () => {
+  it('warns when the viewing key equals the spending key', async () => {
+    const keys = generateStealthKeys();
+    const singleKey = `st:eth:${keys.spendingPublicKey}`;
+    const client = fakeClient({
+      address: OWNER,
+      resolver: RESOLVER,
+      text: { [defaultRecordKey()]: singleKey },
+    });
+    const report = await auditEnsName(client, 'ghost.eth', { chainId: SEPOLIA, now: NOW });
+    expect(report.overallStatus).toBe('private-ready');
+    expect(report.warnings.join(' ')).toMatch(/Single-key meta-address/);
+  });
+});
+
+describe('honest handling of RPC failure and unconfigured names', () => {
+  it('distinguishes a failed address lookup from an absent record', async () => {
+    const keys = generateStealthKeys();
+    const failing = fakeClient({
+      throwOnAddress: true,
+      resolver: RESOLVER,
+      text: { [defaultRecordKey()]: keys.stealthMetaAddress },
+    });
+    const report = await auditEnsName(failing, 'ghost.eth', { chainId: SEPOLIA, now: NOW });
+    expect(report.conventionalAddress).toBeNull();
+    expect(report.conventionalAddressStatus).toBe('failed');
+    expect(report.staticMappingNote).toMatch(/Not determined/);
+    expect(formatSummary(report)).toMatch(/not determined \(resolution failed\)/);
+
+    const absent = fakeClient({ address: null, resolver: RESOLVER });
+    const absentReport = await auditEnsName(absent, 'ghost.eth', { chainId: SEPOLIA, now: NOW });
+    expect(absentReport.conventionalAddressStatus).toBe('absent');
+  });
+
+  it('reports unknown, not incomplete, when a name has no resolver, no address and no records on this chain', async () => {
+    const client = fakeClient({});
+    const report = await auditEnsName(client, 'not-here.eth', { chainId: MAINNET, now: NOW });
+    expect(report.overallStatus).toBe('unknown');
+    expect(report.unknowns.join(' ')).toMatch(/No resolver and no records were found/);
+    expect(report.unknowns.join(' ')).toMatch(/different network/);
+    // The 'incomplete' warning about a static address must not appear.
+    expect(report.warnings.join(' ')).not.toMatch(/linkable to its static address/);
+  });
+});
