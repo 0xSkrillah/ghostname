@@ -152,14 +152,14 @@ describe('payment flow', () => {
   }
 
   it('plans two payments to the same name with different destinations', async () => {
-    const a = await planStealthPayment(ensClient, 'ghost.eth', 1n);
-    const b = await planStealthPayment(ensClient, 'ghost.eth', 1n);
+    const a = await planStealthPayment(ensClient, 'ghost.eth', 1n, WRITABLE_CHAIN_ID);
+    const b = await planStealthPayment(ensClient, 'ghost.eth', 1n, WRITABLE_CHAIN_ID);
     expect(a.derivation.stealthAddress).not.toBe(b.derivation.stealthAddress);
   });
 
   it('executes payment + announcement on Sepolia', async () => {
     const wallet = fakeWallet(WRITABLE_CHAIN_ID);
-    const plan = await planStealthPayment(ensClient, 'ghost.eth', parseEther('0.001'));
+    const plan = await planStealthPayment(ensClient, 'ghost.eth', parseEther('0.001'), WRITABLE_CHAIN_ID);
     const result = await executeStealthPayment({
       walletClient: wallet,
       chain: { id: WRITABLE_CHAIN_ID } as Chain,
@@ -185,7 +185,7 @@ describe('payment flow', () => {
 
   it('BLOCKS payment when intended chain is mainnet — wallet never touched', async () => {
     const wallet = fakeWallet(WRITABLE_CHAIN_ID);
-    const plan = await planStealthPayment(ensClient, 'ghost.eth', 1n);
+    const plan = await planStealthPayment(ensClient, 'ghost.eth', 1n, WRITABLE_CHAIN_ID);
     await expect(
       executeStealthPayment({
         walletClient: wallet,
@@ -200,7 +200,7 @@ describe('payment flow', () => {
 
   it('BLOCKS payment when the wallet reports mainnet', async () => {
     const wallet = fakeWallet(1);
-    const plan = await planStealthPayment(ensClient, 'ghost.eth', 1n);
+    const plan = await planStealthPayment(ensClient, 'ghost.eth', 1n, WRITABLE_CHAIN_ID);
     await expect(
       executeStealthPayment({
         walletClient: wallet,
@@ -214,7 +214,7 @@ describe('payment flow', () => {
 
   it('END-TO-END (offline): plan → pay → announce → scan → recognise → recover', async () => {
     const wallet = fakeWallet(WRITABLE_CHAIN_ID);
-    const plan = await planStealthPayment(ensClient, 'ghost.eth', 42n);
+    const plan = await planStealthPayment(ensClient, 'ghost.eth', 42n, WRITABLE_CHAIN_ID);
     await executeStealthPayment({
       walletClient: wallet,
       chain: { id: WRITABLE_CHAIN_ID } as Chain,

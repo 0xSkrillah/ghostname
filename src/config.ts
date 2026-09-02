@@ -22,8 +22,15 @@ export const DEMO_MAINNET_NAME = env('VITE_DEMO_MAINNET_NAME') ?? '';
 /** Controlled Sepolia test identity with a published stealth record (set after M1 config). */
 export const DEMO_SEPOLIA_NAME = env('VITE_DEMO_SEPOLIA_NAME') ?? '';
 
+/** Whole-number block or undefined; a deployment typo must not white-screen the app. */
+function parseBlockNumber(value: string | undefined): bigint | undefined {
+  if (!value || !/^[0-9]+$/.test(value.trim())) return undefined;
+  const block = BigInt(value.trim());
+  return block > 0n ? block : undefined;
+}
+
 /** Start block for announcement scanning (never scan from genesis). */
-export const SCAN_START_BLOCK = BigInt(env('VITE_SCAN_START_BLOCK') ?? '0') || undefined;
+export const SCAN_START_BLOCK = parseBlockNumber(env('VITE_SCAN_START_BLOCK'));
 
 /** Default payment size for the demo. */
 export const DEMO_PAYMENT_ETH = env('VITE_DEMO_PAYMENT_ETH') ?? '0.001';

@@ -236,14 +236,14 @@ button.ghost {
 
 /* step list for demo */
 .steps { counter-reset: step; list-style: none; padding: 0; }
-.steps li {
+.steps > li {
   counter-increment: step;
   padding: 0.7rem 0 0.7rem 2.6rem;
   position: relative;
   border-left: 1px solid var(--border);
   margin-left: 0.9rem;
 }
-.steps li::before {
+.steps > li::before {
   content: counter(step);
   position: absolute;
   left: -0.95rem;
@@ -260,8 +260,11 @@ button.ghost {
   font-size: 0.85rem;
   font-family: var(--mono);
 }
-.steps li.done::before { border-color: var(--accent-dim); color: var(--accent); content: '✓'; }
-.steps li.active::before { border-color: var(--accent); color: var(--accent); }
+.steps > li.done::before { border-color: var(--accent-dim); color: var(--accent); content: '✓'; }
+.steps > li.active::before { border-color: var(--accent); color: var(--accent); }
+/* Nested lists inside a step are content, not steps. */
+.steps li li { border-left: none; margin-left: 0; padding: 0.1rem 0; }
+.steps li li::before { content: none; }
 
 table.plain { border-collapse: collapse; width: 100%; }
 table.plain td, table.plain th {

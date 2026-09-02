@@ -1,8 +1,11 @@
 node_modules/
 dist/
 .env
-.env.local
+.env.*
+!.env.example
 *.local
+*.pem
+*.key
 coverage/
 # Testnet-only demo key material and run evidence — never commit.
 .demo/

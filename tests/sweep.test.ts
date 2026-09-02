@@ -40,8 +40,7 @@ describe('EIP-7702 sponsored native-ETH sweep', () => {
     const { stealthAddress: signer, authorization } = await signSweepAuthorization({
       stealthPrivateKey,
       chainId: 1,
-      executor: EXECUTOR,
-    });
+      executor: EXECUTOR, nonce: 0 });
     expect(signer).toBe(stealthAddress);
     expect(authorization.address.toLowerCase()).toBe(EXECUTOR.toLowerCase());
     expect(authorization.chainId).toBe(1);
@@ -53,16 +52,15 @@ describe('EIP-7702 sponsored native-ETH sweep', () => {
     const { authorization } = await signSweepAuthorization({
       stealthPrivateKey,
       chainId: 1,
-      executor: EXECUTOR,
-    });
+      executor: EXECUTOR, nonce: 0 });
     const stranger = privateKeyToAddress(generateStealthKeys().spendingPrivateKey);
     expect(await verifySweepAuthorization(stranger, authorization)).toBe(false);
   });
 
   it('binds to the chain id (mainnet vs sepolia produce distinct signatures)', async () => {
     const { stealthPrivateKey } = recoveredStealthKey();
-    const a = await signSweepAuthorization({ stealthPrivateKey, chainId: 1, executor: EXECUTOR });
-    const b = await signSweepAuthorization({ stealthPrivateKey, chainId: 11155111, executor: EXECUTOR });
+    const a = await signSweepAuthorization({ stealthPrivateKey, chainId: 1, executor: EXECUTOR, nonce: 0 });
+    const b = await signSweepAuthorization({ stealthPrivateKey, chainId: 11155111, executor: EXECUTOR, nonce: 0 });
     expect(a.authorization.r).not.toBe(b.authorization.r);
   });
 });

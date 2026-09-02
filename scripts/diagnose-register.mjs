@@ -1,6 +1,6 @@
 // Diagnose the ENS register revert: re-simulate with the exact args from the
 // failed run and decode the custom error; check controller authorization.
-import { createPublicClient, http, namehash, parseAbi, decodeErrorResult } from 'viem';
+import { createPublicClient, http, namehash, parseAbi, decodeErrorResult, toHex } from 'viem';
 import { sepolia } from 'viem/chains';
 
 const client = createPublicClient({
@@ -36,7 +36,7 @@ const registration = {
   label: 'ghostname-3c7714',
   owner: '0x3c77141e063ad64A6a6C1Ef1D16380EbCEf3ef98',
   duration: 7776000n,
-  secret: '0x4f697d2b8ff1e55380d7b0a8f8cbf51ebb90a9f81300b18befbaa21bee9e534f',
+  secret: toHex(crypto.getRandomValues(new Uint8Array(32))), // fresh per run; never persist or reuse
   resolver: '0xE99638b40E4Fff0129D56f03b55b6bbC4BBE49b5',
   data: [],
   reverseRecord: 0,

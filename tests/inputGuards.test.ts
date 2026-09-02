@@ -3,7 +3,7 @@
  * Malformed input must produce an actionable message and must never reach the
  * wallet or request an unbounded log range.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Address, Chain, Hash } from 'viem';
 import { parseAmountEth } from '../src/lib/amount';
 import {
@@ -140,7 +140,7 @@ describe('executeStealthPayment amount guard', () => {
 
   it('refuses a zero or negative amount before touching the wallet', async () => {
     const wallet = fakeWallet();
-    const plan = await planStealthPayment(ensClient, 'ghost.eth', 0n);
+    const plan = await planStealthPayment(ensClient, 'ghost.eth', 0n, SEPOLIA_CHAIN_ID);
     await expect(
       executeStealthPayment({
         walletClient: wallet,
@@ -162,7 +162,7 @@ describe('executeStealthPayment amount guard', () => {
 
   it('still sends a positive amount as two transactions', async () => {
     const wallet = fakeWallet();
-    const plan = await planStealthPayment(ensClient, 'ghost.eth', 1n);
+    const plan = await planStealthPayment(ensClient, 'ghost.eth', 1n, SEPOLIA_CHAIN_ID);
     const result = await executeStealthPayment({
       walletClient: wallet,
       chain: { id: SEPOLIA_CHAIN_ID } as Chain,
@@ -171,5 +171,156 @@ describe('executeStealthPayment amount guard', () => {
     });
     expect(result.paymentTx).toBe('0xpay');
     expect(wallet.calls).toHaveLength(2);
+  });
+});
+
+describe('payment plans are bound to their chain and announcement failures are recoverable', () => {
+  const keys = generateStealthKeys();
+  const ensClient: EnsReader = {
+    async getEnsAddress() {
+      return null;
+    },
+    async getEnsText({ key }) {
+      return key === ENS_STEALTH_RECORD_KEY ? keys.stealthMetaAddress : null;
+    },
+  };
+  const ACCOUNT = '0x1111111111111111111111111111111111111111' as Address;
+
+  it('refuses to pay a Sepolia-resolved plan through a wallet on another chain', async () => {
+    const { PlanChainMismatchError } = await import('../src/chain/payment');
+    const plan = await planStealthPayment(ensClient, 'ghost.eth', 1n, SEPOLIA_CHAIN_ID);
+    const calls: unknown[] = [];
+    const wallet = {
+      async getChainId() {
+        return SEPOLIA_CHAIN_ID;
+      },
+      async sendTransaction(args: unknown) {
+        calls.push(args);
+        return '0xpay' as Hash;
+      },
+      async writeContract(args: unknown) {
+        calls.push(args);
+        return '0xann' as Hash;
+      },
+    };
+    // Intended chain differs from the plan's chain (with mainnet writes enabled
+    // and confirmed, so the network guard itself passes and the binding is
+    // what refuses).
+    vi.stubEnv('VITE_ENABLE_MAINNET', 'true');
+    try {
+      const mainnetWallet = { ...wallet, async getChainId() { return 1; } };
+      await expect(
+        executeStealthPayment({
+          walletClient: mainnetWallet,
+          chain: { id: 1 } as Chain,
+          account: ACCOUNT,
+          plan,
+          mainnetConfirmed: true,
+        }),
+      ).rejects.toThrow(PlanChainMismatchError);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+    // Plan and intended chain agree, but the wallet reports a different chain.
+    const driftingWallet = { ...wallet, async getChainId() { return 1; } };
+    await expect(
+      executeStealthPayment({
+        walletClient: driftingWallet,
+        chain: { id: SEPOLIA_CHAIN_ID } as Chain,
+        account: ACCOUNT,
+        plan,
+      }),
+    ).rejects.toThrow();
+    expect(calls).toHaveLength(0);
+  });
+
+  it('surfaces the payment hash and recovery data when the announcement fails', async () => {
+    const { AnnouncementFailedError, announceStealthPayment } = await import('../src/chain/payment');
+    const plan = await planStealthPayment(ensClient, 'ghost.eth', 5n, SEPOLIA_CHAIN_ID);
+    let announceAttempts = 0;
+    const wallet = {
+      async getChainId() {
+        return SEPOLIA_CHAIN_ID;
+      },
+      async sendTransaction() {
+        return '0xpaid' as Hash;
+      },
+      async writeContract() {
+        announceAttempts++;
+        if (announceAttempts === 1) throw new Error('User rejected the request. URL: https://rpc.example/SECRET');
+        return '0xannounced' as Hash;
+      },
+    };
+    let caught: unknown;
+    try {
+      await executeStealthPayment({ walletClient: wallet, chain: { id: SEPOLIA_CHAIN_ID } as Chain, account: ACCOUNT, plan });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(AnnouncementFailedError);
+    const failure = caught as InstanceType<typeof AnnouncementFailedError>;
+    expect(failure.paymentTx).toBe('0xpaid');
+    expect(failure.plan.derivation.ephemeralPublicKey).toBe(plan.derivation.ephemeralPublicKey);
+    expect(failure.message).not.toContain('SECRET');
+    // The retry path emits only the announcement.
+    const announcementTx = await announceStealthPayment({
+      walletClient: wallet,
+      chain: { id: SEPOLIA_CHAIN_ID } as Chain,
+      account: ACCOUNT,
+      plan: failure.plan,
+    });
+    expect(announcementTx).toBe('0xannounced');
+    expect(announceAttempts).toBe(2);
+  });
+});
+
+describe('announcement metadata is parsed positionally and recognition yields', () => {
+  it('declaredEthAmount accepts only the native-ETH layout', async () => {
+    const { declaredEthAmount, buildEthAnnouncementMetadata, ETH_TOKEN_MARKER } = await import('../src/chain/announcer');
+    const { concatHex, padHex, numberToHex } = await import('viem');
+    const good = buildEthAnnouncementMetadata('0x08', 1234n);
+    expect(declaredEthAmount(good)).toBe(1234n);
+    const wrongSelector = concatHex(['0x08', '0xdeadbeef', ETH_TOKEN_MARKER, padHex(numberToHex(1234n), { size: 32 })]);
+    expect(declaredEthAmount(wrongSelector)).toBeNull();
+    const erc20Marker = concatHex([
+      '0x08',
+      '0xa9059cbb',
+      '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
+      padHex(numberToHex(1234n), { size: 32 }),
+    ]);
+    expect(declaredEthAmount(erc20Marker)).toBeNull();
+    expect(declaredEthAmount('0x08')).toBeNull();
+    expect(declaredEthAmount(`0x08${'00'.repeat(56)}`)).toBeNull();
+  });
+
+  it('recogniseOwnedAnnouncementsAsync finds the same set as the sync version and reports progress', async () => {
+    const { recogniseOwnedAnnouncements, recogniseOwnedAnnouncementsAsync } = await import('../src/chain/announcer');
+    const { generateStealthAddress } = await import('../src/crypto/stealth');
+    const mine = generateStealthKeys();
+    const other = generateStealthKeys();
+    const announcements = Array.from({ length: 45 }, (_, i) => {
+      const target = i % 5 === 0 ? mine : other;
+      const d = generateStealthAddress(target.stealthMetaAddress);
+      return {
+        schemeId: 1n,
+        stealthAddress: d.stealthAddress,
+        caller: '0x0000000000000000000000000000000000000000' as Address,
+        ephemeralPublicKey: d.ephemeralPublicKey,
+        metadata: '0x' as `0x${string}`,
+        viewTag: d.viewTag,
+        blockNumber: BigInt(i),
+        transactionHash: `0x${i.toString(16).padStart(64, '0')}` as `0x${string}`,
+      };
+    });
+    const keysArg = { viewingPrivateKey: mine.viewingPrivateKey, spendingPublicKey: mine.spendingPublicKey };
+    const progress: Array<[number, number]> = [];
+    const asyncOwned = await recogniseOwnedAnnouncementsAsync(announcements, keysArg, {
+      batchSize: 10,
+      onProgress: (c, t) => progress.push([c, t]),
+    });
+    const syncOwned = recogniseOwnedAnnouncements(announcements, keysArg);
+    expect(asyncOwned.map((a) => a.stealthAddress)).toEqual(syncOwned.map((a) => a.stealthAddress));
+    expect(asyncOwned).toHaveLength(9);
+    expect(progress).toEqual([[10, 45], [20, 45], [30, 45], [40, 45], [45, 45]]);
   });
 });

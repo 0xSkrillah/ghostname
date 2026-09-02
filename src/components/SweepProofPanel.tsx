@@ -40,7 +40,7 @@ export default function SweepProofPanel({ autoRun = false }: { autoRun?: boolean
         A stealth address holds funds but no gas. Funding it from your own wallet would
         re-link it, so a sponsor pays instead. This checks that the published exit really
         happened that way. Only the transaction hash is configured. Every claim below is
-        re-verified live.
+        re-verified live. The executor is an unaudited testnet demo contract.
       </p>
 
       {!proof && (
@@ -91,10 +91,12 @@ export default function SweepProofPanel({ autoRun = false }: { autoRun?: boolean
 
           {proof.facts.sponsor && proof.facts.stealthAddress && (
             <p className="small dim" style={{ marginBottom: '0.4rem' }}>
-              Sponsor <span className="mono">{proof.facts.sponsor}</span> paid the gas. The swept
-              account <span className="mono">{proof.facts.stealthAddress}</span> never received a
-              gas-funding transfer
-              {proof.facts.amountWei && <> and released {formatEther(BigInt(proof.facts.amountWei))} ETH</>}.
+              This transaction's gas was paid by sponsor{' '}
+              <span className="mono">{proof.facts.sponsor}</span>, not by the swept account{' '}
+              <span className="mono">{proof.facts.stealthAddress}</span>
+              {proof.facts.amountWei && <>, which released {formatEther(BigInt(proof.facts.amountWei))} ETH</>}.
+              Whether that account was ever funded for gas by some other transaction is not
+              examined here; see the list below.
             </p>
           )}
 

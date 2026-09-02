@@ -76,7 +76,17 @@ function bigIntToPrivateKeyHex(value: bigint): Hex {
   return `0x${value.toString(16).padStart(64, '0')}` as Hex;
 }
 
+const PRIVATE_KEY_HEX = /^0x[0-9a-fA-F]{64}$/;
+
+/**
+ * Convert a private key to a scalar. Malformed string input is rejected by a
+ * shape check BEFORE viem's hexToBytes, whose error message would otherwise
+ * echo the (almost complete) key material into any UI that renders it.
+ */
 function privateKeyScalar(key: Hex | Uint8Array, label: string): bigint {
+  if (typeof key === 'string' && !PRIVATE_KEY_HEX.test(key)) {
+    throw new Error(`${label} must be a 0x-prefixed 32-byte hex string`);
+  }
   const bytes = typeof key === 'string' ? hexToBytes(key) : key;
   if (bytes.length !== 32) {
     throw new Error(`${label} must be 32 bytes`);
@@ -152,6 +162,9 @@ export function generateStealthAddress(
   opts: { ephemeralPrivateKey?: Uint8Array | Hex } = {},
 ): StealthAddressResult {
   const { spendingPublicKey, viewingPublicKey } = parseStealthMetaAddress(stealthMetaAddress);
+  if (typeof opts.ephemeralPrivateKey === 'string' && !PRIVATE_KEY_HEX.test(opts.ephemeralPrivateKey)) {
+    throw new Error('ephemeral private key must be a 0x-prefixed 32-byte hex string');
+  }
   const ephemeralPrivateKey =
     opts.ephemeralPrivateKey === undefined
       ? generateRandomPrivateKey()
@@ -178,11 +191,21 @@ export function generateStealthAddress(
  * `viewingPrivateKey` (for the identity with `spendingPublicKey`).
  * Returns false — never throws — for announcements that are not ours.
  */
+const COMPRESSED_PUBKEY_HEX = /^0x0[23][0-9a-fA-F]{64}$/;
+
+/** Scheme 1 announces a 33-byte compressed SEC1 point; anything else is not ours. */
+function ephemeralPoint(ephemeralPublicKey: Hex): InstanceType<typeof Point> {
+  if (!COMPRESSED_PUBKEY_HEX.test(ephemeralPublicKey)) {
+    throw new Error('ephemeral public key must be a 33-byte compressed secp256k1 point');
+  }
+  return Point.fromHex(hexToBytes(ephemeralPublicKey));
+}
+
 export function checkStealthAddress(args: CheckStealthAddressArgs): boolean {
   try {
     const viewingScalar = privateKeyScalar(args.viewingPrivateKey, 'viewing private key');
-    const ephemeralPoint = Point.fromHex(hexToBytes(args.ephemeralPublicKey));
-    const sharedSecretHash = hashedSharedSecret(viewingScalar, ephemeralPoint);
+    const ephemeralPoint_ = ephemeralPoint(args.ephemeralPublicKey);
+    const sharedSecretHash = hashedSharedSecret(viewingScalar, ephemeralPoint_);
 
     if (args.viewTag !== undefined) {
       const expectedTag = `0x${sharedSecretHash.slice(2, 4)}`.toLowerCase();
@@ -207,8 +230,7 @@ export function checkStealthAddress(args: CheckStealthAddressArgs): boolean {
 export function computeStealthPrivateKey(args: ComputeStealthPrivateKeyArgs): Hex {
   const spendingScalar = privateKeyScalar(args.spendingPrivateKey, 'spending private key');
   const viewingScalar = privateKeyScalar(args.viewingPrivateKey, 'viewing private key');
-  const ephemeralPoint = Point.fromHex(hexToBytes(args.ephemeralPublicKey));
-  const sharedSecretHash = hashedSharedSecret(viewingScalar, ephemeralPoint);
+  const sharedSecretHash = hashedSharedSecret(viewingScalar, ephemeralPoint(args.ephemeralPublicKey));
   const secretScalar = hashedSecretScalar(sharedSecretHash);
   const stealthPrivateKey = (spendingScalar + secretScalar) % CURVE_ORDER;
   if (stealthPrivateKey === 0n) {

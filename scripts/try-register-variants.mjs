@@ -1,12 +1,13 @@
 // Try to pin down why v2-controller register() reverts: simulate the original
 // (aged) commitment now with proper revert-data extraction, then commit+wait+
 // simulate variants with the live v2 resolver and with the zero resolver.
+import { loadTestnetKey } from './lib/testnet-key.mjs';
 import { createPublicClient, createWalletClient, http, parseAbi, toHex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { sepolia } from 'viem/chains';
 import { readFileSync } from 'node:fs';
 
-const key = readFileSync('.env', 'utf8').match(/SEPOLIA_PRIVATE_KEY=(0x[0-9a-fA-F]{64})/)[1];
+const { key } = loadTestnetKey();
 const account = privateKeyToAccount(key);
 const transport = http('https://ethereum-sepolia-rpc.publicnode.com', { timeout: 30_000 });
 const client = createPublicClient({ chain: sepolia, transport });

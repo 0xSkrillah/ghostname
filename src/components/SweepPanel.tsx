@@ -7,7 +7,7 @@ import {
   type NativeSweepPackage,
   type SweepPackageVerification,
 } from '../relay/sweep';
-import { SWEEP_EXECUTOR } from '../config';
+import { SEPOLIA_DEMO_SWEEP_EXECUTOR, SWEEP_EXECUTOR } from '../config';
 import { getSepoliaClient } from '../chain/clients';
 import { SEPOLIA_CHAIN_ID } from '../chain/guards';
 import { parseAmountEth } from '../lib/amount';
@@ -43,7 +43,13 @@ export default function SweepPanel(props: {
   const [verification, setVerification] = useState<SweepPackageVerification | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [executorAck, setExecutorAck] = useState(false);
   const idBase = `sweep-${props.stealthAddress.slice(2, 10).toLowerCase()}`;
+  // The delegation hands the stealth account's full control to the executor
+  // code. Anything other than the pinned demo executor needs an explicit
+  // acknowledgement, because a hostile executor can take the funds.
+  const executorIsDemo = executor.trim().toLowerCase() === SEPOLIA_DEMO_SWEEP_EXECUTOR.toLowerCase();
+  const executorUnknown = isAddress(executor.trim()) && !executorIsDemo;
 
   async function sign() {
     setError(null);
@@ -52,6 +58,10 @@ export default function SweepPanel(props: {
 
     if (!isAddress(executor)) {
       setError('Enter a valid EIP-7702 executor contract address.');
+      return;
+    }
+    if (executorUnknown && !executorAck) {
+      setError('Acknowledge the unknown-executor warning before signing a delegation to it.');
       return;
     }
     if (!isAddress(destination)) {
@@ -147,7 +157,9 @@ export default function SweepPanel(props: {
       <p className="small" style={{ color: 'var(--warn)', marginTop: 0 }}>
         Choose a destination that is not your main or publicly known wallet. Sweeping into a
         known address re-links the payment and undoes the privacy gain. The demo executor
-        contract is unaudited and intended for testnet use only.
+        contract is unaudited and intended for testnet use only. Building the package asks your
+        RPC for this address's nonce, which reveals your interest in it to that RPC; pin a
+        trusted endpoint if that matters.
       </p>
 
       <div className="row" style={{ marginBottom: '0.4rem' }}>
@@ -158,12 +170,29 @@ export default function SweepPanel(props: {
           id={`${idBase}-executor`}
           type="text"
           value={executor}
-          onChange={(e) => setExecutor(e.target.value)}
+          onChange={(e) => {
+            setExecutor(e.target.value);
+            setExecutorAck(false);
+          }}
           placeholder="EIP-7702 executor contract (0x…), see RELAYERS.md"
           autoComplete="off"
           spellCheck={false}
         />
       </div>
+      {executorUnknown && (
+        <div className="card danger" style={{ marginTop: 0 }} role="alert">
+          <strong>Unknown executor.</strong>
+          <p className="small" style={{ margin: '0.3rem 0' }}>
+            This is not the GhostName Sepolia demo executor. An EIP-7702 delegation gives that
+            contract full control of the stealth account; a hostile executor can take the funds.
+            Only continue if you deployed or audited it yourself.
+          </p>
+          <label className="small" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <input type="checkbox" checked={executorAck} onChange={(e) => setExecutorAck(e.target.checked)} />
+            I trust this executor and accept that it controls the swept account.
+          </label>
+        </div>
+      )}
       <div className="row" style={{ marginBottom: '0.4rem' }}>
         <label className="sr-only" htmlFor={`${idBase}-destination`}>
           Destination address, bound into the signature

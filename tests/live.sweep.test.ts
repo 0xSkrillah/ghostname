@@ -23,7 +23,7 @@ import {
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { sepolia } from 'viem/chains';
 import { generateStealthAddress, computeStealthPrivateKey } from '../src/crypto/stealth';
-import { signNativeSweepPackage, verifyNativeSweepPackage } from '../src/relay/sweep';
+import { randomSweepNonce, signNativeSweepPackage, verifyNativeSweepPackage } from '../src/relay/sweep';
 
 const env = { ...loadEnv('development', process.cwd(), ''), ...process.env };
 const PRIVATE_KEY = env.SEPOLIA_PRIVATE_KEY as Hex | undefined;
@@ -98,7 +98,7 @@ describe.runIf(live)('LIVE Sepolia — sponsored EIP-7702 sweep', () => {
       destination,
       amount,
       authorizationNonce,
-      sweepNonce: 0n,
+      sweepNonce: randomSweepNonce(),
       deadline,
     });
 

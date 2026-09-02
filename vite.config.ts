@@ -1,7 +1,23 @@
 /// <reference types="vitest/config" />
+import { execSync } from 'node:child_process';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { cspMetaTag } from './src/security/csp';
+
+/** Short commit hash of the tree being built, plus a -dirty marker; 'unknown' outside git. */
+function buildCommit(): string {
+  try {
+    const sha = execSync('git rev-parse --short=12 HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim();
+    const dirty = execSync('git status --porcelain', { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim().length > 0;
+    return dirty ? `${sha}-dirty` : sha;
+  } catch {
+    return 'unknown';
+  }
+}
 
 /**
  * Inject the Content-Security-Policy meta tag into the PRODUCTION index.html
@@ -17,7 +33,10 @@ function productionCsp(): Plugin {
     },
     transformIndexHtml(html) {
       if (!isBuild) return html;
-      return html.replace('<meta charset="UTF-8" />', `<meta charset="UTF-8" />\n    ${cspMetaTag()}`);
+      return html.replace(
+        '<meta charset="UTF-8" />',
+        `<meta charset="UTF-8" />\n    ${cspMetaTag()}\n    <meta name="ghostname-commit" content="${buildCommit()}" />`,
+      );
     },
   };
 }
@@ -26,6 +45,9 @@ export default defineConfig({
   // Relative base: the built app works from any path (GitHub Pages
   // subdirectory, Swarm bzz:// paths) without rebuild.
   base: './',
+  // Exposed to the app so the footer can name the exact commit a served bundle
+  // was built from (deployment provenance for a hand-rolled static host).
+  define: { __GHOSTNAME_COMMIT__: JSON.stringify(buildCommit()) },
   plugins: [react(), productionCsp()],
   build: {
     // Never ship source maps: they would expose the full source layout and

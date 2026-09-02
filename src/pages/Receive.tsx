@@ -7,8 +7,10 @@ import SweepPanel from '../components/SweepPanel';
 import SweepProofPanel from '../components/SweepProofPanel';
 import PaymentProofPanel from '../components/PaymentProofPanel';
 import {
+  declaredEthAmount,
   fetchAnnouncements,
   recogniseOwnedAnnouncements,
+  recogniseOwnedAnnouncementsAsync,
   resolveScanStart,
   type Announcement,
 } from '../chain/announcer';
@@ -28,6 +30,8 @@ interface ScanOutcome {
   owned: Announcement[];
   /** Result of running the SAME scan with a random unrelated viewing key. */
   strangerMatches: number;
+  /** How many announcements the negative control examined (sampled when large). */
+  strangerSample: number;
   verified: Array<{ address: string; ok: boolean; stealthPrivateKey: Hex }>;
   /** Current on-chain balance per recognised address; null when the RPC read failed. */
   balances: Record<string, bigint | null>;
@@ -35,21 +39,8 @@ interface ScanOutcome {
 
 const DEFAULT_LOOKBACK = 50_000n;
 const MAX_BALANCE_LOOKUPS = 25;
-
-/**
- * The amount a SENDER declared in announcement metadata. It is not verified by
- * anyone on-chain: anybody who knows a public meta-address can announce any
- * figure for an address they never funded. Only the balance is authoritative.
- */
-function declaredAmountWei(a: Announcement): bigint | null {
-  // Native-ETH metadata: view tag (1) + selector (4) + marker (20) + amount (32) = 57 bytes.
-  if (a.metadata.length !== 2 + 57 * 2) return null;
-  try {
-    return BigInt(`0x${a.metadata.slice(52)}`);
-  } catch {
-    return null;
-  }
-}
+/** The live negative control runs on at most this many announcements. */
+const STRANGER_SAMPLE = 500;
 
 export default function Receive() {
   const { identity } = useIdentity();
@@ -57,6 +48,7 @@ export default function Receive() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<ScanOutcome | null>(null);
+  const [progress, setProgress] = useState<string | null>(null);
 
   async function scan() {
     if (!identity) return;
@@ -67,15 +59,24 @@ export default function Receive() {
       const client = getSepoliaClient();
       const latest = await client.getBlockNumber();
       const from = resolveScanStart(fromBlock, latest, DEFAULT_LOOKBACK);
+      setProgress('Fetching announcements…');
       const announcements = await fetchAnnouncements(client, { fromBlock: from, toBlock: latest });
-      const owned = recogniseOwnedAnnouncements(announcements, {
-        viewingPrivateKey: identity.viewingPrivateKey as Hex,
-        spendingPublicKey: identity.spendingPublicKey as Hex,
-      });
-      // Negative control, run live every time: a freshly generated unrelated
-      // viewing key must recognise nothing.
+      const owned = await recogniseOwnedAnnouncementsAsync(
+        announcements,
+        {
+          viewingPrivateKey: identity.viewingPrivateKey as Hex,
+          spendingPublicKey: identity.spendingPublicKey as Hex,
+        },
+        {
+          onProgress: (checked, total) =>
+            setProgress(`Checked ${checked} of ${total} announcements with your viewing key…`),
+        },
+      );
+      // Negative control, run live every time on a bounded sample: a freshly
+      // generated unrelated viewing key must recognise nothing.
       const stranger = generateStealthKeys();
-      const strangerMatches = recogniseOwnedAnnouncements(announcements, {
+      const strangerSample = announcements.slice(0, STRANGER_SAMPLE);
+      const strangerMatches = recogniseOwnedAnnouncements(strangerSample, {
         viewingPrivateKey: stranger.viewingPrivateKey as Hex,
         spendingPublicKey: stranger.spendingPublicKey as Hex,
       }).length;
@@ -113,13 +114,18 @@ export default function Receive() {
         total: announcements.length,
         owned,
         strangerMatches,
+        strangerSample: strangerSample.length,
         verified,
         balances,
       });
     } catch (err) {
-      setError(describeError(err));
+      setError(
+        `Could not complete the Sepolia scan: ${describeError(err)} Retry; if it persists, ` +
+          'set VITE_SEPOLIA_RPC_URL in .env to a provider you control.',
+      );
     } finally {
       setBusy(false);
+      setProgress(null);
     }
   }
 
@@ -141,7 +147,9 @@ export default function Receive() {
       <p className="lead">
         Scans ERC-5564 announcements on Sepolia and recognises yours with the private
         viewing key, locally. Observers (and other recipients) cannot do this. Scans are
-        bounded: set the start block to just before your payments.
+        bounded: set the start block to just before your payments. Balance reads ask your
+        RPC about the recognised addresses specifically; pin a trusted endpoint in .env if
+        that linkage matters to you.
       </p>
       <form
         className="row"
@@ -175,7 +183,7 @@ export default function Receive() {
       <div aria-live="polite" aria-busy={busy}>
         {busy && (
           <p className="dim small" role="status">
-            Reading announcements from Sepolia and checking them with your viewing key…
+            {progress ?? 'Reading announcements from Sepolia and checking them with your viewing key…'}
           </p>
         )}
         {outcome && (
@@ -203,7 +211,11 @@ export default function Receive() {
             <div className="card">
               <span className="label">Live negative control</span>
               <p style={{ margin: 0 }} className="small">
-                The same scan re-run with a freshly generated unrelated viewing key recognised{' '}
+                The same scan re-run with a freshly generated unrelated viewing key
+                {outcome.strangerSample < outcome.total
+                  ? ` over the first ${outcome.strangerSample} announcements`
+                  : ''}{' '}
+                recognised{' '}
                 <strong style={{ color: outcome.strangerMatches === 0 ? 'var(--accent)' : 'var(--danger)' }}>
                   {outcome.strangerMatches}
                 </strong>{' '}
@@ -216,7 +228,7 @@ export default function Receive() {
             {outcome.owned.map((a) => {
               const verification = outcome.verified.find((v) => v.address === a.stealthAddress);
               const balance = outcome.balances[a.stealthAddress.toLowerCase()];
-              const declared = declaredAmountWei(a);
+              const declared = declaredEthAmount(a.metadata);
               return (
                 <div className="card ok" key={a.transactionHash + a.stealthAddress}>
                   <span className="label">Payment recognised</span>
@@ -236,7 +248,9 @@ export default function Receive() {
                   </p>
                   <p className="small dim" style={{ margin: '0.2rem 0 0' }}>
                     Announced by the sender:{' '}
-                    {declared === null ? 'no amount in metadata' : `${formatEther(declared)} ETH`}{' '}
+                    {declared === null
+                      ? 'metadata is not the native-ETH layout (no amount shown)'
+                      : `${formatEther(declared)} ETH`}{' '}
                     (sender-supplied, not verified)
                     {declared !== null && balance !== undefined && balance !== null && declared !== balance && (
                       <>

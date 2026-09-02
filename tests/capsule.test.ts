@@ -49,7 +49,26 @@ describe('encrypted recovery capsule', () => {
   });
 
   it('rejects a too-short passphrase', async () => {
-    await expect(encryptCapsule({ x: 1 }, 'short')).rejects.toThrow(/at least 8/);
+    await expect(encryptCapsule({ x: 1 }, 'short')).rejects.toThrow(/at least 12/);
+    await expect(encryptCapsule({ x: 1 }, 'elevenchars')).rejects.toThrow(/at least 12/);
+  });
+
+  it('uses the OWASP PBKDF2-SHA256 iteration count and binds the header (version 2)', async () => {
+    const capsule = await encryptCapsule({ x: 1 }, 'passphrase-123');
+    expect(capsule.iterations).toBe(600_000);
+    expect(capsule.version).toBe(2);
+    // Relabelling the header must break authentication even though the
+    // ciphertext is untouched.
+    await expect(
+      decryptCapsule({ ...capsule, iterations: 599_999 }, 'passphrase-123'),
+    ).rejects.toThrow(/Decryption failed/);
+  });
+
+  it('treats Unicode-equivalent passphrases as the same passphrase', async () => {
+    const composed = 'caf\u00e9-passphrase!';
+    const decomposed = 'cafe\u0301-passphrase!';
+    const capsule = await encryptCapsule({ x: 1 }, composed);
+    await expect(decryptCapsule(capsule, decomposed)).resolves.toEqual({ x: 1 });
   });
 
   it('rejects a non-capsule object', async () => {
@@ -63,5 +82,24 @@ describe('encrypted recovery capsule', () => {
     expect(() => assertTestnetOnly({ network: 'testnet' })).not.toThrow();
     expect(() => assertTestnetOnly({ network: 'sepolia' })).not.toThrow();
     expect(() => assertTestnetOnly({ network: 'mainnet' })).toThrow(/testnet-only/);
+  });
+});
+
+describe('untrusted capsule headers', () => {
+  it('rejects out-of-band iteration counts, wrong sizes and bad base64 before deriving a key', async () => {
+    const capsule = await encryptCapsule({ x: 1 }, 'passphrase-123');
+    await expect(decryptCapsule({ ...capsule, iterations: 1 }, 'passphrase-123')).rejects.toThrow(/iteration/);
+    await expect(decryptCapsule({ ...capsule, iterations: 10_000_000 }, 'passphrase-123')).rejects.toThrow(/iteration/);
+    await expect(decryptCapsule({ ...capsule, salt: 'AAAA' }, 'passphrase-123')).rejects.toThrow(/length/);
+    await expect(decryptCapsule({ ...capsule, iv: '!!!' }, 'passphrase-123')).rejects.toThrow(/base64|length/);
+    await expect(decryptCapsule({ ...capsule, version: 3 as never }, 'passphrase-123')).rejects.toThrow(/version/);
+    await expect(decryptCapsule({ ...capsule, network: 'mainnet' as never }, 'passphrase-123')).rejects.toThrow(/testnet-only/);
+    await expect(decryptCapsule('{not json', 'passphrase-123')).rejects.toThrow(/invalid JSON/);
+  });
+
+  it('accepts the JSON text form of a capsule', async () => {
+    const capsule = await encryptCapsule({ hello: 'world' }, 'passphrase-123');
+    const recovered = await decryptCapsule<{ hello: string }>(JSON.stringify(capsule), 'passphrase-123');
+    expect(recovered.hello).toBe('world');
   });
 });

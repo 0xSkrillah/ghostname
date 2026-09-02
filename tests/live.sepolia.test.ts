@@ -53,8 +53,9 @@ function loadOrCreateIdentity(): StealthKeys {
     return JSON.parse(readFileSync(IDENTITY_PATH, 'utf8')) as StealthKeys;
   }
   const keys = generateStealthKeys();
-  mkdirSync('.demo', { recursive: true });
-  writeFileSync(IDENTITY_PATH, JSON.stringify(keys, null, 2));
+  // Owner-only permissions: this file holds testnet private keys.
+  mkdirSync('.demo', { recursive: true, mode: 0o700 });
+  writeFileSync(IDENTITY_PATH, JSON.stringify(keys, null, 2), { mode: 0o600 });
   return keys;
 }
 
@@ -125,8 +126,8 @@ describe.runIf(live)('LIVE Sepolia end-to-end', () => {
 
   it('derives two DIFFERENT destinations, pays one, announces, scans, recognises, recovers', async (ctx) => {
     if (!funded) return ctx.skip();
-    const planA = await planStealthPayment(publicClient, ensName, parseEther('0.0005'));
-    const planB = await planStealthPayment(publicClient, ensName, parseEther('0.0005'));
+    const planA = await planStealthPayment(publicClient, ensName, parseEther('0.0005'), sepolia.id);
+    const planB = await planStealthPayment(publicClient, ensName, parseEther('0.0005'), sepolia.id);
     expect(planA.derivation.stealthAddress).not.toBe(planB.derivation.stealthAddress);
     console.log(`[e2e] A=${planA.derivation.stealthAddress} B=${planB.derivation.stealthAddress}`);
 

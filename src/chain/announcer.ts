@@ -199,6 +199,48 @@ export async function fetchAnnouncements(
 }
 
 /**
+ * Sender-declared native-ETH amount from announcement metadata, or null when the
+ * metadata does not follow the EIP-5564 native-ETH layout (view tag, then the
+ * 0xeeeeeeee selector, then the ETH marker, then a uint256). The value is what
+ * the ANNOUNCER claimed; only an on-chain balance is authoritative.
+ */
+export function declaredEthAmount(metadata: Hex): bigint | null {
+  const meta = metadata.toLowerCase();
+  if (meta.length !== 2 + 57 * 2) return null;
+  if (meta.slice(4, 12) !== ETH_FUNCTION_SELECTOR.slice(2).toLowerCase()) return null;
+  if (meta.slice(12, 52) !== ETH_TOKEN_MARKER.slice(2).toLowerCase()) return null;
+  try {
+    return BigInt(`0x${meta.slice(52)}`);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * RECIPIENT: recognise owned announcements without freezing the UI. Each check
+ * costs one elliptic-curve multiplication (the view tag can only be compared
+ * after it), so a spammed announcer would otherwise lock the main thread.
+ * Work is done in batches with a yield in between and optional progress.
+ */
+export async function recogniseOwnedAnnouncementsAsync(
+  announcements: Announcement[],
+  keys: { viewingPrivateKey: Hex; spendingPublicKey: Hex },
+  opts: { batchSize?: number; onProgress?: (checked: number, total: number) => void } = {},
+): Promise<Announcement[]> {
+  const batchSize = Math.max(1, opts.batchSize ?? 200);
+  const owned: Announcement[] = [];
+  for (let start = 0; start < announcements.length; start += batchSize) {
+    const batch = announcements.slice(start, start + batchSize);
+    owned.push(...recogniseOwnedAnnouncements(batch, keys));
+    opts.onProgress?.(Math.min(start + batchSize, announcements.length), announcements.length);
+    if (start + batchSize < announcements.length) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    }
+  }
+  return owned;
+}
+
+/**
  * RECIPIENT: filter announcements down to the ones owned by this viewing key.
  * Uses the view-tag fast path when present, then full verification.
  */

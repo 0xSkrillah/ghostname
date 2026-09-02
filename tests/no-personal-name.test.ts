@@ -121,3 +121,24 @@ describe('demo pre-fill has no built-in default', () => {
     expect(config.DEMO_MAINNET_NAME).toBe('name.eth');
   });
 });
+
+describe('demo configuration parsing', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it('ignores a malformed VITE_SCAN_START_BLOCK instead of crashing at load', async () => {
+    vi.stubEnv('VITE_SCAN_START_BLOCK', 'not-a-block');
+    vi.resetModules();
+    const config = await import('../src/config');
+    expect(config.SCAN_START_BLOCK).toBeUndefined();
+  });
+
+  it('parses a whole-number VITE_SCAN_START_BLOCK', async () => {
+    vi.stubEnv('VITE_SCAN_START_BLOCK', '11612900');
+    vi.resetModules();
+    const config = await import('../src/config');
+    expect(config.SCAN_START_BLOCK).toBe(11612900n);
+  });
+});

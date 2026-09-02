@@ -16,6 +16,7 @@ import { decodeEventLog, formatEther, type Address, type Hex } from 'viem';
 import {
   ANNOUNCEMENT_EVENT,
   ANNOUNCER_ADDRESS,
+  ETH_FUNCTION_SELECTOR,
   ETH_TOKEN_MARKER,
   viewTagFromMetadata,
 } from '../chain/announcer';
@@ -36,6 +37,8 @@ export interface PaymentProof {
     stealthAddress: Address | null;
     amountEth: string | null;
     announcer: Address | null;
+    /** Account that called announce(); allowed by ERC-5564 to differ from the payer. */
+    announcementCaller: Address | null;
     schemeId: string | null;
     viewTag: Hex | null;
     ephemeralPublicKey: Hex | null;
@@ -60,6 +63,7 @@ export interface PaymentProofClient {
 
 const NOT_PROVEN = [
   'That any particular person controls the receiving address.',
+  'That the announcer call came from the payer: ERC-5564 lets anyone announce, so the caller is reported, not required to match.',
   'Recognition itself: deciding a payment is yours needs the private viewing key, which stays on the recipient device.',
   'Amount privacy: the transferred value is public on-chain.',
   'Sender privacy: the payer address is public on-chain.',
@@ -76,6 +80,7 @@ export async function verifyPaymentProof(
     stealthAddress: null,
     amountEth: null,
     announcer: null,
+    announcementCaller: null,
     schemeId: null,
     viewTag: null,
     ephemeralPublicKey: null,
@@ -183,6 +188,7 @@ export async function verifyPaymentProof(
         metadata: Hex;
       };
       announcedAddress = args.stealthAddress;
+      facts.announcementCaller = args.caller;
       facts.schemeId = args.schemeId.toString();
       facts.ephemeralPublicKey = args.ephemeralPubKey;
       facts.viewTag = viewTagFromMetadata(args.metadata);
@@ -205,25 +211,27 @@ export async function verifyPaymentProof(
         `Ephemeral key is ${ephBytes} bytes, prefix ${args.ephemeralPubKey.slice(0, 4)}.`,
       );
 
-      // Metadata: view tag first, then the native-ETH marker and amount.
-      const metaBytes = (args.metadata.length - 2) / 2;
-      const markerPresent = args.metadata
-        .toLowerCase()
-        .includes(ETH_TOKEN_MARKER.slice(2).toLowerCase());
+      // Metadata, checked POSITIONALLY per the EIP-5564 native-ETH layout:
+      // byte 0 view tag, bytes 1-4 selector 0xeeeeeeee, bytes 5-24 the ETH
+      // marker address, bytes 25-56 the amount.
+      const meta = args.metadata.toLowerCase();
+      const metaBytes = (meta.length - 2) / 2;
+      const selectorOk = meta.slice(4, 12) === ETH_FUNCTION_SELECTOR.slice(2).toLowerCase();
+      const markerOk = meta.slice(12, 52) === ETH_TOKEN_MARKER.slice(2).toLowerCase();
       let amountMatches = false;
       if (metaBytes === 57) {
         try {
-          amountMatches = BigInt(`0x${args.metadata.slice(52)}`) === payTx.value;
+          amountMatches = BigInt(`0x${meta.slice(52)}`) === payTx.value;
         } catch {
           amountMatches = false;
         }
       }
       add(
         'metadata',
-        'Metadata carries the view tag and matches the transferred amount',
-        metaBytes === 57 && markerPresent && amountMatches ? 'pass' : 'fail',
+        'Metadata follows the native-ETH layout and matches the transferred amount',
+        metaBytes === 57 && selectorOk && markerOk && amountMatches ? 'pass' : 'fail',
         metaBytes === 57
-          ? `View tag ${facts.viewTag}, native-ETH marker ${markerPresent ? 'present' : 'missing'}, declared amount ${amountMatches ? 'matches' : 'does not match'} the transfer.`
+          ? `View tag ${facts.viewTag}; selector ${selectorOk ? 'correct' : 'wrong'} at bytes 1-4; ETH marker ${markerOk ? 'correct' : 'wrong'} at bytes 5-24; declared amount ${amountMatches ? 'matches' : 'does not match'} the transfer.`
           : `Metadata is ${metaBytes} bytes; the native-ETH layout is 57.`,
       );
     } catch (err) {
