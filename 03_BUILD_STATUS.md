@@ -41,7 +41,8 @@ testnet key is present.
   `VITE_ENABLE_MAINNET=true` **and** a typed per-action confirmation. Off in the
   shipped build. Covered by `tests/mainnet-guard.test.ts`.
 - Sepolia: all demo writes.
-- `skrillah.eth` is read-only mainnet demo input and is never modified.
+- The established mainnet identity used as demo input is read-only, configured
+  only through a local uncommitted `.env`, and never modified.
 - Demo signing key is a throwaway testnet key in gitignored `.env`.
 
 ## Live on-chain evidence (Sepolia)
@@ -112,7 +113,8 @@ Resolver, so they work on both ENS v1 and v2.
   sweep test now builds its transaction entirely from the package, so the
   on-chain result proves the format is executable.
 - **Phase 1 (done):** GhostCheck ENS privacy conformance audit on `/scan`.
-  22 tests. Verified live: `skrillah.eth` reads Incomplete.
+  22 tests. Verified live: an established mainnet name without a stealth record
+  reads Incomplete.
 - **Phase 2 (done):** both halves of the published evidence are verified from
   live chain data, integrated into `/receive` and `/demo`.
   - Sponsored exit (`src/relay/proof.ts`, 12 tests): all eight checks pass live.

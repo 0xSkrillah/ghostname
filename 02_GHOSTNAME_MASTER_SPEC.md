@@ -26,10 +26,12 @@ Optimisation order:
 
 ## 2. Safety and non-negotiable rules
 
-- `skrillah.eth` is read-only mainnet demo input.
+- The established mainnet ENS identity used for the demo is read-only input,
+  supplied locally via `VITE_DEMO_MAINNET_NAME` in an uncommitted `.env`.
 - Never transfer, burn, clear, reset, update, or otherwise modify it.
 - Never initiate a mainnet write without explicit human confirmation.
-- Never hard-code `skrillah.eth` into functional application logic.
+- Never hard-code a personal ENS name into application logic, docs, tests or
+  built assets.
 - All core flows must accept arbitrary ENS names.
 - Never upload, log, analyse, or transmit private spending/viewing keys.
 - Never store plaintext private keys on Swarm or any server.
@@ -76,7 +78,7 @@ assumption against the standards and add tests.
 - Resolve its conventional ETH address.
 - Explain that a static human-readable-name-to-wallet mapping permits
   public correlation.
-- Use mainnet read-only resolution for `skrillah.eth`.
+- Use mainnet read-only resolution for the established identity.
 - Do not automatically show the user's full balance on a projector.
 
 ### B. Create a private receive identity
@@ -383,12 +385,13 @@ README opening order:
 
 ## 13. Demo mode
 
-Use `skrillah.eth` as a pre-filled input only; all resolution calls must be
+Pre-fill the established identity only from local configuration; all
+resolution calls must be
 live and all logic generic.
 
 Target sequence:
 
-1. “This is skrillah.eth, an established public identity.”
+1. “This is an established public ENS identity.”
 2. Resolve its existing static address read-only.
 3. “I cannot delete its history.”
 4. Switch to the controlled GhostName-enabled test ENS identity.

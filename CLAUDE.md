@@ -19,7 +19,8 @@ P3 Swarm deployment/encrypted TESTNET recovery
 ```
 
 Do not begin P2 or P3 until all P0 acceptance tests pass. Never modify
-`skrillah.eth`; it is read-only mainnet demo input. Never expose private keys
+the established mainnet ENS identity used as demo input; it is read-only and
+configured only through a local, uncommitted `.env`. Never expose private keys
 or make a mainnet write without explicit human approval.
 
 After every milestone, run typecheck, tests and production build, then update

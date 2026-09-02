@@ -41,7 +41,8 @@ the result."
 
 ### [0:12 to 0:30] The problem, live on Scan
 
-ON SCREEN: `#/scan`, `skrillah.eth` pre-filled, click Resolve. Point at the red
+ON SCREEN: `#/scan`, enter an established ENS name (or use your local pre-fill),
+click Run privacy audit. Point at the
 static address and the exposure panel.
 
 SAY: "This is a real name on mainnet. It resolves to one static address, so

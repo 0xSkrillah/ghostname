@@ -9,7 +9,7 @@
 ## 90-second live demo
 
 1. Open the deployed `/demo` route.
-2. Enter or use pre-filled `skrillah.eth`.
+2. Enter an established ENS name (or use your locally configured pre-fill).
 3. Resolve its conventional mainnet address read-only.
 4. Say: “This identity has years of useful history, but that also makes it
    a privacy liability.”

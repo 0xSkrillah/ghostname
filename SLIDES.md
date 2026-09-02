@@ -27,7 +27,7 @@ every future payment.** Everything below supports that single claim.
 
 Every payment to that wallet is public, permanent, and linkable to your name.
 
-> Speaker: "skrillah.eth is years of reputation. It also resolves to one static address, so anyone can read every payment it has ever received: balances, counterparties, timing. The name is the convenience and the leak at once."
+> Speaker: "An established ENS name is years of reputation. It also resolves to one static address, so anyone can read every payment it has ever received: balances, counterparties, timing. The name is the convenience and the leak at once."
 
 ---
 
