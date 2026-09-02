@@ -17,18 +17,20 @@
  * demo wallet for convenience; in production the sponsor is an independent
  * relayer so the sender wallet is never linked either.
  */
-import { loadTestnetKey } from './lib/testnet-key.mjs';
+import { loadDemoIdentity, loadExecutorArtifact, loadTestnetKey } from './lib/testnet-key.mjs';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import {
   createPublicClient,
   createWalletClient,
   http,
   encodeFunctionData,
+  concatHex,
+  keccak256,
   formatEther,
   parseEther,
   getContractAddress,
 } from 'viem';
-import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
+import { privateKeyToAccount } from 'viem/accounts';
 import { sepolia } from 'viem/chains';
 import { generateStealthAddress, computeStealthPrivateKey } from '../src/crypto/stealth.ts';
 import { randomSweepNonce, signSweepAuthorization } from '../src/relay/sweep.ts';
@@ -39,8 +41,8 @@ const transport = http(RPC, { timeout: 30_000 });
 const publicClient = createPublicClient({ chain: sepolia, transport });
 const sponsorWallet = createWalletClient({ account: sponsor, chain: sepolia, transport });
 
-const identity = JSON.parse(readFileSync('.demo/identity.json', 'utf8'));
-const artifact = JSON.parse(readFileSync('.demo/executor.json', 'utf8'));
+const identity = loadDemoIdentity();
+const artifact = loadExecutorArtifact();
 const state = existsSync('.demo/sweep-state.json')
   ? JSON.parse(readFileSync('.demo/sweep-state.json', 'utf8'))
   : {};
@@ -95,7 +97,9 @@ const { authorization } = await signSweepAuthorization({
 });
 
 // 4b. EIP-712 Sweep authorization matching the contract.
-const destination = privateKeyToAccount(generatePrivateKey()).address; // a clean address
+// A clean destination that is still recoverable: derived from the sponsor key,
+// so no new secret is created and the swept test ETH is not burned.
+const destination = privateKeyToAccount(keccak256(concatHex([key, '0x01']))).address;
 const sweepAmount = amount; // sweep everything; sponsor pays gas
 const sweepNonce = randomSweepNonce(); // executor replay guard; random so retries never collide
 const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);

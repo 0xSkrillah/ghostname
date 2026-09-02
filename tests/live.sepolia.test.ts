@@ -34,6 +34,7 @@ import {
   privateKeyToAddress,
   type StealthKeys,
 } from '../src/crypto/stealth';
+import { parseIdentityBackup } from '../src/crypto/identityBackup';
 import { publishStealthRecord } from '../src/ens/write';
 import { resolveStealthMetaAddress } from '../src/ens/resolve';
 import { planStealthPayment, executeStealthPayment } from '../src/chain/payment';
@@ -42,7 +43,9 @@ import { fetchAnnouncements, recogniseOwnedAnnouncements } from '../src/chain/an
 const env = { ...loadEnv('development', process.cwd(), ''), ...process.env };
 const PRIVATE_KEY = env.SEPOLIA_PRIVATE_KEY as Hex | undefined;
 const RPC = env.VITE_SEPOLIA_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com';
-const live = !!PRIVATE_KEY;
+// Writes need BOTH the key and an explicit opt-in, so a plain `npm test` with a
+// populated .env never spends testnet ETH by accident.
+const live = process.env.RUN_LIVE === '1' && !!PRIVATE_KEY;
 
 const IDENTITY_PATH = '.demo/identity.json';
 const REGISTRATION_PATH = '.demo/v2-registration.json';
@@ -50,7 +53,8 @@ const EVIDENCE_PATH = '.demo/e2e-evidence.json';
 
 function loadOrCreateIdentity(): StealthKeys {
   if (existsSync(IDENTITY_PATH)) {
-    return JSON.parse(readFileSync(IDENTITY_PATH, 'utf8')) as StealthKeys;
+    // Validated, not trusted: a corrupt file must never be published to ENS.
+    return parseIdentityBackup(readFileSync(IDENTITY_PATH, 'utf8'));
   }
   const keys = generateStealthKeys();
   // Owner-only permissions: this file holds testnet private keys.
@@ -200,7 +204,7 @@ describe.runIf(live)('LIVE Sepolia end-to-end', () => {
 });
 
 describe.runIf(!live)('LIVE Sepolia end-to-end (skipped)', () => {
-  it('is skipped because SEPOLIA_PRIVATE_KEY is not set', () => {
+  it('is skipped unless RUN_LIVE=1 and SEPOLIA_PRIVATE_KEY are both set', () => {
     expect(live).toBe(false);
   });
 });

@@ -9,7 +9,7 @@
  *   5. verify resolution through the standard viem/Universal Resolver path
  * Testnet only. Idempotent: safe to re-run.
  */
-import { loadTestnetKey } from './lib/testnet-key.mjs';
+import { loadDemoIdentity, loadTestnetKey } from './lib/testnet-key.mjs';
 import {
   createPublicClient,
   createWalletClient,
@@ -43,7 +43,7 @@ const wallet = createWalletClient({ account, chain: sepolia, transport });
 const label = `ghostname-${account.address.slice(2, 8).toLowerCase()}`;
 const ensName = `${label}.eth`;
 const node = namehash(ensName);
-const identity = JSON.parse(readFileSync('.demo/identity.json', 'utf8'));
+const identity = loadDemoIdentity();
 
 const registrarAbi = parseAbi([
   'function isAvailable(string label) view returns (bool)',
@@ -199,4 +199,5 @@ console.log('record matches identity:', resolvedText === identity.stealthMetaAdd
 state.ensName = ensName;
 state.verified = resolvedText === identity.stealthMetaAddress;
 saveState();
-console.log('\nDONE. state:', JSON.stringify(state, null, 2));
+const { secret: _omitted, ...shown } = state; // never print the commitment secret
+console.log('\nDONE. state:', JSON.stringify(shown, null, 2));

@@ -361,3 +361,24 @@ describe('signature canonicality and chain binding', () => {
     expect(result.valid).toBe(false);
   });
 });
+
+describe('delegation canonicality and nonce agreement', () => {
+  it('rejects a package whose top-level authorizationNonce disagrees with the signed nonce', async () => {
+    const { pkg } = await validPackage({ authorizationNonce: 2 });
+    const result = await verifyNativeSweepPackage({ ...pkg, authorizationNonce: 3 }, { now: NOW });
+    expect(result.valid).toBe(false);
+    expect(result.failures.join(' ')).toMatch(/authorizationNonce must equal/);
+  });
+
+  it('rejects a malleated high-s delegation signature', async () => {
+    const { pkg } = await validPackage();
+    const { secp256k1 } = await import('@noble/curves/secp256k1');
+    const highS = `0x${(secp256k1.CURVE.n - BigInt(pkg.authorization.s)).toString(16).padStart(64, '0')}` as Hex;
+    const result = await verifyNativeSweepPackage(
+      { ...pkg, authorization: { ...pkg.authorization, s: highS, yParity: pkg.authorization.yParity === 0 ? 1 : 0 } },
+      { now: NOW },
+    );
+    expect(result.checks.delegationSigner).toBe(false);
+    expect(result.valid).toBe(false);
+  });
+});
