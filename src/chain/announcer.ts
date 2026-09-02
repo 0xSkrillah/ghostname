@@ -103,21 +103,87 @@ export interface LogReader {
   >;
 }
 
+/** Largest window a single eth_getLogs request is asked for (public RPC friendly). */
+export const SCAN_CHUNK_BLOCKS = 10_000n;
+/** Hard ceiling on one scan so a bad start block cannot request the whole chain. */
+export const MAX_SCAN_BLOCKS = 250_000n;
+
+export class ScanRangeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ScanRangeError';
+  }
+}
+
+/**
+ * Turn the user's start-block text into a bounded scan start. Empty means
+ * "latest minus the default look-back". Anything that is not a whole number,
+ * or is beyond the latest block, is rejected with a message the user can act
+ * on instead of a raw BigInt conversion error.
+ */
+export function resolveScanStart(input: string, latest: bigint, defaultLookback: bigint): bigint {
+  const text = input.trim();
+  if (text === '') return latest > defaultLookback ? latest - defaultLookback : 0n;
+  if (!/^[0-9]+$/.test(text)) {
+    throw new ScanRangeError('Start block must be a whole number, for example 11612900.');
+  }
+  const from = BigInt(text);
+  if (from > latest) {
+    throw new ScanRangeError(`Start block ${from} is after the latest block ${latest}.`);
+  }
+  if (latest - from > MAX_SCAN_BLOCKS) {
+    throw new ScanRangeError(
+      `Scan range of ${latest - from} blocks is too large; the limit is ${MAX_SCAN_BLOCKS}. ` +
+        'Set a start block just before your payments.',
+    );
+  }
+  return from;
+}
+
 /**
  * Fetch scheme-1 announcements in a constrained block range. Callers must
- * bound the range (demo config records the start block) — never scan from 0.
+ * bound the range (demo config records the start block); never scan from 0.
+ * A numeric range is split into SCAN_CHUNK_BLOCKS windows so public RPCs that
+ * cap eth_getLogs ranges answer instead of failing opaquely.
  */
 export async function fetchAnnouncements(
   client: LogReader,
   range: { fromBlock: bigint; toBlock?: bigint | 'latest' },
+  opts: { chunkBlocks?: bigint } = {},
 ): Promise<Announcement[]> {
-  const logs = await client.getLogs({
-    address: ANNOUNCER_ADDRESS,
-    event: ANNOUNCEMENT_EVENT,
-    args: { schemeId: SCHEME_ID },
-    fromBlock: range.fromBlock,
-    toBlock: range.toBlock ?? 'latest',
-  });
+  const toBlock = range.toBlock ?? 'latest';
+  if (range.fromBlock < 0n) throw new ScanRangeError('Start block cannot be negative.');
+  const chunk = opts.chunkBlocks ?? SCAN_CHUNK_BLOCKS;
+  if (chunk <= 0n) throw new ScanRangeError('Chunk size must be positive.');
+  const windows: Array<{ fromBlock: bigint; toBlock: bigint | 'latest' }> = [];
+  if (toBlock === 'latest') {
+    windows.push({ fromBlock: range.fromBlock, toBlock });
+  } else {
+    if (toBlock < range.fromBlock) {
+      throw new ScanRangeError(`Start block ${range.fromBlock} is after end block ${toBlock}.`);
+    }
+    if (toBlock - range.fromBlock > MAX_SCAN_BLOCKS) {
+      throw new ScanRangeError(
+        `Scan range of ${toBlock - range.fromBlock} blocks exceeds the limit of ${MAX_SCAN_BLOCKS}.`,
+      );
+    }
+    for (let start = range.fromBlock; start <= toBlock; start += chunk) {
+      const end = start + chunk - 1n < toBlock ? start + chunk - 1n : toBlock;
+      windows.push({ fromBlock: start, toBlock: end });
+    }
+  }
+  const logs: Awaited<ReturnType<LogReader['getLogs']>> = [];
+  for (const window of windows) {
+    logs.push(
+      ...(await client.getLogs({
+        address: ANNOUNCER_ADDRESS,
+        event: ANNOUNCEMENT_EVENT,
+        args: { schemeId: SCHEME_ID },
+        fromBlock: window.fromBlock,
+        toBlock: window.toBlock,
+      })),
+    );
+  }
   return logs
     .filter((log) => log.args.stealthAddress && log.args.ephemeralPubKey)
     .map((log) => ({

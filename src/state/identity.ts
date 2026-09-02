@@ -6,6 +6,7 @@
  */
 import { useCallback, useSyncExternalStore } from 'react';
 import { generateStealthKeys, type StealthKeys } from '../crypto/stealth';
+import { parseIdentityBackup } from '../crypto/identityBackup';
 
 const STORAGE_KEY = 'ghostname.identity.v1';
 
@@ -16,7 +17,9 @@ function read(): StealthKeys | null {
   if (cache !== undefined) return cache;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    cache = raw ? (JSON.parse(raw) as StealthKeys) : null;
+    // Stored JSON is re-validated on every load; a corrupted or tampered entry
+    // is treated as "no identity" rather than trusted.
+    cache = raw ? parseIdentityBackup(raw) : null;
   } catch {
     cache = null;
   }

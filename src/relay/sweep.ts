@@ -453,6 +453,16 @@ function randomNonce(): Hex {
 }
 
 /**
+ * Fresh random 256-bit executor sweep nonce. The executor accepts any unused
+ * uint256, so a random nonce means two packages for the SAME stealth EOA (for
+ * example a partial sweep followed by a second one) never collide on
+ * "nonce used", without reading executor storage first.
+ */
+export function randomSweepNonce(): bigint {
+  return BigInt(randomNonce());
+}
+
+/**
  * Sign an EIP-3009 `TransferWithAuthorization`. A relayer submits it to the
  * token, pays gas, and (in practice) deducts a fee — the stealth address never
  * needs gas. Returns everything the relayer needs to call the token.

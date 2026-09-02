@@ -49,13 +49,14 @@ export default function SweepProofPanel({ autoRun = false }: { autoRun?: boolean
         </button>
       )}
 
+      <div aria-live="polite" aria-busy={busy}>
       {proof && (
         <>
           <p className="small" style={{ marginBottom: '0.5rem' }}>
             {proof.verified ? (
-              <span className="pill ok">all checks passed</span>
+              <span className="pill ok">pass: all checks passed</span>
             ) : (
-              <span className="pill warn">not fully verified</span>
+              <span className="pill warn">not fully verified: see rows</span>
             )}{' '}
             <a href={proof.explorerUrl} target="_blank" rel="noreferrer" className="mono small">
               view transaction
@@ -107,6 +108,7 @@ export default function SweepProofPanel({ autoRun = false }: { autoRun?: boolean
           </div>
         </>
       )}
+      </div>
     </div>
   );
 }

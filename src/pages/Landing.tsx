@@ -18,14 +18,14 @@ export default function Landing() {
         one-time receiving address, locally, with no gateway.
       </p>
       <Compare />
-      <div className="row">
-        <Link to="/scan">
-          <button>See the problem: scan a name</button>
+      <nav className="row" aria-label="Start">
+        <Link to="/scan" className="btn">
+          See the problem: audit a name
         </Link>
-        <Link to="/create">
-          <button className="secondary">Fix the future: create a private identity</button>
+        <Link to="/create" className="btn secondary">
+          Fix the future: create a private identity
         </Link>
-      </div>
+      </nav>
       <p className="small dim" style={{ marginTop: '2rem' }}>
         Honest scope: GhostName does not erase history, hide sender identity, or hide
         amounts. <Link to="/privacy">Read exactly what is and is not protected.</Link>
