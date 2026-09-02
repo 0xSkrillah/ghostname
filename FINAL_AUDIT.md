@@ -502,8 +502,29 @@ Results are recorded in section 8 and in 03_BUILD_STATUS.md.
 
 ## 8. Results and commits
 
-Filled in at the end of the audit; see the table in 03_BUILD_STATUS.md for
-the exact counts of the final run.
+Final run on the audited head (`npm ci` from the lockfile, Node 22):
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` | pass |
+| `npm test` | 231 passed, 11 skipped (network-gated), 0 failed, 25 files, 242 tests |
+| `npm run build` | pass; CSP meta and build commit embedded; no source maps |
+| `npm audit` | 0 vulnerabilities |
+| Release guards over `dist/` | pass (no non-allowlisted ENS name, CSP present) |
+| Headless render at 320, 375, 768 CSS px, every route | no horizontal overflow; per-route titles; inputs full width |
+
+Commits on `claude/ghostname-audit-release-bvi2yf` since HEAD 4fd99c8, oldest first:
+
+- `adbac61` Remove personal ENS name from source, config, tests and docs
+- `92243ac` Harden inputs, secrets handling and core journeys
+- `4989f28` Bind payment plans to chain, recover failed announcements, harden proofs, capsule and scans
+- `0216c9d` Reconcile docs with verified behaviour
+- `a22c931` Accessibility and mobile layout pass, remaining doc corrections
+- `248ecd3` Gate live writes on RUN_LIVE, tighten sweep verifier, validate operator inputs
+- `7a6d265` Update build status and audit report with verified results
+
+Baseline for comparison: 153 passed, 10 skipped, 16 files; 1 high and 1 low
+advisory; personal name in bundle and deployment.
 
 ## 9. Deployment
 
