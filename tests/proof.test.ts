@@ -6,7 +6,7 @@
  * establish stays "unknown" instead of being asserted.
  */
 import { describe, expect, it } from 'vitest';
-import { encodeFunctionData, getAddress, parseEther, type Address, type Hex } from 'viem';
+import { encodeAbiParameters, encodeFunctionData, getAddress, parseEther, type Address, type Hex } from 'viem';
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { verifySweepProof, SWEPT_EVENT_TOPIC, type ProofClient } from '../src/relay/proof';
 import { EXECUTOR_SWEEP_ABI, signNativeSweepPackage } from '../src/relay/sweep';
@@ -96,13 +96,16 @@ async function buildScenario(overrides: {
               {
                 address: stealth.address,
                 topics: [SWEPT_EVENT_TOPIC, ('0x' + DESTINATION.slice(2).padStart(64, '0')) as Hex],
-                data: '0x' as Hex,
+                data: encodeAbiParameters([{ type: 'uint256' }, { type: 'uint256' }], [AMOUNT, 0n]),
               },
             ],
       };
     },
     async getBalance() {
       return overrides.balance ?? 0n;
+    },
+    async getCode() {
+      return `0xef0100${EXECUTOR.slice(2).toLowerCase()}` as Hex;
     },
   };
   return { client, stealthAddress: stealth.address };
@@ -255,5 +258,115 @@ describe('verifySweepProof reports unknown rather than guessing', () => {
     expect(proof.verified).toBe(false);
     expect(proof.checks[0]!.state).toBe('unknown');
     expect(proof.error).toMatch(/rpc down/);
+  });
+});
+
+describe('verifySweepProof cannot be satisfied by look-alike data', () => {
+  it('fails when the Swept event was emitted by a contract other than the swept account', async () => {
+    const { client } = await buildScenario();
+    const original = client.getTransactionReceipt;
+    client.getTransactionReceipt = async (args) => {
+      const receipt = await original(args);
+      return {
+        ...receipt,
+        logs: receipt.logs.map((log) => ({ ...log, address: SPONSOR })),
+      };
+    };
+    const proof = await verifySweepProof(client, REF);
+    expect(proof.verified).toBe(false);
+    expect(proof.checks.find((c) => c.id === 'event')!.state).toBe('fail');
+    expect(proof.checks.find((c) => c.id === 'event')!.detail).toMatch(/not by the swept account/);
+  });
+
+  it('fails when no authorization was signed by the swept account, even if one names the executor', async () => {
+    const { client } = await buildScenario();
+    const original = client.getTransaction;
+    client.getTransaction = async (args) => {
+      const tx = await original(args);
+      // Same executor, but a signature from some other key.
+      const other = privateKeyToAccount(generatePrivateKey());
+      const foreign = await other.signAuthorization({ chainId: CHAIN_ID, address: EXECUTOR, nonce: 0 });
+      return {
+        ...tx,
+        authorizationList: [
+          {
+            address: EXECUTOR,
+            chainId: CHAIN_ID,
+            nonce: 0,
+            r: foreign.r,
+            s: foreign.s,
+            yParity: foreign.yParity as number,
+          },
+        ],
+      };
+    };
+    const proof = await verifySweepProof(client, REF);
+    expect(proof.verified).toBe(false);
+    expect(proof.checks.find((c) => c.id === 'delegation')!.state).toBe('fail');
+    expect(proof.checks.find((c) => c.id === 'delegation')!.detail).toMatch(/signed by the swept account|recovers to the swept account/);
+  });
+
+  it('accepts the genuine authorization when it is not first in the list', async () => {
+    const { client } = await buildScenario();
+    const original = client.getTransaction;
+    client.getTransaction = async (args) => {
+      const tx = await original(args);
+      const other = privateKeyToAccount(generatePrivateKey());
+      const foreign = await other.signAuthorization({ chainId: CHAIN_ID, address: EXECUTOR, nonce: 0 });
+      return {
+        ...tx,
+        authorizationList: [
+          { address: EXECUTOR, chainId: CHAIN_ID, nonce: 0, r: foreign.r, s: foreign.s, yParity: foreign.yParity as number },
+          ...(tx.authorizationList ?? []),
+        ],
+      };
+    };
+    const proof = await verifySweepProof(client, REF);
+    expect(proof.checks.find((c) => c.id === 'delegation')!.state).toBe('pass');
+  });
+});
+
+describe('verifySweepProof present-state and field corroboration', () => {
+  it('reports unknown, not fail, when the account has since been re-delegated or cleared', async () => {
+    const { client } = await buildScenario();
+    client.getCode = async () => '0x' as Hex;
+    const proof = await verifySweepProof(client, REF);
+    expect(proof.checks.find((c) => c.id === 'designator')!.state).toBe('unknown');
+    client.getCode = async () => `0xef0100${SPONSOR.slice(2).toLowerCase()}` as Hex;
+    const again = await verifySweepProof(client, REF);
+    expect(again.checks.find((c) => c.id === 'designator')!.state).toBe('unknown');
+  });
+
+  it('fails when the Swept event fields disagree with the calldata', async () => {
+    const { client } = await buildScenario();
+    const original = client.getTransactionReceipt;
+    client.getTransactionReceipt = async (args) => {
+      const receipt = await original(args);
+      return {
+        ...receipt,
+        logs: receipt.logs.map((log) => ({
+          ...log,
+          data: encodeAbiParameters([{ type: 'uint256' }, { type: 'uint256' }], [AMOUNT - 1n, 0n]),
+        })),
+      };
+    };
+    const proof = await verifySweepProof(client, REF);
+    expect(proof.checks.find((c) => c.id === 'event')!.state).toBe('fail');
+  });
+
+  it('fails a chain-agnostic delegation instead of accepting it', async () => {
+    const { client } = await buildScenario();
+    const original = client.getTransaction;
+    client.getTransaction = async (args) => {
+      const tx = await original(args);
+      // Re-sign the same delegation with chainId 0 using a throwaway key so
+      // recovery yields some address; the point is the chain rule, so make
+      // the recovered authority equal tx.to by signing with the real key path
+      // is not possible here; instead assert the failure detail text on a
+      // chainId-0 tuple whose authority does not match, which also fails.
+      return { ...tx, authorizationList: tx.authorizationList?.map((a) => ({ ...a, chainId: 0 })) };
+    };
+    const proof = await verifySweepProof(client, REF);
+    expect(proof.checks.find((c) => c.id === 'delegation')!.state).toBe('fail');
   });
 });

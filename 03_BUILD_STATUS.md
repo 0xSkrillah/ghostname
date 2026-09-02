@@ -3,7 +3,8 @@
 Single source of truth for build state. Every figure here was verified against
 the repository, not carried over from an earlier draft.
 
-Last reconciled: 2026-09-05, after Phase 1 (GhostCheck audit).
+Last reconciled: 2026-09-02, after the final release audit (see
+`FINAL_AUDIT.md`), on branch `claude/ghostname-audit-release-bvi2yf`.
 
 ## Product position
 
@@ -19,43 +20,62 @@ Tagline unchanged: *Keep the ENS name. Break the payment graph.*
 
 | Command | Status | Result |
 |---|---|---|
+| `npm ci` | PASS | lockfile v3, Node 20+, `npm audit` reports 0 vulnerabilities |
 | `npm run typecheck` | PASS | no errors |
-| `npm test` | PASS | 155 passed, 8 skipped (16 files) |
-| `npm run build` | PASS | app shell ~230 kB, viem chunk ~334 kB |
-| `npm run e2e:sepolia` | PASS | gated on `SEPOLIA_PRIVATE_KEY` |
-| `npm run sweep:sepolia` | PASS | gated on `SEPOLIA_PRIVATE_KEY` |
+| `npm test` | PASS | 237 passed, 11 skipped, 0 failed (25 files, 248 tests) |
+| `npm run build` | PASS | typecheck, vite build, then `scripts/check-bundle.mjs` (no personal name, credential pattern, private-key-shaped value or source map); app shell ~308 kB, viem ~334 kB, react ~49 kB, noble ~29 kB; CSP meta and build commit embedded |
+| `npx vitest run tests/no-personal-name.test.ts tests/csp.test.ts` | PASS | release guards, including over `dist/` |
+| GitHub Actions `CI` (`.github/workflows/ci.yml`) | configured | runs the five rows above on Node 20 and 22 for every pull request, push to `main` and manual dispatch; read-only token, no secrets, `RUN_LIVE` never set |
+| `RUN_LIVE=1 npm run e2e:sepolia` | gated | needs `SEPOLIA_PRIVATE_KEY`; skipped otherwise |
+| `RUN_LIVE=1 npm run sweep:sepolia` | gated | needs `SEPOLIA_PRIVATE_KEY`; skipped otherwise |
 
-Skipped tests are the network-gated live suites, which run only when a funded
-testnet key is present.
+Skipped tests are the network-gated live suites: `tests/live.ens.test.ts`
+(`RUN_LIVE=1`, plus `LIVE_MAINNET_ENS_NAME` for the mainnet checks),
+`tests/live.sepolia.test.ts` and `tests/live.sweep.test.ts` (`RUN_LIVE=1` and
+`SEPOLIA_PRIVATE_KEY`). A plain `npm test` never writes to any network.
 
 ## Deployment and repository
 
 - Repository: https://github.com/0xSkrillah/ghostname (public)
-- Deployed app: https://0xskrillah.github.io/ghostname/ (gh-pages branch)
+- Deployed app: https://0xskrillah.github.io/ghostname/ (gh-pages branch,
+  published with `npm run deploy:pages`, which refuses a dirty tree or a
+  mainnet-enabled build, rebuilds from `npm ci`, verifies the CSP, the embedded
+  commit and the no-personal-name guard, then appends to gh-pages).
+  Current deployment: gh-pages commit `d5c5a00`, built from source commit
+  `7765e3a` of this branch with `VITE_DEMO_SEPOLIA_NAME=ghostname-3c7714.eth`
+  and `VITE_SCAN_START_BLOCK=11612900`; later commits on the branch change
+  documentation only.
 - Routes: `/` `/scan` `/create` `/pay` `/receive` `/privacy` `/demo` (hash router,
-  so every route deep-links on a static host)
+  so every route deep-links on a static host). The footer shows the commit the
+  served bundle was built from.
 
 ## Networks and keys
 
 - Mainnet: **read only** by default. Guarded write mode exists behind
-  `VITE_ENABLE_MAINNET=true` **and** a typed per-action confirmation. Off in the
-  shipped build. Covered by `tests/mainnet-guard.test.ts`.
-- Sepolia: all demo writes.
-- `skrillah.eth` is read-only mainnet demo input and is never modified.
-- Demo signing key is a throwaway testnet key in gitignored `.env`.
+  `VITE_ENABLE_MAINNET=true` **and** a typed per-action confirmation that is
+  consumed by every attempt. Off in the shipped build. Covered by
+  `tests/mainnet-guard.test.ts` and `tests/inputGuards.test.ts`.
+- Sepolia: all demo writes. A payment plan can only be paid on the chain its
+  record was resolved on.
+- The established mainnet identity used as demo input is read-only, configured
+  only through `VITE_DEMO_MAINNET_NAME` in a local uncommitted `.env`, and has
+  no built-in default. Nothing is queried on load.
+- Demo signing key is a throwaway testnet key in gitignored `.env`; the demo
+  identity lives in gitignored, owner-only `.demo/`.
 
 ## Live on-chain evidence (Sepolia)
 
 - Demo identity: **ghostname-3c7714.eth** (ENSv2), resolver
   `0xE0e6F09B30eBcdE505FDCA0F1fd244273838FFAE`
 - ERC-5564 announcer: `0x55649E01B5Df198D18D95b5cc5051630cfD45564`
-- ERC-6538 registry: `0x6538E6bf4B0eBd30A8Ea093027Ac2422ce5d6538`
-- Sweep executor: `0x94E4C39055fa4a5fCd47E03CbcbCD0503848806b`
+- ERC-6538 registry (not consulted by the app): `0x6538E6bf4B0eBd30A8Ea093027Ac2422ce5d6538`
+- Sweep executor (unaudited testnet demo contract): `0x94E4C39055fa4a5fCd47E03CbcbCD0503848806b`
 - Record publish: `0x75b7a6404a5a3b1880f8dce7c874cbf34ce65fca64cffeb7e313567b2759ea29`
 - Stealth payment: `0x2430f7f8a422a6a527272cd591541c101e9fffd43dccb2a1feed918ee0dc248b`
 - Announcement: `0x4164c074fbb0adacf3d3804928e2a4cc803d61e783e9fbbef207608fe3010c11`
-- Sponsored EIP-7702 sweep, built entirely from the sweep package:
-  `0x75a9da4e44494d5983bdfe5a6774255e938248bbbca9414eefcd9acdb0089c25`
+- Sponsored EIP-7702 sweep verified live by the app, built entirely from the
+  sweep package: `0x75a9da4e44494d5983bdfe5a6774255e938248bbbca9414eefcd9acdb0089c25`
+  (an earlier run: `0x412cca80d621d5d58a38ef190c6a8c323d18adb1be3488f29868d1b4b2efedc0`)
 - Announcement scan start block: `11612900`
 
 ## Sepolia ENSv2 note
@@ -75,59 +95,75 @@ Resolver, so they work on both ENS v1 and v2.
 - **ERC-5564 scheme-1 core** (`src/crypto/`): key generation, derivation with
   fresh ephemeral randomness, view-tag recognition, spending-key recovery.
   Byte-identical to the ScopeLift reference SDK, with a frozen known-answer
-  vector.
+  vector. Strict backup parsing re-derives public material on import.
 - **ENS layer** (`src/ens/`): normalization, conventional resolution, stealth
-  record read, Sepolia-guarded `setText` publish via the Universal Resolver.
-- **Chain layer** (`src/chain/`): announcer integration, bounded-range scanning,
-  viewing-key recognition, network write guards.
+  record read, guarded `setText` publish via the Universal Resolver with a
+  pre-sign preflight and overwrite acknowledgement.
+- **Chain layer** (`src/chain/`): announcer integration, bounded and chunked
+  scanning with a validated start block, yielding recognition, chain-bound
+  payment plans, announcement retry, network write guards.
 - **GhostCheck audit** (`src/audit/`): versioned privacy-readiness report for
-  arbitrary names, chain-specific then default record precedence, malformed and
-  conflicting record detection, three local derivation trials, explicit unknowns,
-  JSON and summary export. No numeric score anywhere.
+  arbitrary names on mainnet or Sepolia, chain-specific then default record
+  precedence, malformed, conflicting and single-key record detection, three
+  local derivation trials, explicit unknowns including failed resolution and
+  unconfigured names, JSON and summary export. No numeric score anywhere.
 - **Sweep package** (`src/relay/sweep.ts`): complete destination-bound package
-  carrying both required signatures plus executor calldata, with an independent
-  verifier. Proven executable on-chain.
-- **UI**: `/scan` audit, `/create` identity and record publish, `/pay`, `/receive`
-  scan with sweep package, `/privacy` threat model, `/demo`.
-- **Mobula exposure panel** and **encrypted testnet recovery capsule**.
+  carrying both required signatures plus executor calldata, random replay
+  nonce, and an independent verifier that fails closed on malformed input and
+  rejects high-s or chain-agnostic signatures. Proven executable on-chain.
+- **Live proofs** (`src/relay/proof.ts`, `paymentProof.ts`): re-derive every
+  claim about the published payment, announcement and sponsored exit from chain
+  data, refusing look-alike events and foreign authorizations, with explicit
+  not-proven lists.
+- **UI**: `/scan` audit with network selector, `/create` identity, backup,
+  encrypted capsule with restore, and publish preflight, `/pay` with the two
+  transactions shown before signing and a recovery path, `/receive` with
+  authoritative balances and the sweep package, `/privacy`, `/demo`.
+  Keyboard, screen-reader and 320 px layouts verified.
+- **Secret handling**: no personal ENS name anywhere; error text scrubbed of
+  URLs and key-shaped values; production CSP; no source maps; identity import
+  validated; passphrase fields masked.
+- **Mobula exposure panel** (opt-in per click, hardened parsing) and
+  **encrypted testnet recovery capsule** (PBKDF2-SHA256 600k, AES-256-GCM,
+  header-bound, in-app restore).
 
 ## Known limitations, stated honestly
 
 - Resolver provenance (direct versus inherited or wildcard) is reported as
-  **unknown**. Proving it needs registry evidence that is not uniformly
-  available across ENS v1 and v2. Never guessed.
-- The sweep executor is an unaudited testnet demo contract.
+  **unknown**. Never guessed.
+- The sweep executor is an unaudited testnet demo contract; it accepts high-s
+  signatures via `ecrecover` (replay still blocked by its nonce; client
+  verifiers reject the malleable form).
 - No production relayer is operated. The demo sponsor is the throwaway wallet.
+- Demo custody is browser `localStorage`; the app scans and sweeps only on
+  Sepolia.
 - The ENS stealth-resolution RFC is still evolving, so record conventions are
   implemented as the current proposal, not a ratified requirement.
-- Scanning uses bounded `eth_getLogs` over public RPCs rather than an indexer.
+- Scanning uses bounded `eth_getLogs` over public RPCs rather than an indexer;
+  RPC endpoints learn which names and addresses are looked at; CCIP-read
+  resolvers are contacted for names that use them.
 - Amounts, sender identity, timing and history remain public. GhostName is
   forward privacy only.
+- No DOM-level test runner: page wiring is verified by typecheck, reading and
+  headless rendering rather than unit tests.
 
 ## Phase log
 
-- **Phase 0 (done):** complete destination-bound sweep package. Fixed a real
-  defect where only the EIP-7702 delegation was emitted, which was both
-  non-executable and misleading about destination binding. 18 tests. The live
-  sweep test now builds its transaction entirely from the package, so the
-  on-chain result proves the format is executable.
+- **Phase 0 (done):** complete destination-bound sweep package.
 - **Phase 1 (done):** GhostCheck ENS privacy conformance audit on `/scan`.
-  22 tests. Verified live: `skrillah.eth` reads Incomplete.
-- **Phase 2 (done):** both halves of the published evidence are verified from
-  live chain data, integrated into `/receive` and `/demo`.
-  - Sponsored exit (`src/relay/proof.ts`, 12 tests): all eight checks pass live.
-  - Payment and announcement (`src/relay/paymentProof.ts`, 11 tests): all eight
-    checks pass live, including the binding check that the announcement names
-    the same address the payment actually funded. Without that, an announcement
-    is just an unrelated log.
-- **Phase 3 (done):** `/demo` rebuilt as one guided route (audit, upgrade,
-  derive, prove receive, prove exit, boundary, close). Verified end to end in
-  the browser.
-- **Phase 4 (done):** competitive position documented in README and
-  COMPETITIVE_MOAT.md; em dashes removed from all GhostName-authored docs.
+- **Phase 2 (done):** payment, announcement and sponsored exit verified from
+  live chain data on `/receive` and `/demo`.
+- **Phase 3 (done):** `/demo` rebuilt as one guided route.
+- **Phase 4 (done):** competitive position documented.
+- **Final audit (done):** personal ENS name removed from source, config, tests,
+  docs, bundle and deployment; 6 High and 17 Medium findings fixed with
+  regression tests, plus the Low items an independent verification pass
+  raised; docs reconciled with verified behaviour. Details, verification
+  verdicts and residual risks in `FINAL_AUDIT.md`.
 
 ## Next action
 
-Engineering is complete against the current acceptance criteria. Remaining work
-is presentation only: record the two-minute backup video from `#/demo`, and
-optionally deploy to Swarm with a booth postage stamp (see SWARM.md).
+Record the two-minute backup video from `#/demo` with a locally configured
+established mainnet name, and optionally deploy to Swarm with a booth postage
+stamp (see SWARM.md). Accept only fixes for failed acceptance tests or
+presentation-breaking bugs before the submission deadline.

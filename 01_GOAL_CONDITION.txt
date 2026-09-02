@@ -2,7 +2,7 @@ Build GhostName for the Common S3nse Amsterdam 2026 hackathon by Friday night, 4
 
 GhostName’s promise: “Keep the ENS name. Break the payment graph.” It gives existing ENS identities forward privacy. A sender enters an arbitrary ENS name, reads its ERC-5564 scheme-1 stealth meta-address from the ENS text record `stealth-meta-address[1]`, locally derives a fresh one-time address with new cryptographically secure ephemeral randomness, sends Sepolia ETH, and emits the announcement data required for the recipient to discover the payment. The recipient scanner uses the private viewing key to recognise the payment and derive/verify the corresponding spending key. Two resolutions of the same name must produce different destinations. An unrelated viewing key must fail.
 
-Use `skrillah.eth` only as read-only mainnet input to demonstrate the existing static identity/history problem. Never hard-code it, alter it, clear records, transfer it, burn it, or initiate any mainnet write. All functional flows must work for arbitrary ENS names. Blockchain history cannot be deleted; present GhostName honestly as forward privacy, not anonymity or erasure.
+Use an established mainnet ENS identity only as read-only input to demonstrate the existing static identity/history problem. Supply it locally through `VITE_DEMO_MAINNET_NAME` in an uncommitted `.env`; never hard-code it, alter it, clear records, transfer it, burn it, or initiate any mainnet write. All functional flows must work for arbitrary ENS names. Blockchain history cannot be deleted; present GhostName honestly as forward privacy, not anonymity or erasure.
 
 P0, required before anything else:
 1. Generate spending/viewing keypairs and a valid ERC-5564 scheme-1 meta-address client-side.

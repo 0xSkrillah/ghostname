@@ -137,7 +137,7 @@ describe('write paths honour the mainnet gate', () => {
       },
     };
     const wallet = fakeWallet(MAINNET_CHAIN_ID);
-    const plan = await planStealthPayment(ensClient, 'ghost.eth', 1n);
+    const plan = await planStealthPayment(ensClient, 'ghost.eth', 1n, MAINNET_CHAIN_ID);
     await expect(
       executeStealthPayment({ walletClient: wallet, chain: mainnet, account: OWNER, plan }),
     ).rejects.toThrow(MainnetConfirmationRequiredError);

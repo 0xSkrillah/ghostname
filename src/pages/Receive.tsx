@@ -7,8 +7,12 @@ import SweepPanel from '../components/SweepPanel';
 import SweepProofPanel from '../components/SweepProofPanel';
 import PaymentProofPanel from '../components/PaymentProofPanel';
 import {
+  declaredEthAmount,
   fetchAnnouncements,
+  groupAnnouncementsByAddress,
   recogniseOwnedAnnouncements,
+  recogniseOwnedAnnouncementsAsync,
+  resolveScanStart,
   type Announcement,
 } from '../chain/announcer';
 import {
@@ -18,6 +22,7 @@ import {
 } from '../crypto/stealth';
 import { useIdentity } from '../state/identity';
 import { SCAN_START_BLOCK } from '../config';
+import { describeError } from '../lib/describeError';
 
 interface ScanOutcome {
   scannedFrom: bigint;
@@ -26,10 +31,17 @@ interface ScanOutcome {
   owned: Announcement[];
   /** Result of running the SAME scan with a random unrelated viewing key. */
   strangerMatches: number;
+  /** How many announcements the negative control examined (sampled when large). */
+  strangerSample: number;
   verified: Array<{ address: string; ok: boolean; stealthPrivateKey: Hex }>;
+  /** Current on-chain balance per recognised address; null when the RPC read failed. */
+  balances: Record<string, bigint | null>;
 }
 
 const DEFAULT_LOOKBACK = 50_000n;
+const MAX_BALANCE_LOOKUPS = 25;
+/** The live negative control runs on at most this many announcements. */
+const STRANGER_SAMPLE = 500;
 
 export default function Receive() {
   const { identity } = useIdentity();
@@ -37,6 +49,7 @@ export default function Receive() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<ScanOutcome | null>(null);
+  const [progress, setProgress] = useState<string | null>(null);
 
   async function scan() {
     if (!identity) return;
@@ -46,23 +59,25 @@ export default function Receive() {
     try {
       const client = getSepoliaClient();
       const latest = await client.getBlockNumber();
-      const from = fromBlock.trim()
-        ? BigInt(fromBlock.trim())
-        : latest > DEFAULT_LOOKBACK
-          ? latest - DEFAULT_LOOKBACK
-          : 0n;
-      const announcements = await fetchAnnouncements(client, {
-        fromBlock: from,
-        toBlock: latest,
-      });
-      const owned = recogniseOwnedAnnouncements(announcements, {
-        viewingPrivateKey: identity.viewingPrivateKey as Hex,
-        spendingPublicKey: identity.spendingPublicKey as Hex,
-      });
-      // Negative control, run live every time: a freshly generated unrelated
-      // viewing key must recognise nothing.
+      const from = resolveScanStart(fromBlock, latest, DEFAULT_LOOKBACK);
+      setProgress('Fetching announcements…');
+      const announcements = await fetchAnnouncements(client, { fromBlock: from, toBlock: latest });
+      const owned = await recogniseOwnedAnnouncementsAsync(
+        announcements,
+        {
+          viewingPrivateKey: identity.viewingPrivateKey as Hex,
+          spendingPublicKey: identity.spendingPublicKey as Hex,
+        },
+        {
+          onProgress: (checked, total) =>
+            setProgress(`Checked ${checked} of ${total} announcements with your viewing key…`),
+        },
+      );
+      // Negative control, run live every time on a bounded sample: a freshly
+      // generated unrelated viewing key must recognise nothing.
       const stranger = generateStealthKeys();
-      const strangerMatches = recogniseOwnedAnnouncements(announcements, {
+      const strangerSample = announcements.slice(0, STRANGER_SAMPLE);
+      const strangerMatches = recogniseOwnedAnnouncements(strangerSample, {
         viewingPrivateKey: stranger.viewingPrivateKey as Hex,
         spendingPublicKey: stranger.spendingPublicKey as Hex,
       }).length;
@@ -79,31 +94,40 @@ export default function Receive() {
           stealthPrivateKey: key,
         };
       });
+      // Authoritative amounts: read balances instead of trusting announced metadata.
+      const balances: Record<string, bigint | null> = {};
+      const uniqueOwned = [...new Set(owned.map((a) => a.stealthAddress.toLowerCase()))].slice(
+        0,
+        MAX_BALANCE_LOOKUPS,
+      );
+      await Promise.all(
+        uniqueOwned.map(async (address) => {
+          try {
+            balances[address] = await client.getBalance({ address: address as `0x${string}` });
+          } catch {
+            balances[address] = null;
+          }
+        }),
+      );
       setOutcome({
         scannedFrom: from,
         scannedTo: latest,
         total: announcements.length,
         owned,
         strangerMatches,
+        strangerSample: strangerSample.length,
         verified,
+        balances,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(
+        `Could not complete the Sepolia scan: ${describeError(err)} Retry; if it persists, ` +
+          'set VITE_SEPOLIA_RPC_URL in .env to a provider you control.',
+      );
     } finally {
       setBusy(false);
+      setProgress(null);
     }
-  }
-
-  function amountOf(a: Announcement): string {
-    // Native-ETH metadata: amount is the last 32 bytes.
-    if (a.metadata.length === 2 + 57 * 2) {
-      try {
-        return `${formatEther(BigInt(`0x${a.metadata.slice(52)}`))} ETH`;
-      } catch {
-        return '';
-      }
-    }
-    return '';
   }
 
   if (!identity) {
@@ -111,8 +135,8 @@ export default function Receive() {
       <>
         <h1>Receive</h1>
         <p className="lead">
-          No local identity found. <Link to="/create">Create one first</Link>. The scanner
-          needs your viewing key (which never leaves this device).
+          No local identity found. <Link to="/create">Create or import one first</Link>. The
+          scanner needs your viewing key, which never leaves this device.
         </p>
       </>
     );
@@ -123,95 +147,168 @@ export default function Receive() {
       <h1>Discover your payments</h1>
       <p className="lead">
         Scans ERC-5564 announcements on Sepolia and recognises yours with the private
-        viewing key, locally. Observers (and other recipients) cannot do this.
+        viewing key, locally. Observers (and other recipients) cannot do this. Scans are
+        bounded: set the start block to just before your payments. Balance reads ask your
+        RPC about the recognised addresses specifically; pin a trusted endpoint in .env if
+        that linkage matters to you.
       </p>
-      <div className="row">
+      <label className="label" htmlFor="scan-from-block">
+        Start block for the announcement scan
+      </label>
+      <form
+        className="row"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!busy) void scan();
+        }}
+      >
         <input
+          id="scan-from-block"
           type="text"
+          inputMode="numeric"
           value={fromBlock}
           onChange={(e) => setFromBlock(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && !busy && void scan()}
-          placeholder={`from block (default: latest minus ${DEFAULT_LOOKBACK})`}
+          placeholder={`start block (empty = latest minus ${DEFAULT_LOOKBACK.toString()})`}
+          autoComplete="off"
         />
-        <button onClick={() => void scan()} disabled={busy}>
+        <button type="submit" disabled={busy} aria-busy={busy}>
           {busy ? 'Scanning…' : 'Scan announcements'}
         </button>
-      </div>
-      {error && <p className="error">{error}</p>}
-
-      {outcome && (
-        <>
-          <div className="card inset">
-            <span className="label">Scan result</span>
-            <p style={{ margin: 0 }}>
-              Blocks <code>{outcome.scannedFrom.toString()}</code> →{' '}
-              <code>{outcome.scannedTo.toString()}</code>: {outcome.total} scheme-1
-              announcement{outcome.total === 1 ? '' : 's'} on the network,{' '}
-              <strong style={{ color: 'var(--stealth-col)' }}>
-                {outcome.owned.length} recognised as yours
-              </strong>
-              .
-            </p>
-          </div>
-
-          <div className="card">
-            <span className="label">Live negative control</span>
-            <p style={{ margin: 0 }} className="small">
-              The same scan re-run with a freshly generated unrelated viewing key recognised{' '}
-              <strong style={{ color: outcome.strangerMatches === 0 ? 'var(--accent)' : 'var(--danger)' }}>
-                {outcome.strangerMatches}
-              </strong>{' '}
-              payment{outcome.strangerMatches === 1 ? '' : 's'}. Recognition requires the
-              recipient's private viewing key, not just public data.
-            </p>
-          </div>
-
-          {outcome.owned.map((a) => {
-            const verification = outcome.verified.find((v) => v.address === a.stealthAddress);
-            return (
-              <div className="card ok" key={a.transactionHash + a.stealthAddress}>
-                <span className="label">Payment recognised</span>
-                <div className="bigmono" style={{ color: 'var(--stealth-col)' }}>
-                  {a.stealthAddress}
-                </div>
-                <p className="small dim" style={{ margin: '0.4rem 0 0' }}>
-                  {amountOf(a) && <>amount {amountOf(a)} · </>}block{' '}
-                  {a.blockNumber.toString()} · view tag {a.viewTag} ·{' '}
-                  <a
-                    href={`https://sepolia.etherscan.io/tx/${a.transactionHash}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    announcement tx
-                  </a>
-                </p>
-                <p className="small" style={{ margin: '0.4rem 0 0' }}>
-                  Spending-key check:{' '}
-                  {verification?.ok ? (
-                    <span className="pill ok">
-                      derived stealth private key controls this address ✓
-                    </span>
-                  ) : (
-                    <span className="pill bad">verification failed</span>
-                  )}{' '}
-                  <span className="dim">(key derived locally, never displayed or sent)</span>
-                </p>
-                {verification?.ok && (
-                  <SweepPanel
-                    stealthPrivateKey={verification.stealthPrivateKey}
-                    stealthAddress={a.stealthAddress}
-                    chainId={SEPOLIA_CHAIN_ID}
-                  />
-                )}
-              </div>
-            );
-          })}
-
-          <h2>Published evidence, verified live</h2>
-          <PaymentProofPanel />
-          <SweepProofPanel />
-        </>
+      </form>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
       )}
+
+      <div aria-live="polite" aria-busy={busy}>
+        {busy && (
+          <p className="dim small">
+            {progress ?? 'Reading announcements from Sepolia and checking them with your viewing key…'}
+          </p>
+        )}
+        {outcome && (
+          <>
+            <div className="card inset">
+              <span className="label">Scan result</span>
+              <p style={{ margin: 0 }}>
+                Blocks <code>{outcome.scannedFrom.toString()}</code> to{' '}
+                <code>{outcome.scannedTo.toString()}</code>: {outcome.total} scheme-1
+                announcement{outcome.total === 1 ? '' : 's'} on the network,{' '}
+                <strong style={{ color: 'var(--stealth-col)' }}>
+                  {outcome.owned.length} recognised as yours
+                </strong>
+                .
+              </p>
+              {outcome.owned.length === 0 && (
+                <p className="small dim" style={{ marginBottom: 0 }}>
+                  Nothing recognised in this range. If you expect a payment, widen the range
+                  by lowering the start block, or check that the sender resolved the name that
+                  publishes this identity's record.
+                </p>
+              )}
+            </div>
+
+            <div className="card">
+              <span className="label">Live negative control</span>
+              <p style={{ margin: 0 }} className="small">
+                The same scan re-run with a freshly generated unrelated viewing key
+                {outcome.strangerSample < outcome.total
+                  ? ` over the first ${outcome.strangerSample} announcements`
+                  : ''}{' '}
+                recognised{' '}
+                <strong style={{ color: outcome.strangerMatches === 0 ? 'var(--accent)' : 'var(--danger)' }}>
+                  {outcome.strangerMatches}
+                </strong>{' '}
+                payment{outcome.strangerMatches === 1 ? '' : 's'}
+                {outcome.strangerMatches === 0 ? ' (expected: zero)' : ' (unexpected)'}. Recognition
+                requires the recipient's private viewing key, not just public data.
+              </p>
+            </div>
+
+            {groupAnnouncementsByAddress(outcome.owned).map(({ announcement: a, duplicateTxHashes }) => {
+              const verification = outcome.verified.find((v) => v.address === a.stealthAddress);
+              const balance = outcome.balances[a.stealthAddress.toLowerCase()];
+              const declared = declaredEthAmount(a.metadata);
+              const funded = balance !== undefined && balance !== null && balance > 0n;
+              return (
+                <div className={`card ${funded ? 'ok' : ''}`} key={a.stealthAddress}>
+                  <span className="label">
+                    {balance === undefined || balance === null
+                      ? 'Announcement recognised'
+                      : funded
+                        ? 'Payment recognised'
+                        : 'Announcement recognised, no funds at this address'}
+                  </span>
+                  <div className="bigmono" style={{ color: 'var(--stealth-col)' }}>
+                    {a.stealthAddress}
+                  </div>
+                  <p className="small" style={{ margin: '0.4rem 0 0' }}>
+                    Balance now:{' '}
+                    <strong>
+                      {balance === undefined
+                        ? 'not checked'
+                        : balance === null
+                          ? 'unknown (balance read failed)'
+                          : `${formatEther(balance)} ETH`}
+                    </strong>{' '}
+                    <span className="dim">(read from chain; this is the figure to trust)</span>
+                  </p>
+                  <p className="small dim" style={{ margin: '0.2rem 0 0' }}>
+                    Announced by the sender:{' '}
+                    {declared === null
+                      ? 'metadata is not the native-ETH layout (no amount shown)'
+                      : `${formatEther(declared)} ETH`}{' '}
+                    (sender-supplied, not verified)
+                    {declared !== null && balance !== undefined && balance !== null && declared !== balance && (
+                      <>
+                        {' '}
+                        <span className="pill warn">differs from balance</span>
+                      </>
+                    )}{' '}
+                    · block {a.blockNumber.toString()} · view tag {a.viewTag ?? 'none'} ·{' '}
+                    <a
+                      href={`https://sepolia.etherscan.io/tx/${a.transactionHash}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      announcement tx
+                    </a>
+                    {duplicateTxHashes.length > 0 && (
+                      <>
+                        {' '}
+                        · {duplicateTxHashes.length} duplicate announcement
+                        {duplicateTxHashes.length === 1 ? '' : 's'} for this address ignored
+                      </>
+                    )}
+                  </p>
+                  <p className="small" style={{ margin: '0.4rem 0 0' }}>
+                    Spending-key check:{' '}
+                    {verification?.ok ? (
+                      <span className="pill ok">pass: derived stealth key controls this address</span>
+                    ) : (
+                      <span className="pill bad">fail: verification failed</span>
+                    )}{' '}
+                    <span className="dim">(key derived locally, never displayed or sent)</span>
+                  </p>
+                  {verification?.ok && (
+                    <SweepPanel
+                      stealthPrivateKey={verification.stealthPrivateKey}
+                      stealthAddress={a.stealthAddress}
+                      chainId={SEPOLIA_CHAIN_ID}
+                      balanceWei={balance ?? null}
+                    />
+                  )}
+                </div>
+              );
+            })}
+
+            <h2>Published evidence, verified live</h2>
+            <PaymentProofPanel />
+            <SweepProofPanel />
+          </>
+        )}
+      </div>
     </>
   );
 }

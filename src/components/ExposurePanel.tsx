@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Address } from 'viem';
 import { fetchWalletExposure, type WalletExposure } from '../mobula/portfolio';
+import { describeError } from '../lib/describeError';
 
 /**
  * Public-exposure panel: shows how much financial information a static
@@ -12,6 +13,7 @@ export default function ExposurePanel({ address }: { address: Address }) {
   const [exposure, setExposure] = useState<WalletExposure | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   async function load() {
     setState('loading');
@@ -20,8 +22,10 @@ export default function ExposurePanel({ address }: { address: Address }) {
       setExposure(await fetchWalletExposure(address));
       setState('done');
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(describeError(err));
       setState('error');
+    } finally {
+      setTimeout(() => resultsRef.current?.focus(), 0);
     }
   }
 
@@ -35,14 +39,23 @@ export default function ExposurePanel({ address }: { address: Address }) {
             from it. Here is a live sample of what a single lookup reveals.
           </p>
           <button className="secondary" onClick={() => void load()}>
-            Assemble public profile
+            Assemble public profile (queries Mobula)
           </button>
         </>
       )}
       {state === 'loading' && <p className="dim">Querying public holdings…</p>}
-      {state === 'error' && <p className="error">{error}</p>}
+      {state === 'error' && (
+        <div ref={resultsRef} tabIndex={-1}>
+          <p className="error" role="alert">
+            {error}
+          </p>
+          <button className="ghost" onClick={() => void load()}>
+            Retry
+          </button>
+        </div>
+      )}
       {state === 'done' && exposure && (
-        <>
+        <div ref={resultsRef} tabIndex={-1} aria-live="polite">
           <div className="row" style={{ gap: '1.5rem', marginBottom: '0.6rem' }}>
             <div>
               <div className="bigmono" style={{ fontSize: '1.6rem', color: 'var(--static-col)' }}>
@@ -52,9 +65,13 @@ export default function ExposurePanel({ address }: { address: Address }) {
             </div>
             <div>
               <div className="bigmono" style={{ fontSize: '1.6rem' }}>
-                {exposure.chains.length}
+                {exposure.chains.length > 0 ? exposure.chains.length : 'none'}
               </div>
-              <span className="small dim">chain{exposure.chains.length === 1 ? '' : 's'}</span>
+              <span className="small dim">
+                {exposure.chains.length > 0
+                  ? `chain${exposure.chains.length === 1 ? '' : 's'} reported`
+                  : 'chains reported'}
+              </span>
             </div>
             <div>
               <div className="bigmono" style={{ fontSize: '1.6rem' }}>
@@ -63,9 +80,9 @@ export default function ExposurePanel({ address }: { address: Address }) {
               <span className="small dim">
                 total value{' '}
                 <button
-                  className="ghost"
-                  style={{ padding: '0.1rem 0.5rem', fontSize: '0.75rem' }}
+                  className="ghost btn-sm"
                   onClick={() => setRevealed((r) => !r)}
+                  aria-pressed={revealed}
                 >
                   {revealed ? 'hide' : 'reveal'}
                 </button>
@@ -87,7 +104,7 @@ export default function ExposurePanel({ address }: { address: Address }) {
                     <td>
                       {a.name} <span className="dim">{a.symbol}</span>
                     </td>
-                    <td className="small dim">{a.chains.join(', ') || 'Ethereum'}</td>
+                    <td className="small dim">{a.chains.join(', ') || 'not reported'}</td>
                     <td className="mono">
                       ${a.usdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                     </td>
@@ -101,7 +118,7 @@ export default function ExposurePanel({ address }: { address: Address }) {
             lands on a fresh address that cannot be assembled into a profile like this.
             {exposure.source === 'demo' && ' (Mobula keyless demo endpoint.)'}
           </p>
-        </>
+        </div>
       )}
     </div>
   );

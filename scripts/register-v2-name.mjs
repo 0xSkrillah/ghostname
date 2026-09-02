@@ -9,6 +9,7 @@
  *   5. verify resolution through the standard viem/Universal Resolver path
  * Testnet only. Idempotent: safe to re-run.
  */
+import { loadDemoIdentity, loadTestnetKey } from './lib/testnet-key.mjs';
 import {
   createPublicClient,
   createWalletClient,
@@ -33,7 +34,7 @@ const USDC = '0x768F42455A2D082E23ceeF7d51e5787C82d67a39';
 const ZERO = '0x0000000000000000000000000000000000000000';
 const ALL_ROLES = '0x1111111111111111111111111111111111111111111111111111111111111111';
 
-const key = readFileSync('.env', 'utf8').match(/SEPOLIA_PRIVATE_KEY=(0x[0-9a-fA-F]{64})/)[1];
+const { key } = loadTestnetKey();
 const account = privateKeyToAccount(key);
 const transport = http(RPC, { timeout: 30_000 });
 const client = createPublicClient({ chain: sepolia, transport });
@@ -42,7 +43,7 @@ const wallet = createWalletClient({ account, chain: sepolia, transport });
 const label = `ghostname-${account.address.slice(2, 8).toLowerCase()}`;
 const ensName = `${label}.eth`;
 const node = namehash(ensName);
-const identity = JSON.parse(readFileSync('.demo/identity.json', 'utf8'));
+const identity = loadDemoIdentity();
 
 const registrarAbi = parseAbi([
   'function isAvailable(string label) view returns (bool)',
@@ -198,4 +199,5 @@ console.log('record matches identity:', resolvedText === identity.stealthMetaAdd
 state.ensName = ensName;
 state.verified = resolvedText === identity.stealthMetaAddress;
 saveState();
-console.log('\nDONE. state:', JSON.stringify(state, null, 2));
+const { secret: _omitted, ...shown } = state; // never print the commitment secret
+console.log('\nDONE. state:', JSON.stringify(shown, null, 2));

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { copyText } from '../lib/clipboard';
 import type { PrivacyAuditReport } from '../audit/types';
 import {
   STATUS_EXPLANATION,
@@ -14,6 +15,7 @@ import {
  */
 export default function PrivacyReadinessReport({ report }: { report: PrivacyAuditReport }) {
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
 
   function download() {
     const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
@@ -26,9 +28,14 @@ export default function PrivacyReadinessReport({ report }: { report: PrivacyAudi
   }
 
   function copy() {
-    void navigator.clipboard.writeText(formatSummary(report)).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+    setCopyError(null);
+    void copyText(formatSummary(report)).then((result) => {
+      if (result.ok) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      } else {
+        setCopyError(result.error ?? 'Copy failed.');
+      }
     });
   }
 
@@ -52,7 +59,13 @@ export default function PrivacyReadinessReport({ report }: { report: PrivacyAudi
             {copied ? 'Copied' : 'Copy summary'}
           </button>
           <span className="small dim">Generated locally. Nothing is uploaded.</span>
+          <span role="status" className="sr-only">{copied ? 'Summary copied to clipboard' : ''}</span>
         </div>
+        {copyError && (
+          <p className="error small" role="alert" style={{ marginBottom: 0 }}>
+            {copyError}
+          </p>
+        )}
       </div>
 
       <div className="card inset">

@@ -39,7 +39,7 @@ record the result in 03_BUILD_STATUS.md, and commit the working state.
 
 Do not ask broad product questions. Ask only before requesting a secret/API
 key, risking a real asset, or making an irreversible/mainnet transaction.
-Never modify skrillah.eth; it is read-only demo input.
+Never modify the established mainnet ENS identity used as demo input; it is read-only and is configured only through VITE_DEMO_MAINNET_NAME in a local, uncommitted .env. Never hard-code a personal ENS name.
 ```
 
 ## Keep everything in one effective session

@@ -69,6 +69,11 @@ export function parseStealthMetaAddress(value: string): ParsedStealthMetaAddress
   if (!isHex(hexPart, { strict: true })) {
     throw new InvalidStealthMetaAddressError('expected 0x-prefixed hex public keys');
   }
+  if ((hexPart.length - 2) % 2 !== 0) {
+    // hexToBytes would silently left-pad an odd nibble count; a shifted or
+    // truncated record must never parse as a destination.
+    throw new InvalidStealthMetaAddressError('odd number of hex digits');
+  }
   const bytes = hexToBytes(hexPart as Hex);
   if (bytes.length === COMPRESSED_KEY_BYTES) {
     assertCompressedPublicKey(bytes, 'public key');

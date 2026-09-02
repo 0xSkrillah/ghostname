@@ -11,12 +11,39 @@
  *
  * On success it prints the bzz reference and gateway URLs.
  */
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { execSync } from 'node:child_process';
 
 const BEE = process.env.BEE_API_URL || 'http://localhost:1633';
 const STAMP = process.env.BEE_STAMP;
-const DIST = 'dist';
+// Always the repository's own dist/, regardless of the current directory.
+const DIST = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
+
+if (!existsSync(join(DIST, 'index.html'))) {
+  console.error(`No build at ${DIST}. Run \`npm run build\` first.`);
+  process.exit(1);
+}
+// Refuse a stale bundle: dist must be newer than every tracked source file.
+try {
+  const newestSource = execSync('git ls-files -z src index.html vite.config.ts package.json', { encoding: 'utf8' })
+    .split('\0')
+    .filter(Boolean)
+    .map((f) => statSync(join(DIST, '..', f)).mtimeMs)
+    .reduce((a, b) => Math.max(a, b), 0);
+  if (statSync(join(DIST, 'index.html')).mtimeMs < newestSource && !process.env.ALLOW_STALE_DIST) {
+    console.error('dist/ is older than the source tree. Rebuild, or set ALLOW_STALE_DIST=1 to override.');
+    process.exit(1);
+  }
+} catch {
+  // Not a git checkout; skip the freshness check.
+}
+const indexHtml = readFileSync(join(DIST, 'index.html'), 'utf8');
+if (!indexHtml.includes('http-equiv="Content-Security-Policy"')) {
+  console.error('dist/index.html has no Content-Security-Policy meta tag; this is not a production build.');
+  process.exit(1);
+}
 
 if (!STAMP) {
   console.error(
@@ -89,8 +116,23 @@ if (!res.ok) {
   console.error(`Upload failed (${res.status}): ${await res.text()}`);
   process.exit(1);
 }
+if (!(res.headers.get('content-type') ?? '').includes('application/json')) {
+  console.error(`Unexpected upload response type: ${res.headers.get('content-type')}`);
+  process.exit(1);
+}
 const { reference } = await res.json();
-console.log('\nDeployed to Swarm ✓');
+if (typeof reference !== 'string' || !/^[0-9a-f]{64}$/i.test(reference)) {
+  console.error(`Upload returned no valid reference: ${JSON.stringify(reference)}`);
+  process.exit(1);
+}
+// Read back through the same node and require the app shell to be served.
+const readBack = await fetch(`${BEE}/bzz/${reference}/`).catch(() => null);
+const body = readBack && readBack.ok ? await readBack.text() : '';
+if (!body.includes('<div id="root">') || !body.includes('Content-Security-Policy')) {
+  console.error(`Read-back of bzz://${reference}/ did not return the GhostName shell; do not publish this reference.`);
+  process.exit(1);
+}
+console.log('\nDeployed to Swarm ✓ (read-back verified)');
 console.log('reference:', reference);
 console.log('bzz://' + reference);
 console.log('gateway:  https://' + reference + '.bzz.link/');

@@ -8,11 +8,17 @@ and nothing sensitive is ever uploaded in plaintext.**
 `src/swarm/capsule.ts` encrypts a GhostName receive identity **locally** with
 Web Crypto before it could ever touch Swarm:
 
-- AES-256-GCM, key derived from a passphrase via PBKDF2-SHA256 (210k iters).
-- Fresh salt + IV per capsule; GCM tag detects tampering and wrong passphrases.
+- AES-256-GCM, key derived from a passphrase via PBKDF2-SHA256 at 600,000
+  iterations (the OWASP figure for PBKDF2-HMAC-SHA256). Passphrases are
+  NFC-normalised and must be at least 12 characters; that is a floor, not a
+  strength estimate, and the UI says so.
+- Fresh salt + IV per capsule; the GCM tag detects tampering and wrong
+  passphrases, and (format version 2) also covers the header, so a relabelled
+  or downgraded header fails authentication. Version 1 capsules still open.
 - The serialized capsule contains **only** ciphertext + KDF params: no
   plaintext key material (asserted by `tests/capsule.test.ts`).
-- Flagged `network: "testnet"`; a guard refuses mainnet identities.
+- Flagged `network: "testnet"`; the guard is applied on export and on the
+  in-app restore path (`/create`, "Restore from an encrypted capsule").
 
 This is the security-critical half and it runs with no infrastructure. Upload
 the resulting capsule blob to Swarm exactly like any other file (below); only
@@ -35,6 +41,11 @@ The Swarm booth provisions a gateway postage stamp. Get the batch id, then:
 npm run build
 BEE_API_URL=<gateway-url> BEE_STAMP=<batchId> node scripts/swarm-deploy.mjs
 ```
+
+The script refuses a stale or non-production `dist/`, checks the upload
+response, and reads the reference back through the same node before printing
+it. Open the app from an `https://<ref>.bzz.link/` style gateway when you
+can; a plain-http gateway works too because the CSP does not force upgrades.
 
 ### Option B: your own Bee light node
 
@@ -63,6 +74,6 @@ updatable name.
 ### Why this step isn't run automatically
 
 Buying a postage stamp spends xBZZ (a real testnet asset) from a node you
-control. Per GhostName's own safety rules, the agent does not spend assets or
-run write operations against your node without you driving it, so this is a
-one-command manual step with your stamp.
+control. The project deliberately does not automate spending or write
+operations against your node: you run this one-command step yourself with
+your own stamp.

@@ -1,4 +1,4 @@
-# GhostName — Demo and Submission Checklist
+# GhostName: Demo and Submission Checklist
 
 ## Deadline
 
@@ -9,22 +9,28 @@
 ## 90-second live demo
 
 1. Open the deployed `/demo` route.
-2. Enter or use pre-filled `skrillah.eth`.
-3. Resolve its conventional mainnet address read-only.
+2. Enter an established ENS name (or use your locally configured pre-fill).
+3. Click *Audit on mainnet (read-only)* and point at the static address.
 4. Say: “This identity has years of useful history, but that also makes it
    a privacy liability.”
 5. Say: “I wondered whether I could delete it. I cannot. Blockchain history
    does not have a delete button.”
-6. Switch to the controlled Sepolia GhostName identity.
-7. Resolve `stealth-meta-address[1]` and derive address A locally.
-8. Derive again and show address B; highlight A is not B.
-9. Send a small Sepolia payment to A.
-10. Show the ERC-5564 announcement.
-11. Switch to recipient mode.
-12. Scan the constrained block range and recognise A with the viewing key.
-13. Run/show the unrelated-viewing-key negative result.
-14. Show the protected/not-protected page.
-15. Close: “Blockchains do not have a delete button. GhostName gives
+6. Enter the controlled Sepolia GhostName identity and click *Check
+   conformance*.
+7. Click *Derive A, B and C*; highlight that none of them match.
+8. Click *Run recognition test*: the intended viewing key recognises, an
+   unrelated key finds nothing.
+9. Click *Verify the payment and announcement*: the published Sepolia
+   payment is re-verified from chain data, including the binding between the
+   announcement and the funded address.
+10. Click *Verify the sponsored exit*: the sponsored EIP-7702 sweep is
+    re-verified from chain data, with its not-proven list.
+11. Optional, with a funded Sepolia wallet: on `/pay` review the two
+    transactions shown before signing and send a small payment; on
+    `/receive` scan and point at the balance read from chain, the negative
+    control and the spending-key check.
+12. Show the boundary step (or `/privacy`): protected versus not protected.
+13. Close: “Blockchains do not have a delete button. GhostName gives
     established identities a forward-privacy button. Keep the name. Break
     the payment graph.”
 

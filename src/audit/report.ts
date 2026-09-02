@@ -18,7 +18,7 @@ export const STATUS_EXPLANATION: Record<OverallStatus, string> = {
     'No stealth meta-address is published, so future payments to this name stay linkable to its static address.',
   misconfigured:
     'A stealth record exists but is malformed, unsupported or conflicting, so conforming senders may ignore it.',
-  unknown: 'The name could not be resolved, so its privacy readiness was not established.',
+  unknown: 'Nothing could be established: resolution failed, or the name is not configured on this network.',
 };
 
 /** CSS pill class for a status. Not a score, just a category. */
@@ -39,7 +39,10 @@ export function formatSummary(report: PrivacyAuditReport): string {
   lines.push(`Generated: ${report.generatedAt}`);
   lines.push('');
   lines.push(
-    `Conventional address: ${report.conventionalAddress ?? 'none'} (${report.staticMappingNote})`,
+    `Conventional address: ${
+      report.conventionalAddress ??
+      (report.conventionalAddressStatus === 'failed' ? 'not determined (resolution failed)' : 'none')
+    } (${report.staticMappingNote})`,
   );
   lines.push(`Resolver: ${report.resolver.address ?? 'unknown'} (${report.resolver.provenance})`);
   lines.push('');
