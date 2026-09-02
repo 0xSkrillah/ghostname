@@ -65,14 +65,30 @@ out-of-band knowledge of who is paying whom.
 
 Funds land on fresh addresses controlled by keys only you can derive.
 Spending them requires gas; funding that gas carelessly (e.g. from your
-public main wallet) can re-link the address to you. Production stealth
-ecosystems use relayers/paymasters for this; the hackathon build stops at
-receive + prove-control (see README limitations).
+public main wallet) can re-link the address to you. GhostName produces a
+complete, destination-bound sponsored sweep package (EIP-7702 delegation plus
+an EIP-712 intent) that a sponsor can execute while paying the gas, and the
+published Sepolia exit is re-verified from chain data in the app. The sponsor
+learns the destination; choose one that is not your public wallet. The
+executor is an unaudited testnet demo contract and no production relayer is
+operated (see RELAYERS.md).
 
 ## Data handling in the app
 
-- Private keys: generated in-browser via CSPRNG, optionally stored in
-  `localStorage` (demo convenience), never transmitted, never logged.
-- No analytics, no cookies, no backend, no telemetry.
-- RPC endpoints see your IP and your queries, like any dapp: pin your own
-  endpoints in `.env` if this matters to you.
+- Private keys: generated in-browser via CSPRNG, stored in `localStorage`
+  for the demo scanner (a testnet custody model, stated in the UI), never
+  transmitted, never logged. Imported backups are validated and re-derived
+  before they are stored; error text is scrubbed of URLs and key-shaped
+  values before it is shown or exported.
+- No analytics, no cookies, no backend, no telemetry, no third-party scripts;
+  the production page carries a Content-Security-Policy that allows scripts
+  only from itself and refuses to run inside a frame.
+- RPC endpoints see your IP and your queries, like any dapp: which names you
+  audit, which addresses' balances and nonces you read. Pin your own
+  endpoints in `.env` if this matters to you. Every `VITE_*` value is inlined
+  into the public bundle, so never put an API key or a personal name there.
+- Names with an offchain (CCIP-read) resolver make your browser contact that
+  resolver's gateway during an audit. The optional Mobula panel sends the
+  resolved address to Mobula only when you click it.
+- Announced amounts are sender-declared metadata; the app treats the on-chain
+  balance as the only authoritative figure.

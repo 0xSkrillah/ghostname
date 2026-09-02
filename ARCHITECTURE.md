@@ -19,10 +19,10 @@
 │  (text records)      chain/announcer.ts      keccak256 (viem)              │
 │       │                   │                                                │
 └───────┼───────────────────┼────────────────────────────────────────────────┘
-        │ reads             │ writes (Sepolia ONLY, assertWritableNetwork)
-        ▼                   ▼
+        │ reads             │ writes (Sepolia by default, assertWritableNetwork;
+        ▼                   ▼  mainnet only in an opt-in build + typed confirmation)
   Ethereum mainnet     Sepolia: ENS resolver setText,
-  (ENS, READ-ONLY)     ETH transfer, ERC-5564 announcer 0x5564…5564
+  (ENS reads)          ETH transfer, ERC-5564 announcer 0x5564…5564
 ```
 
 ## Assurance layers
@@ -75,14 +75,30 @@ is what "privacy-assurance layer" means in practice.
 
 ### `src/chain`
 
-- `clients.ts`: viem public clients; mainnet client is read-only by
-  construction; RPC fallback chains (env-configurable).
-- `guards.ts`: `assertWritableNetwork`: writes only on Sepolia 11155111.
+- `clients.ts`: viem public clients for mainnet and Sepolia with RPC
+  fallback chains (env-configurable). No wallet client is ever created here.
+- `guards.ts`: `assertWritableNetwork`: Sepolia 11155111 always; mainnet
+  only when the build sets `VITE_ENABLE_MAINNET=true` **and** the call
+  carries a per-action confirmation. Either alone blocks.
 - `announcer.ts`: EIP-5564 singleton ABI; native-ETH metadata
-  (`viewTag ‖ 0xeeeeeeee ‖ 0xEeee…EEeE ‖ amount`); bounded `getLogs`
-  scanning; viewing-key recognition filter.
-- `payment.ts`: `planStealthPayment` (read-only resolve + fresh
-  derivation) and `executeStealthPayment` (ETH transfer + announce).
+  (`viewTag ‖ 0xeeeeeeee ‖ 0xEeee…EEeE ‖ amount`) parsed positionally;
+  bounded, chunked `getLogs` scanning with a validated start block; sync and
+  yielding viewing-key recognition.
+- `payment.ts`: `planStealthPayment` (read-only resolve + fresh derivation,
+  bound to the chain it resolved on) and `executeStealthPayment` (ETH
+  transfer + announce). A failed announcement surfaces the payment hash and
+  the full derivation so `announceStealthPayment` can retry it.
+
+### `src/lib`, `src/security`, `src/swarm`
+
+- `lib/describeError.ts`: the only way error text reaches the UI or an
+  export: viem short messages, URLs and 32-byte hex values redacted.
+- `lib/amount.ts`: strict ETH amount parsing for user input.
+- `security/csp.ts`: the production Content-Security-Policy, injected into
+  `dist/index.html` at build time together with the build commit.
+- `swarm/capsule.ts`: passphrase-encrypted testnet recovery capsule
+  (PBKDF2-SHA256 600k, AES-256-GCM, header bound into the tag), with strict
+  header validation on restore.
 
 ### Dependency decision
 
@@ -98,7 +114,13 @@ argument for owning these ~200 lines with our own test coverage.
 ## Testing strategy
 
 Deterministic suite (no network): crypto positive/negative/round-trip,
-interop, ENS + write guards with structural fakes, announcement layout and
-offline end-to-end. Live suite (`RUN_LIVE=1`): read-only mainnet ENS
-resolution. Wallet-driven paths (record publish, payment) run against
-Sepolia through the UI; the offline end-to-end test mirrors them exactly.
+interop (including SDK announcements with altered view tags), ENS + write
+guards with structural fakes, announcement layout and offline end-to-end,
+chain-bound plans and announcement recovery, proof verifiers refusing
+look-alike data, sweep-package tampering, identity-backup and capsule
+validation, secret-free error text, the CSP, and a release guard that fails
+if any non-allowlisted ENS name appears in source, docs or `dist/`. Live
+suite (`RUN_LIVE=1`, plus `LIVE_MAINNET_ENS_NAME` for the mainnet checks):
+read-only Sepolia proof verification and mainnet ENS resolution.
+Wallet-driven paths (record publish, payment) run against Sepolia through
+the UI; the offline end-to-end test mirrors them exactly.

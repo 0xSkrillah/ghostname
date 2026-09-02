@@ -119,22 +119,33 @@ See [ARCHITECTURE.md](ARCHITECTURE.md). Summary:
 - `src/crypto/`: pure, local ERC-5564 scheme-1 core on
   [@noble/curves](https://github.com/paulmillr/noble-curves) (audited
   primitives; we compose, never hand-roll curve math). No network, no
-  storage, no logging.
-- `src/ens/`: ENS resolution (mainnet read-only + Sepolia) and the
-  Sepolia-only `setText` publish path.
+  storage, no logging. `identityBackup.ts` validates imported backups by
+  shape and range and re-derives the public material.
+- `src/ens/`: ENS resolution (mainnet and Sepolia) and the guarded
+  `setText` publish path.
 - `src/chain/`: viem clients with RPC fallback, the announcer integration,
-  scanning/recognition, and the hard network guards.
+  bounded scanning/recognition, chain-bound payment plans, and the network
+  guards.
+- `src/audit/`, `src/relay/`: GhostCheck and the live proof verifiers.
+- `src/lib/`, `src/security/`: secret-free error text, strict amount
+  parsing, and the production Content-Security-Policy.
 - `src/pages/`: Vite/React UI: `/scan /create /pay /receive /privacy /demo`.
 
 **Key handling:** private keys are generated with a CSPRNG in the browser,
-used locally, and optionally kept in `localStorage` for the demo scanner.
-They are never transmitted, logged or analysed. There is no backend.
+used locally, and kept in `localStorage` for the demo scanner (a testnet
+custody model, stated in the UI). They are never transmitted, logged or
+analysed; error text is scrubbed of URLs and key-shaped values before it is
+shown or exported. Backups can be plaintext JSON (validated on import) or a
+passphrase-encrypted capsule (PBKDF2-SHA256, 600k iterations, AES-256-GCM
+with a header-bound tag) that the app can also restore. There is no backend.
 
-**Network safety:** Ethereum mainnet is read-only by construction (no
-mainnet wallet client exists). Every write path calls
-`assertWritableNetwork`, which hard-fails on anything but Sepolia
-(11155111), checked against both the intended chain and the wallet's
-actually-reported chain, before the wallet is touched. Covered by tests.
+**Network safety:** the shipped build writes only to Sepolia (11155111).
+Every write path calls `assertWritableNetwork` against both the intended
+chain and the wallet's actually-reported chain before the wallet is touched,
+and a payment plan can only be paid on the chain its record was resolved on.
+A build compiled with `VITE_ENABLE_MAINNET=true` unlocks guarded mainnet
+mode, where every mainnet write additionally needs a typed confirmation that
+is consumed by each attempt (section 10). Covered by tests.
 
 ## 6. Live demo
 
@@ -146,20 +157,23 @@ are pre-filled, outputs never are. See [DEMO.md](DEMO.md).
 ```bash
 git clone https://github.com/0xSkrillah/ghostname
 cd ghostname
-npm install
-npm test          # 58 deterministic tests, no network needed
+npm ci            # Node 20 or newer; installs exactly the lockfile
+npm test          # deterministic suite, no network needed
 npm run dev       # http://localhost:5173
 ```
 
 Optional:
 
 ```bash
-RUN_LIVE=1 npm test   # + live read-only mainnet ENS smoke tests
-npm run build         # typecheck + production build
+# live read-only checks: Sepolia proofs, plus mainnet ENS for a name you choose
+RUN_LIVE=1 LIVE_MAINNET_ENS_NAME=name.eth npm test -- live.ens
+npm run build         # typecheck + production build with CSP and build commit
 ```
 
 Copy `.env.example` to `.env` to pin your own RPC endpoints and demo
-defaults (recommended for presentations).
+pre-fills (recommended for presentations). Every `VITE_*` value is inlined
+into the public bundle, so use keyless RPC URLs or keys restricted to your
+origin; never put a personal ENS name or an API key in a committed file.
 
 ## 8. Tests
 
@@ -174,7 +188,20 @@ defaults (recommended for presentations).
   mainnet-write-blocked negatives.
 - `tests/announcer.test.ts`: EIP-5564 metadata layout, scanning,
   recognition among noise, guarded payment flow, offline end-to-end.
-- `tests/live.ens.test.ts`: gated (`RUN_LIVE=1`) read-only mainnet checks.
+- `tests/mainnet-guard.test.ts`, `tests/inputGuards.test.ts`: the double
+  gate, chain-bound plans, amount and scan-range guards, announcement
+  recovery.
+- `tests/audit.test.ts`, `tests/proof.test.ts`, `tests/paymentProof.test.ts`,
+  `tests/evidence.test.ts`: GhostCheck precedence and honesty, and the live
+  proof verifiers refusing look-alike data.
+- `tests/sweep*.test.ts`: destination-bound package, tamper rejection,
+  high-s and chain-agnostic rejection, fresh replay nonces.
+- `tests/identityBackup.test.ts`, `tests/capsule.test.ts`,
+  `tests/describeError.test.ts`, `tests/mobula.test.ts`: untrusted input
+  and secret handling.
+- `tests/no-personal-name.test.ts`, `tests/csp.test.ts`: release guards.
+- `tests/live.ens.test.ts`: gated (`RUN_LIVE=1`, `LIVE_MAINNET_ENS_NAME`)
+  read-only checks.
 
 ## 9. Contracts and networks
 
@@ -185,7 +212,7 @@ defaults (recommended for presentations).
 | ENS Universal Resolver (resolution + resolver discovery) | mainnet + Sepolia | `0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe` |
 | ENS text record key | - | `stealth-meta-address[1]` |
 | Record value | - | `st:eth:0x…` string, verbatim |
-| Writes permitted | **Sepolia only** (11155111) | mainnet writes blocked in code |
+| Writes permitted | **Sepolia** (11155111) by default | mainnet only in an opt-in build, behind a typed per-action confirmation |
 
 **Sepolia ENSv2 note:** Sepolia is mid-migration to ENSv2, and the classic
 ETHRegistrarController rejects new registrations. The demo identity
@@ -238,25 +265,35 @@ an announcement is just an unrelated log. Recognition itself is listed as *not*
 proven there, because deciding a payment is yours requires the private viewing
 key, which never leaves the recipient device.
 
-**Proven live on Sepolia:** the executor (`contracts/StealthSweepExecutor.sol`)
-is deployed at `0x94E4C39055fa4a5fCd47E03CbcbCD0503848806b`, and a stealth EOA
-was swept to a clean destination by a **sponsored type-4 (EIP-7702)
-transaction**, sponsor paid the gas, stealth EOA never held any
-([sweep tx](https://sepolia.etherscan.io/tx/0x412cca80d621d5d58a38ef190c6a8c323d18adb1be3488f29868d1b4b2efedc0)).
+**Proven live on Sepolia:** the executor (`contracts/StealthSweepExecutor.sol`,
+an **unaudited testnet demo contract**) is deployed at
+`0x94E4C39055fa4a5fCd47E03CbcbCD0503848806b`, and a stealth EOA was swept to a
+clean destination by a **sponsored type-4 (EIP-7702) transaction** whose gas
+was paid by the sponsor. The transaction the app verifies live is
+[`0x75a9da4e…89c25`](https://sepolia.etherscan.io/tx/0x75a9da4e44494d5983bdfe5a6774255e938248bbbca9414eefcd9acdb0089c25),
+built entirely from the sweep package; an earlier run of the same mechanism is
+[`0x412cca80…efedc0`](https://sepolia.etherscan.io/tx/0x412cca80d621d5d58a38ef190c6a8c323d18adb1be3488f29868d1b4b2efedc0).
 Reproduce with `npm run sweep:sepolia`. Full design in [RELAYERS.md](RELAYERS.md).
 
 ## 12. Known limitations
 
-- The relayer/executor infrastructure itself is not deployed (only the
-  client-side signing is shipped and tested); a relayer also learns the
-  destination address it sweeps to (metadata, not custody, see RELAYERS.md).
+- No production relayer is operated. The Sepolia executor is an unaudited
+  testnet demo contract and the demo sponsor is a throwaway wallet; a relayer
+  also learns the destination address it sweeps to (metadata, not custody,
+  see RELAYERS.md).
 - Demo key custody is browser `localStorage`: fine for a testnet demo, not
-  a production custody model.
-- Announcement scanning uses bounded `eth_getLogs` ranges over public RPCs;
-  a production scanner would use an indexer.
-- Amounts and timing remain public (see threat model).
+  a production custody model. The app scans and sweeps only on Sepolia.
+- Announcement scanning uses bounded, chunked `eth_getLogs` ranges over
+  public RPCs; a production scanner would use an indexer. RPC endpoints
+  learn which names and addresses you look at; names with offchain
+  (CCIP-read) resolvers make the browser contact that resolver's gateway.
+- Announced amounts are sender-declared; the app shows the on-chain balance
+  as the authoritative figure.
+- Resolver provenance (direct versus inherited or wildcard) is reported as
+  unknown; the ENS stealth-resolution RFC is still evolving.
+- Amounts, sender identity and timing remain public (see threat model).
 
-## 11. Optional integrations
+## 13. Optional integrations
 
 - **Mobula public-exposure panel: ENABLED.** On `/scan`, after resolving a
   name, "Assemble public profile" queries the Mobula wallet-portfolio API for
@@ -268,8 +305,9 @@ Reproduce with `npm run sweep:sepolia`. Full design in [RELAYERS.md](RELAYERS.md
   client). Reinforces the core story: this is the exposure GhostName removes
   from future payments.
 - **Swarm encrypted recovery capsule: ENABLED.** `/create` can encrypt the
-  local identity into a passphrase-locked capsule (AES-256-GCM + PBKDF2) that
-  is safe to store on Swarm, no plaintext key material ever leaves the
+  local identity into a passphrase-locked capsule (AES-256-GCM, PBKDF2-SHA256
+  at 600k iterations, header bound into the tag) that is safe to store on
+  Swarm, and restore it again; no plaintext key material ever leaves the
   device (proven by `tests/capsule.test.ts`). Testnet only.
 - **Swarm static deployment: scripted** (`scripts/swarm-deploy.mjs`,
   `SWARM.md`). Uploading `dist/` to Swarm needs a Bee node and a funded
@@ -281,7 +319,7 @@ Reproduce with `npm run sweep:sepolia`. Full design in [RELAYERS.md](RELAYERS.md
 
 See [SWARM.md](SWARM.md) for both.
 
-## Standards
+## 14. Standards
 
 - [ERC-5564: Stealth Addresses](https://eips.ethereum.org/EIPS/eip-5564)
 - [ERC-6538: Stealth Meta-Address Registry](https://eips.ethereum.org/EIPS/eip-6538)

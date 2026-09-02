@@ -64,8 +64,10 @@ The full sponsored sweep runs on-chain, not just as signatures:
 - Executor `StealthSweepExecutor` (`contracts/StealthSweepExecutor.sol`)
   deployed at **`0x94E4C39055fa4a5fCd47E03CbcbCD0503848806b`** (Sepolia).
 - A fresh stealth EOA was funded, then swept to a clean destination by a
-  **sponsored type-4 (EIP-7702) transaction**, the sponsor paid the gas, the
-  stealth EOA never held any. Sweep tx:
+  **sponsored type-4 (EIP-7702) transaction** whose gas the sponsor paid. The
+  transaction the app verifies live, built entirely from the sweep package, is
+  [`0x75a9da4e…89c25`](https://sepolia.etherscan.io/tx/0x75a9da4e44494d5983bdfe5a6774255e938248bbbca9414eefcd9acdb0089c25);
+  an earlier run of the same mechanism is
   [`0x412cca80…efedc0`](https://sepolia.etherscan.io/tx/0x412cca80d621d5d58a38ef190c6a8c323d18adb1be3488f29868d1b4b2efedc0).
 - Reproduce: `npm run sweep:sepolia` (deploys once, then runs the full sweep;
   needs `SEPOLIA_PRIVATE_KEY` funded with a little test ETH). Evidence lands in
@@ -120,10 +122,19 @@ merely self-consistent.
 ## What GhostName ships vs. what a deployment adds
 
 **Shipped and tested (client-side, no infrastructure, no funds):**
-- `signSweepAuthorization` / `verifySweepAuthorization`: EIP-7702.
+- `signNativeSweepPackage` / `verifyNativeSweepPackage`: the complete
+  destination-bound package (EIP-7702 delegation + EIP-712 intent + calldata).
+  The verifier fails closed on malformed input, rejects high-s (malleable)
+  intent signatures and chain-agnostic (chainId 0) delegations, and every
+  package carries a fresh random executor nonce so a second sweep of the same
+  address never collides with the first.
+- `signSweepAuthorization` / `verifySweepAuthorization`: EIP-7702 only; the
+  account nonce is a required input, read from chain.
 - `signErc3009Sweep` / `verifyErc3009Sweep`: EIP-3009.
-- The `/receive` page can produce a signed sweep authorization for any payment
-  it recognises, entirely locally.
+- The `/receive` page produces the complete package for any payment it
+  recognises, entirely locally, pre-filling the amount from the on-chain
+  balance and requiring an explicit acknowledgement before delegating to any
+  executor other than the pinned Sepolia demo contract.
 
 **Deployed for the demo:**
 - The **executor** (`contracts/StealthSweepExecutor.sol`) is live on Sepolia
@@ -136,6 +147,29 @@ merely self-consistent.
 
 The executor here is a minimal, unaudited testnet demo contract, use an
 audited 7702 account implementation for anything beyond a testnet demo.
+
+## Executor behaviours worth knowing (unaudited testnet demo contract)
+
+The executor is sound for its scope (nonce written before the external call,
+intent bound to chain, account, destination, amount, nonce and deadline,
+`ecrecover(0)` can never equal `address(this)`), and these residual behaviours
+are documented rather than fixed because the deployed bytecode is what the
+published evidence verifies:
+
+- The EIP-7702 delegation **persists** after the sweep. The stealth EOA keeps
+  the executor as its code until it signs a new delegation; funds that arrive
+  later can still only move with the EOA's own signed intent.
+- Anyone may submit a valid signed intent. Front-running only changes who pays
+  the gas, never where the funds go.
+- The contract accepts high-s (malleable) signatures via `ecrecover`; replay is
+  still blocked by the nonce, and the client-side verifiers reject the
+  malleable form so a package's bytes stay canonical.
+- A chainId-0 authorization would delegate the account on every chain. The app
+  never produces one and its verifiers reject it.
+- ETH sent directly to the executor contract address itself has no withdrawal
+  path. Never fund the executor address; it is only ever a delegation target.
+- `to` must be able to receive ETH; a rejecting destination makes the sweep
+  revert (the signer chose it, so this is not a griefing vector).
 
 ## Honesty note
 
