@@ -312,8 +312,8 @@ Reproduce with `npm run sweep:sepolia`. Full design in [RELAYERS.md](RELAYERS.md
 - **Swarm static deployment: scripted** (`scripts/swarm-deploy.mjs`,
   `SWARM.md`). Uploading `dist/` to Swarm needs a Bee node and a funded
   postage stamp (xBZZ), so it is a one-command step you run with your own /
-  the venue booth's stamp rather than done automatically, GhostName's own
-  safety rules keep the agent from spending assets on your behalf.
+  the venue booth's stamp rather than done automatically: the project
+  deliberately does not automate spending on your behalf.
 
 (Each is only claimed here if actually working; see commit history.)
 

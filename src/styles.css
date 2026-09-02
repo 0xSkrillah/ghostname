@@ -79,7 +79,7 @@ nav.topnav .brand {
   font-family: var(--mono);
 }
 nav.topnav .brand span { color: var(--accent); }
-nav.topnav a.navlink { color: var(--text-dim); font-size: 0.92rem; }
+nav.topnav a.navlink { color: var(--text-dim); font-size: 0.92rem; padding: 0.35rem 0; display: inline-block; }
 nav.topnav a.navlink.active, nav.topnav a.navlink:hover { color: var(--accent); text-decoration: none; }
 
 main.page {
@@ -209,7 +209,7 @@ button {
 }
 button:hover:not(:disabled) { filter: brightness(1.1); }
 button:active:not(:disabled) { filter: brightness(0.95); }
-button:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; }
+button:disabled { background: var(--border); color: #93a3b3; cursor: not-allowed; }
 button.secondary {
   background: transparent;
   color: var(--accent);

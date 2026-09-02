@@ -24,11 +24,13 @@ import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { sepolia } from 'viem/chains';
 import { generateStealthAddress, computeStealthPrivateKey } from '../src/crypto/stealth';
 import { randomSweepNonce, signNativeSweepPackage, verifyNativeSweepPackage } from '../src/relay/sweep';
+import { parseIdentityBackup } from '../src/crypto/identityBackup';
 
 const env = { ...loadEnv('development', process.cwd(), ''), ...process.env };
 const PRIVATE_KEY = env.SEPOLIA_PRIVATE_KEY as Hex | undefined;
 const RPC = env.VITE_SEPOLIA_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com';
-const live = !!PRIVATE_KEY;
+// Writes need BOTH the key and an explicit opt-in (see live.sepolia.test.ts).
+const live = process.env.RUN_LIVE === '1' && !!PRIVATE_KEY;
 
 describe.runIf(live)('LIVE Sepolia — sponsored EIP-7702 sweep', () => {
   it('deploys the executor, funds a stealth EOA, and sweeps it with a sponsored type-4 tx', async () => {
@@ -41,8 +43,11 @@ describe.runIf(live)('LIVE Sepolia — sponsored EIP-7702 sweep', () => {
     console.log(`[sweep] sponsor ${sponsor.address} — ${formatEther(balance)} ETH`);
     if (balance < parseEther('0.003')) return; // skip if underfunded
 
-    const identity = JSON.parse(readFileSync('.demo/identity.json', 'utf8'));
-    const artifact = JSON.parse(readFileSync('.demo/executor.json', 'utf8'));
+    // Validate before use: a corrupt identity must never be delegated or swept.
+    const identity = parseIdentityBackup(readFileSync('.demo/identity.json', 'utf8'));
+    const artifact = JSON.parse(readFileSync('.demo/executor.json', 'utf8')) as { abi: unknown[]; bytecode: string };
+    expect(Array.isArray(artifact.abi)).toBe(true);
+    expect(artifact.bytecode).toMatch(/^0x[0-9a-fA-F]{200,}$/);
     const state = existsSync('.demo/sweep-state.json')
       ? JSON.parse(readFileSync('.demo/sweep-state.json', 'utf8'))
       : {};
@@ -148,7 +153,7 @@ describe.runIf(live)('LIVE Sepolia — sponsored EIP-7702 sweep', () => {
 });
 
 describe.runIf(!live)('LIVE Sepolia — sponsored sweep (skipped)', () => {
-  it('is skipped because SEPOLIA_PRIVATE_KEY is not set', () => {
+  it('is skipped unless RUN_LIVE=1 and SEPOLIA_PRIVATE_KEY are both set', () => {
     expect(live).toBe(false);
   });
 });

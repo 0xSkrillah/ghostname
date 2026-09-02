@@ -329,6 +329,7 @@ export function packageShapeProblem(pkg: unknown): string | null {
     return 'authorization.r and authorization.s must be 32-byte hex values.';
   }
   if (a['yParity'] !== 0 && a['yParity'] !== 1) return 'authorization.yParity must be 0 or 1.';
+  if (a['nonce'] !== p['authorizationNonce']) return 'authorizationNonce must equal authorization.nonce.';
   if (typeof p['sweepSignature'] !== 'string' || !/^0x[0-9a-fA-F]{130}$/.test(p['sweepSignature'] as string)) {
     return 'sweepSignature must be a 65-byte hex signature.';
   }
@@ -395,8 +396,11 @@ export async function verifyNativeSweepPackage(
     fail('Delegation chain id does not match the package chain id.');
   }
 
-  // Delegation signer must be the stealth EOA.
+  // Delegation signer must be the stealth EOA, and the signature canonical:
+  // nodes reject high-s authorizations, and a non-canonical form would let a
+  // relayer alter the package bytes without invalidating it.
   try {
+    if (BigInt(pkg.authorization.s) > HALF_ORDER) throw new Error('high-s delegation');
     checks.delegationSigner = await verifyAuthorization({
       address: pkg.stealthAddress,
       authorization: {

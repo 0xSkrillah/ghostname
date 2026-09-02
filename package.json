@@ -11,8 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e:sepolia": "vitest run tests/live.sepolia.test.ts",
-    "sweep:sepolia": "vitest run tests/live.sweep.test.ts",
+    "e2e:sepolia": "RUN_LIVE=1 vitest run tests/live.sepolia.test.ts",
+    "sweep:sepolia": "RUN_LIVE=1 vitest run tests/live.sweep.test.ts",
     "deploy:pages": "node scripts/deploy-pages.mjs"
   },
   "dependencies": {

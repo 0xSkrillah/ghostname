@@ -74,6 +74,6 @@ updatable name.
 ### Why this step isn't run automatically
 
 Buying a postage stamp spends xBZZ (a real testnet asset) from a node you
-control. Per GhostName's own safety rules, the agent does not spend assets or
-run write operations against your node without you driving it, so this is a
-one-command manual step with your stamp.
+control. The project deliberately does not automate spending or write
+operations against your node: you run this one-command step yourself with
+your own stamp.
