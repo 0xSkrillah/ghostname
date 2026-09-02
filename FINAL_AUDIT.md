@@ -528,4 +528,24 @@ advisory; personal name in bundle and deployment.
 
 ## 9. Deployment
 
-Filled in at the end of the audit.
+- The gh-pages branch was rebuilt and republished with `npm run deploy:pages`
+  from commit `7a6d265` of this branch: gh-pages commit `c007d71` ("deploy:
+  7a6d265c617b from claude/ghostname-audit-release-bvi2yf"), appended on top
+  of the previous deployment `9c55418`; history was not rewritten.
+- Build configuration: `VITE_DEMO_SEPOLIA_NAME=ghostname-3c7714.eth` and
+  `VITE_SCAN_START_BLOCK=11612900` (the controlled Sepolia identity, matching
+  the previous deployment), `VITE_DEMO_MAINNET_NAME` empty. No RPC URL, key or
+  personal name is inlined.
+- Verified on the pushed branch: every file grepped case-insensitively for the
+  personal name (no hits); `index.html` carries the Content-Security-Policy
+  meta tag and `<meta name="ghostname-commit" content="7a6d265c617b">`; the
+  footer of the served app shows the same commit.
+- GitHub Pages build and deployment run 11 for head `c007d71` completed with
+  conclusion `success` at 2026-09-02 08:04:41 UTC
+  (https://github.com/0xSkrillah/ghostname/actions/runs/33606775111).
+- Not verified from this environment: an HTTP fetch of
+  https://0xskrillah.github.io/ghostname/ itself, because the sandbox's egress
+  policy rejects connections to `github.io`. The served content is the
+  gh-pages branch content above, as confirmed through the GitHub API.
+- The previous deployment (`9c55418`, containing the personal name and no CSP)
+  remains in gh-pages history; it is no longer served.
