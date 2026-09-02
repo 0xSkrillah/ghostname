@@ -436,7 +436,12 @@ files; `engines.node >= 20`; docs use `npm ci`; identity file and directory
 written owner-only; operator scripts load the testnet key through one
 validated helper; the hard-coded commitment secret in the diagnostic script
 replaced by a fresh random value; Swarm deploy verifies freshness, CSP,
-response type and read-back.
+response type and read-back. A GitHub Actions workflow
+(`.github/workflows/ci.yml`, added after the audit report was first
+written) runs `npm ci`, typecheck, the offline tests, the production build
+with its bundle guard and the release guards over `dist/` on Node 20 and 22
+for every pull request and push to `main`, with a read-only token and no
+secrets, so the checks in section 7 are no longer manual only.
 
 ### F-30 Documentation versus reality (Low)
 

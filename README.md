@@ -170,6 +170,9 @@ RUN_LIVE=1 LIVE_MAINNET_ENS_NAME=name.eth npm test -- live.ens
 npm run build         # typecheck + production build with CSP and build commit
 ```
 
+The same commands (`npm ci`, typecheck, tests, build, release guards) run in
+GitHub Actions on every pull request; see `.github/workflows/ci.yml`.
+
 Copy `.env.example` to `.env` to pin your own RPC endpoints and demo
 pre-fills (recommended for presentations). Every `VITE_*` value is inlined
 into the public bundle, so use keyless RPC URLs or keys restricted to your

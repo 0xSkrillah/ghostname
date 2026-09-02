@@ -25,6 +25,7 @@ Tagline unchanged: *Keep the ENS name. Break the payment graph.*
 | `npm test` | PASS | 237 passed, 11 skipped, 0 failed (25 files, 248 tests) |
 | `npm run build` | PASS | typecheck, vite build, then `scripts/check-bundle.mjs` (no personal name, credential pattern, private-key-shaped value or source map); app shell ~308 kB, viem ~334 kB, react ~49 kB, noble ~29 kB; CSP meta and build commit embedded |
 | `npx vitest run tests/no-personal-name.test.ts tests/csp.test.ts` | PASS | release guards, including over `dist/` |
+| GitHub Actions `CI` (`.github/workflows/ci.yml`) | configured | runs the five rows above on Node 20 and 22 for every pull request, push to `main` and manual dispatch; read-only token, no secrets, `RUN_LIVE` never set |
 | `RUN_LIVE=1 npm run e2e:sepolia` | gated | needs `SEPOLIA_PRIVATE_KEY`; skipped otherwise |
 | `RUN_LIVE=1 npm run sweep:sepolia` | gated | needs `SEPOLIA_PRIVATE_KEY`; skipped otherwise |
 
