@@ -4,8 +4,10 @@ One sentence first: GhostName keeps your ENS name and unlinks every future
 payment. This script records that claim for the hackathon submission video.
 Every step is live. No em dashes, so the narration reads clean.
 
-Two cuts are below. The **two-minute cut** is the submission video and the
-backup for the live demo. The **three-minute extended cut** adds the identity
+Three cuts are below. The **two-minute cut** is the submission video and the
+backup for the live demo. The **45-second agent cut** shows an AI agent running
+the audit and handing off to the human, and splices in after the recipient
+view or stands alone. The **three-minute extended cut** adds the identity
 creation and live payment pages so every shipped feature appears on camera.
 Button labels are quoted exactly as they appear in the app, so you can drive
 the recording from this page alone.
@@ -35,6 +37,15 @@ the recording from this page alone.
 6. Run through `#/demo` once off camera. It is five counted steps and ends in a
    green "Complete: all five steps ran live and passed" card only when every
    step is run in order, so know where the buttons are.
+7. Agent cut: run `npm run build:agent`, connect the server with
+   `claude mcp add ghostname -- node ./dist-agent/ghostname-mcp.mjs`, and open
+   Claude Code with a large font. Check once that
+   `node dist-agent/ghostname.mjs audit name.eth --chain 1` (your locally
+   configured established name) prints INCOMPLETE and that
+   `... audit ghostname-3c7714.eth --chain 11155111` prints PRIVATE-READY. The
+   handoff link opens the deployed `#/create`, so redeploy from `main` first
+   (`npm run deploy:pages`) or point `GHOSTNAME_WEB_BASE_URL` at a local dev
+   server.
 
 ## What the app does, feature by feature
 
@@ -58,6 +69,10 @@ recording so nothing shipped is left out.
 | Backup: plaintext export and the encrypted Swarm-ready recovery capsule | `#/create`, "Show keys and backup options" | extended |
 | Pay an ENS name privately: resolve, derive again, two transactions shown before signing, send and announce | `#/pay`, "Resolve + derive", "Derive again", "Send + announce" | extended |
 | Mainnet read-only, writes hard-gated to Sepolia | footer note and `#/privacy` | both, in narration |
+| AI agent audit with stable finding codes, no RPC or key parameter | Claude Code with the local `ghostname` server, `ghostname_audit_ens_privacy` | agent |
+| Secure handoff link and the `#/create` handoff cards: key generation outside the agent, live re-resolution, ignored parameters listed | `ghostname_prepare_upgrade`, then `#/create?source=agent&...` | agent |
+| Agent verification of the real payment, announcement and sponsored exit from chain data | `ghostname_verify_payment`, `ghostname_verify_sponsored_exit` | agent |
+| Read-only by construction: the import-boundary test | narration, `tests/mcp.boundary.test.ts` | agent |
 
 ## The two-minute cut
 
@@ -160,6 +175,47 @@ transaction. Blockchains have no delete button. GhostName gives the identity
 you already have a forward-privacy button. Keep the name. Break the payment
 graph."
 
+## The 45-second agent cut
+
+Record this as a separate take and splice it in after "The recipient view", or
+publish it as its own clip. Every call is live and read-only. The agent never
+receives a key. Use your locally configured established mainnet name wherever
+this says `name.eth`; never commit it.
+
+### [0:00 to 0:15] Ask the agent
+
+ON SCREEN: Claude Code with the `ghostname` server connected. Type "Audit
+name.eth and help me improve its privacy." Let the audit tool call and its
+result appear. Point at the call: only a name and a chain id go in.
+
+SAY: "Now the same audit, run by an AI agent through a GhostName server on my
+own laptop. It reads the chain and names the leak with stable codes: static
+address exposed, stealth record missing. It marks what it could not establish
+as unknown instead of guessing, and it never got an RPC URL or a key."
+
+### [0:15 to 0:30] The safe handoff
+
+ON SCREEN: the prepare-upgrade result and its link. Open the link in the
+browser. Point at the "Agent handoff" card, the line "Key generation happens
+here, in this browser, outside the agent", and the "Live check" card with the
+status read live. Do not publish for the mainnet name.
+
+SAY: "It hands me a link, nothing more. The keys are generated in my browser,
+the name is resolved again live, and my wallet signs the record. The agent got
+a status, codes and a URL. It never got a key, a record value or a
+transaction, and a test over the whole import graph keeps it that way."
+
+### [0:30 to 0:45] Prove and close
+
+ON SCREEN: ask "Audit ghostname-3c7714.eth on Sepolia", then "Verify the
+sponsored exit 0x75a9da4e44494d5983bdfe5a6774255e938248bbbca9414eefcd9acdb0089c25
+on Sepolia". Show PRIVATE-READY and VERIFIED with the not-proven list.
+
+SAY: "The upgraded name comes back private-ready for compatible senders, and
+the real sponsored exit verifies from chain data, eight checks, with the
+not-proven list still attached. GhostName gives AI agents evidence and gives
+humans control. Keep the ENS name. Break the payment graph."
+
 ## The three-minute extended cut
 
 Same script, with two inserts. Use this cut if the submission allows three
@@ -215,6 +271,11 @@ Etherscan to prove the stealth address never paid its own gas.
   recognises real prior payments, so the discovery proof still lands.
 - Wrong network for a name: the audit reports "nothing found" rather than
   guessing; switch the network selector on `#/scan`.
+- Claude Code not ready: record the agent cut with the CLI instead. The
+  commands are at the end of AGENT_DEMO.md and print the same reports.
+- RPC outage during the agent cut: the tool returns status unknown with
+  `RPC_UNAVAILABLE`, never a pass. Say that this is the honest result, then
+  retry or set `GHOSTNAME_MAINNET_RPC_URL`.
 - Total network failure: cut to the pre-recorded take of this same flow.
 
 ## Links to run it live
@@ -230,6 +291,7 @@ Deployed app (hash routes, deep-linkable):
 - Privacy and threat model: https://0xskrillah.github.io/ghostname/#/privacy
 
 Repository: https://github.com/0xSkrillah/ghostname
+Agent setup and demo steps: AGENTS.md and AGENT_DEMO.md in the repository
 
 On-chain evidence on Sepolia (open on Etherscan while narrating "this is live"):
 
@@ -241,5 +303,5 @@ On-chain evidence on Sepolia (open on Etherscan while narrating "this is live"):
 - Earlier sponsored sweep run: https://sepolia.etherscan.io/tx/0x412cca80d621d5d58a38ef190c6a8c323d18adb1be3488f29868d1b4b2efedc0
 - Sweep executor contract: https://sepolia.etherscan.io/address/0x94E4C39055fa4a5fCd47E03CbcbCD0503848806b
 
-Demo test name (for Pay and Demo inputs): `ghostname-3c7714.eth`
+Demo test name (for Pay, Demo and agent inputs): `ghostname-3c7714.eth`
 Receive scan start block: `11612900`

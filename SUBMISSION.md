@@ -13,7 +13,9 @@ mainnet ENS name". No em dashes anywhere.
 **GhostName is the open privacy-assurance layer for ENS. It audits any ENS
 name for privacy readiness, upgrades the identity you already own in place,
 and proves the whole private-payment lifecycle from local derivation to a
-sponsored exit, with evidence anyone can re-check.**
+sponsored exit, with evidence anyone can re-check. It is also readable by AI
+agents as a local, read-only privacy adviser: the agent gets evidence and a
+link, the human keeps the keys and the wallet.**
 
 An ENS name is useful because it connects a human-readable identity to a
 wallet. That same convenience creates a permanent privacy problem. When a name
@@ -183,6 +185,49 @@ cryptographic results are generated live. Nothing is precomputed. The
 implementation works with arbitrary ENS names rather than a hard-coded demo
 identity.
 
+### GhostName for AI agents: evidence for the agent, control for the human
+
+Ask your AI agent to audit any ENS name, explain its privacy leaks and guide
+you through a human-signed upgrade, without the agent ever seeing your keys.
+
+GhostName ships a local MCP server that runs on your own machine over stdio,
+uses your RPC, calls no GhostName API, collects nothing and keeps no history.
+It exposes five read-only tools (audit, prepare upgrade, re-audit, verify
+payment, verify sponsored exit), five resources, one prompt and an inline MCP
+App view for hosts that support it. The same functions are available as a CLI
+and as a Claude Agent Skill, so Claude Code, Claude Desktop, Cursor and VS Code
+can all run the audit.
+
+The workflow is: **audit, explain, prepare safe handoff, human wallet action,
+re-audit and prove.**
+
+- **Audit.** The agent calls the audit tool with only a name and a chain id.
+  There is no RPC URL parameter and no key parameter. It gets back a status
+  and stable finding codes (for example `STATIC_ADDRESS_EXPOSED` and
+  `STEALTH_RECORD_MISSING`), with anything it could not establish marked
+  unknown rather than guessed. Any RPC failure yields unknown, never a pass.
+- **Handoff.** The agent prepares an upgrade plan and a link to the web app
+  that carries only the name, chain id, report id and version. The page states
+  that key generation happens in the browser, outside the agent, resolves the
+  name again live, simulates the wallet's write access before signing, and
+  writes the record only after the human approves it in their own wallet.
+  Nothing in the link is trusted for the privacy result, and the handoff
+  never widens the network guards.
+- **Re-audit and prove.** The human hands back a key-free instruction; the
+  agent re-audits the name and explains what improved and what stays public.
+  It can also verify the real Sepolia payment, announcement and sponsored
+  EIP-7702 exit from chain data, with each proof's not-proven list attached.
+
+The agent layer has no wallet, no signing and no write capability. That is
+enforced by an import-boundary test that walks the transitive import graph of
+the agent, MCP and CLI code and fails on any path to a signing, write, wallet,
+key-custody or UI module, rather than by tool annotations or a prompt.
+Injection text in an ENS record is proven inert by test. A private-ready
+result means forward recipient-address privacy for compatible senders, never
+anonymity.
+
+GhostName gives AI agents evidence and gives humans control.
+
 ### Public exposure analysis with Mobula
 
 GhostName uses the Mobula API to demonstrate why static ENS resolution matters.
@@ -279,14 +324,16 @@ GhostName is a browser-first TypeScript application built with:
 - Web Crypto for encrypted recovery capsules;
 - Mobula for public exposure analysis;
 - Swarm deployment and encrypted-storage tooling;
+- the official Model Context Protocol TypeScript SDK for the local, read-only
+  agent server, with a CLI and a Claude Agent Skill over the same functions;
 - Vitest for deterministic, interoperability and live-network tests.
 
 The ERC-5564 implementation is byte-identical to an existing stealth-address
 SDK on a frozen known-answer vector and includes positive, negative,
 malformed-input, randomness, recognition and spending-key recovery tests. The
-deterministic suite runs 242 tests with no network access, and GitHub Actions
-runs clean install, typecheck, tests, production build and the release guards
-on every pull request.
+deterministic suite runs 316 tests with no network access, including the
+agent import-boundary rule, and GitHub Actions runs clean install, typecheck,
+tests, production build and the release guards on every pull request.
 
 Mainnet is read-only by default. Test writes and payments use Sepolia, and a
 payment plan can only be paid on the chain its record was resolved on. Optional
@@ -312,7 +359,8 @@ The user does not need to:
 
 No claim is made to being first, only, or most private. GhostName provides a
 standards-based, independently verifiable path from an existing public identity
-to forward-private receiving.
+to forward-private receiving, and lets an AI agent run the audit and guide the
+upgrade without ever holding a key.
 
 The project's core idea is simple:
 
@@ -331,8 +379,9 @@ ENS: it audits any name for privacy readiness, upgrades the identity you already
 own by publishing one ERC-5564 stealth meta-address record, and proves the
 result. Every sender derives a fresh one-time address locally, only your
 viewing key finds the payments, and a sponsored EIP-7702 sweep moves funds out
-without re-linking. Live on Sepolia, no backend, honest threat model. Keep the
-ENS name. Break the payment graph.
+without re-linking. Your AI agent can run the audit and guide the upgrade
+through a local, read-only server that never sees a key. Live on Sepolia, no
+backend, honest threat model. Keep the ENS name. Break the payment graph.
 
 ## Links
 
@@ -340,5 +389,8 @@ ENS name. Break the payment graph.
 - Repository: https://github.com/0xSkrillah/ghostname
 - Guided demo route: https://0xskrillah.github.io/ghostname/#/demo
 - Threat model: https://0xskrillah.github.io/ghostname/#/privacy
+- Agent setup (Claude Code, Claude Desktop, Cursor, VS Code, CLI):
+  https://github.com/0xSkrillah/ghostname/blob/main/AGENTS.md
+- Agent demo sequence: https://github.com/0xSkrillah/ghostname/blob/main/AGENT_DEMO.md
 - Sponsored EIP-7702 sweep, verified live by the app:
   https://sepolia.etherscan.io/tx/0x75a9da4e44494d5983bdfe5a6774255e938248bbbca9414eefcd9acdb0089c25
