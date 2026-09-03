@@ -87,6 +87,7 @@ export default function Create() {
   // Focus targets for controls that unmount themselves after activation.
   const recordRef = useRef<HTMLDivElement>(null);
   const walletStatusRef = useRef<HTMLParagraphElement>(null);
+  const connectRef = useRef<HTMLButtonElement>(null);
   const generateRef = useRef<HTMLButtonElement>(null);
   const backupRef = useRef<HTMLDivElement>(null);
 
@@ -555,6 +556,7 @@ export default function Create() {
           {!wallet.account ? (
             <div className="row">
               <button
+                ref={connectRef}
                 className="secondary"
                 onClick={() => {
                   void wallet.connect().then(() => setTimeout(() => walletStatusRef.current?.focus(), 0));
@@ -592,7 +594,15 @@ export default function Create() {
                     </button>
                   )}
                 </>
-              )}
+              )}{' '}
+              <button
+                className="ghost"
+                onClick={() => {
+                  void wallet.disconnect().then(() => setTimeout(() => connectRef.current?.focus(), 0));
+                }}
+              >
+                Disconnect wallet
+              </button>
             </p>
           )}
           {wallet.error && (
