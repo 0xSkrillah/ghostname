@@ -53,6 +53,7 @@ export default function Pay() {
   const [pending, setPending] = useState<PendingAnnouncement | null>(null);
   const [copyState, setCopyState] = useState<string | null>(null);
   const walletStatusRef = useRef<HTMLParagraphElement>(null);
+  const connectRef = useRef<HTMLButtonElement>(null);
 
   // Mainnet is only a write target when the build opted in; otherwise a wallet
   // on mainnet is simply blocked and the page keeps working against Sepolia.
@@ -259,6 +260,7 @@ export default function Pay() {
             {!wallet.account ? (
               <div className="row">
                 <button
+                  ref={connectRef}
                   className="secondary"
                   onClick={() => {
                     void wallet.connect().then(() => setTimeout(() => walletStatusRef.current?.focus(), 0));
@@ -307,7 +309,15 @@ export default function Pay() {
                         </button>
                       )}
                     </>
-                  )}
+                  )}{' '}
+                  <button
+                    className="ghost"
+                    onClick={() => {
+                      void wallet.disconnect().then(() => setTimeout(() => connectRef.current?.focus(), 0));
+                    }}
+                  >
+                    Disconnect wallet
+                  </button>
                 </p>
                 <label className="label" htmlFor="pay-amount">
                   Amount in ETH
