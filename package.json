@@ -13,16 +13,28 @@
     "test:watch": "vitest",
     "e2e:sepolia": "RUN_LIVE=1 vitest run tests/live.sepolia.test.ts",
     "sweep:sepolia": "RUN_LIVE=1 vitest run tests/live.sweep.test.ts",
-    "deploy:pages": "node scripts/deploy-pages.mjs"
+    "deploy:pages": "node scripts/deploy-pages.mjs",
+    "build:agent": "node scripts/build-mcp.mjs",
+    "build:all": "npm run build && npm run build:agent",
+    "mcp": "node dist-agent/ghostname-mcp.mjs",
+    "mcp:inspect": "npx @modelcontextprotocol/inspector node dist-agent/ghostname-mcp.mjs",
+    "cli": "node dist-agent/ghostname.mjs",
+    "mcp:http": "node dist-agent/ghostname-mcp-http.mjs"
   },
   "dependencies": {
+    "@modelcontextprotocol/node": "2.0.0",
+    "@modelcontextprotocol/server": "2.0.0",
     "@noble/curves": "^1.9.0",
+    "hono": "4.11.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.0.0",
-    "viem": "^2.21.0"
+    "viem": "^2.21.0",
+    "zod": "4.5.4"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "2.0.0",
+    "@modelcontextprotocol/ext-apps": "1.7.5",
     "@scopelift/stealth-address-sdk": "^1.0.0-beta.5",
     "@types/node": "^26.4.0",
     "@types/react": "^19.0.0",
@@ -32,6 +44,11 @@
     "typescript": "^5.6.0",
     "vite": "^7.0.0",
     "vitest": "^3.2.0"
+  },
+  "bin": {
+    "ghostname": "dist-agent/ghostname.mjs",
+    "ghostname-mcp": "dist-agent/ghostname-mcp.mjs",
+    "ghostname-mcp-http": "dist-agent/ghostname-mcp-http.mjs"
   },
   "engines": {
     "node": ">=20"
