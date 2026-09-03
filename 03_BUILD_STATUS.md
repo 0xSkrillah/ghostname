@@ -140,7 +140,11 @@ Resolver, so they work on both ENS v1 and v2.
   and a recovery path, `/receive` with field-level start-block validation
   before any RPC call, authoritative balances and the sweep package,
   `/privacy`, `/demo` with five counted steps, a completion card and the
-  boundary as a closing section. Keyboard, screen-reader, 375 px and 320 px
+  boundary as a closing section.
+  Wallet controls on `/create` and `/pay`: connect, switch network, and a
+  "Disconnect wallet" button that forgets the account, revokes the site
+  permission where the wallet supports it (EIP-2255), remembers the choice
+  across reloads, and hands focus back to "Connect wallet". Keyboard, screen-reader, 375 px and 320 px
   layouts verified, including with every proof panel rendered; nav targets
   are 44 px. Full findings and their verification in `UX_AUDIT.md`.
 - **Secret handling**: no personal ENS name anywhere; error text scrubbed of

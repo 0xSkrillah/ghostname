@@ -5,7 +5,7 @@
  * it will also operate on mainnet — but the write guards still require an
  * explicit per-action confirmation before any mainnet transaction.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   createWalletClient,
   custom,
@@ -21,6 +21,29 @@ import { describeError } from '../lib/describeError';
 declare global {
   interface Window {
     ethereum?: EIP1193Provider;
+  }
+}
+
+/**
+ * Remembered across reloads so a wallet the user disconnected in the app is not
+ * silently re-attached on the next page load. Cleared by an explicit connect.
+ */
+const DISCONNECTED_KEY = 'ghostname.wallet.disconnected';
+
+function readDisconnected(): boolean {
+  try {
+    return localStorage.getItem(DISCONNECTED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeDisconnected(value: boolean): void {
+  try {
+    if (value) localStorage.setItem(DISCONNECTED_KEY, '1');
+    else localStorage.removeItem(DISCONNECTED_KEY);
+  } catch {
+    // Storage unavailable: the in-memory state still applies for this page.
   }
 }
 
@@ -43,6 +66,11 @@ export interface WalletState {
   mainnetEnabled: boolean;
   client: WalletClient | null;
   connect: () => Promise<void>;
+  /**
+   * Forget the connected account and, where the wallet supports it, revoke the
+   * site's account permission so the next connect shows the account picker.
+   */
+  disconnect: () => Promise<void>;
   switchToSepolia: () => Promise<void>;
   switchToMainnet: () => Promise<void>;
   error: string | null;
@@ -52,6 +80,8 @@ export function useWallet(): WalletState {
   const [account, setAccount] = useState<Address | null>(null);
   const [chainId, setChainId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // True after an in-app disconnect until the user connects again explicitly.
+  const disconnectedRef = useRef(readDisconnected());
   const available = typeof window !== 'undefined' && !!window.ethereum;
   const mainnetEnabled = isMainnetWriteEnabled();
 
@@ -70,13 +100,16 @@ export function useWallet(): WalletState {
     const onChain = (id: unknown) => setChainId(Number(id));
     const onAccounts = (accounts: unknown) => {
       const list = accounts as Address[];
-      setAccount(list[0] ?? null);
+      // A wallet that still holds the site permission keeps emitting account
+      // changes; after an in-app disconnect they must not re-attach the wallet.
+      setAccount(disconnectedRef.current ? null : (list[0] ?? null));
     };
     provider.on?.('chainChanged', onChain);
     provider.on?.('accountsChanged', onAccounts);
     // Restore an already-authorised connection after a reload without
     // prompting: eth_accounts never opens a wallet dialog.
     void (async () => {
+      if (disconnectedRef.current) return;
       try {
         const accounts = (await provider.request({ method: 'eth_accounts' })) as Address[];
         if (accounts.length > 0) {
@@ -106,10 +139,32 @@ export function useWallet(): WalletState {
         method: 'eth_requestAccounts',
       })) as Address[];
       const chainHex = (await provider.request({ method: 'eth_chainId' })) as string;
+      disconnectedRef.current = false;
+      writeDisconnected(false);
       setAccount(accounts[0] ?? null);
       setChainId(Number(chainHex));
     } catch (err) {
       setError(describeError(err));
+    }
+  }, []);
+
+  const disconnect = useCallback(async () => {
+    setError(null);
+    disconnectedRef.current = true;
+    writeDisconnected(true);
+    setAccount(null);
+    const provider = window.ethereum;
+    if (!provider) return;
+    try {
+      // EIP-2255 permission revocation (MetaMask and compatible wallets). A
+      // wallet without it keeps the site permission, but the app still treats
+      // itself as disconnected until the user connects again.
+      await provider.request({
+        method: 'wallet_revokePermissions' as never,
+        params: [{ eth_accounts: {} }] as never,
+      });
+    } catch {
+      // Unsupported or refused: nothing else to do, the local state is already cleared.
     }
   }, []);
 
@@ -138,6 +193,7 @@ export function useWallet(): WalletState {
     mainnetEnabled,
     client,
     connect,
+    disconnect,
     switchToSepolia,
     switchToMainnet,
     error,
