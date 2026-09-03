@@ -102,13 +102,16 @@ Full sequence with expected outputs in `AGENT_DEMO.md`; slide order in
 - [ ] Browser console contains no private key material.
 - [ ] Agent transcript contains no private key material (there is none to leak).
 - [ ] Screen zoom is readable from a projector.
-- [ ] Two-minute backup video exists offline and online; optional 45-second
-      agent cut recorded.
+- [ ] Two-minute backup video exists offline and online, plus the 45-second
+      agent cut (script: `VIDEO_SCRIPT.md`).
 
 ## Repository/submission
 
-- [ ] Public accessible repository.
-- [ ] Project description.
+Paste-ready project description: `SUBMISSION.md`. Recording script with exact
+button labels and a per-feature checklist: `VIDEO_SCRIPT.md`.
+
+- [x] Public accessible repository.
+- [x] Project description (`SUBMISSION.md`).
 - [ ] Working application.
 - [ ] Working video.
 - [ ] In-person presenter.

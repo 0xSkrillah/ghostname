@@ -4,8 +4,9 @@ Single source of truth for build state. Every figure here was verified against
 the repository, not carried over from an earlier draft.
 
 Last reconciled: 2026-09-03, after merging the AI-agent layer (PR #1) onto
-`main` with the release audit and UI/UX fixes; every figure below was re-run
-from a clean `npm ci` on Node 22 on the merged tree.
+`main` with the release audit and UI/UX fixes, then the submission-copy pass on
+branch `claude/ghostname-hackathon-submission-aduy25`; every figure below was
+re-run from a clean `npm ci` on Node 22 on the merged tree.
 
 ## Product position
 
@@ -48,15 +49,16 @@ Skipped tests are the network-gated live suites: `tests/live.ens.test.ts`
   published with `npm run deploy:pages`, which refuses a dirty tree or a
   mainnet-enabled build, rebuilds from `npm ci`, verifies the CSP, the embedded
   commit and the no-personal-name guard, then appends to gh-pages).
-  Current deployment: gh-pages commit `e6bc43e`, built from source commit
-  `9917939e63dd` (`main` after PR #3, the UI/UX audit fixes) with
+  Current deployment: gh-pages commit `b618f54`, built from source commit
+  `a6f813f055fa` (`main` after PR #1, the AI-agent layer, on top of the
+  release audit and UI/UX fixes) with
   `VITE_DEMO_SEPOLIA_NAME=ghostname-3c7714.eth` and
-  `VITE_SCAN_START_BLOCK=11612900`.
+  `VITE_SCAN_START_BLOCK=11612900`; the deploy script verified CSP, embedded
+  commit and the no-personal-name guard before pushing.
 - Routes: `/` `/scan` `/create` `/pay` `/receive` `/privacy` `/demo` (hash router,
   so every route deep-links on a static host). The footer shows the commit the
-  served bundle was built from. **The deployment predates the agent merge**, so
-  the `/create` agent handoff is not live until `npm run deploy:pages` is run
-  again from `main`.
+  served bundle was built from. The `/create` agent handoff is live in this
+  deployment.
 - Agent layer: `npm run build:agent && npm run mcp` (stdio MCP server),
   `node dist-agent/ghostname.mjs audit <name> --chain <id> [--json]` (CLI),
   `npm run mcp:http` (optional stateless Streamable HTTP profile, loopback by
@@ -223,8 +225,11 @@ Resolver, so they work on both ENS v1 and v2.
 
 ## Next action
 
-Redeploy with `npm run deploy:pages` so the agent handoff is live, then record
-the submission video (two-minute cut plus the agent cut in `VIDEO_SCRIPT.md`)
-with a locally configured established mainnet name, and optionally deploy to Swarm with a booth postage
+Record the submission video from `VIDEO_SCRIPT.md` (two-minute cut, the agent
+cut, and optionally the three-minute extended cut) with a locally configured
+established mainnet name, open one agent handoff link on the deployed
+`#/create` first to check the re-ported cards in a browser, and paste
+`SUBMISSION.md` into the submission form.
+Optionally deploy to Swarm with a booth postage
 stamp (see SWARM.md). Accept only fixes for failed acceptance tests or
 presentation-breaking bugs before the submission deadline.
