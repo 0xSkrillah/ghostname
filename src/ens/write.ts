@@ -56,10 +56,57 @@ export interface TextWriter {
   }): Promise<Hash>;
 }
 
+/** viem PublicClient.simulateContract, structurally, so tests can inject fakes. */
+export interface TextSimulator {
+  simulateContract(args: {
+    address: Address;
+    abi: typeof RESOLVER_SET_TEXT_ABI;
+    functionName: 'setText';
+    args: readonly [`0x${string}`, string, string];
+    account: Address;
+  }): Promise<unknown>;
+}
+
 export type ResolverLookup =
   | { status: 'ok'; address: Address }
   | { status: 'none' }
   | { status: 'failed'; error: string };
+
+export type WritableCheck =
+  | { status: 'ok' }
+  | { status: 'blocked'; reason: string }
+  | { status: 'unknown'; reason: string };
+
+/**
+ * Pre-sign check that `account` may write the record on `resolver`: the exact
+ * setText call is simulated from that account. A revert means the resolver
+ * refuses this sender, which is what "the wallet does not control the name"
+ * looks like on both ENS v1 and v2 resolvers; a transport failure means
+ * nothing is known and is reported as unknown, never as permission. Nothing
+ * is sent.
+ */
+export async function checkStealthRecordWritable(args: {
+  publicClient: TextSimulator;
+  account: Address;
+  resolver: Address;
+  node: `0x${string}`;
+  stealthMetaAddress: string;
+}): Promise<WritableCheck> {
+  try {
+    await args.publicClient.simulateContract({
+      address: args.resolver,
+      abi: RESOLVER_SET_TEXT_ABI,
+      functionName: 'setText',
+      args: [args.node, ENS_STEALTH_RECORD_KEY, args.stealthMetaAddress],
+      account: args.account,
+    });
+    return { status: 'ok' };
+  } catch (err) {
+    return classifyResolverError(err) === 'none'
+      ? { status: 'blocked', reason: describeError(err) }
+      : { status: 'unknown', reason: describeError(err) };
+  }
+}
 
 /**
  * A revert from the Universal Resolver means the name has no resolver; a

@@ -20,10 +20,13 @@ export default function Landing() {
       <Compare />
       <nav className="row" aria-label="Start">
         <Link to="/scan" className="btn">
-          See the problem: audit a name
+          Audit a name
         </Link>
         <Link to="/create" className="btn secondary">
-          Fix the future: create a private identity
+          Create a private identity
+        </Link>
+        <Link to="/demo" className="small" style={{ padding: '0.65rem 0.4rem' }}>
+          Or watch the two-minute demo
         </Link>
       </nav>
       <p className="small dim" style={{ marginTop: '2rem' }}>

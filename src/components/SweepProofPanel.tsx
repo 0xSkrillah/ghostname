@@ -3,6 +3,7 @@ import { formatEther } from 'viem';
 import { getSepoliaClient } from '../chain/clients';
 import { SPONSORED_SWEEP_EVIDENCE } from '../relay/evidence';
 import { verifySweepProof, type SweepProof } from '../relay/proof';
+import { describeError } from '../lib/describeError';
 
 const STATE_PILL: Record<string, string> = {
   pass: 'pill ok',
@@ -15,15 +16,31 @@ const STATE_PILL: Record<string, string> = {
  * transaction hash is configured; every claim is re-derived here, so a stale
  * hash shows as a failed check rather than a false green.
  */
-export default function SweepProofPanel({ autoRun = false }: { autoRun?: boolean }) {
+export default function SweepProofPanel({
+  autoRun = false,
+  onResult,
+}: {
+  autoRun?: boolean;
+  /** Called after each run with whether every check passed. */
+  onResult?: (verified: boolean) => void;
+}) {
   const [proof, setProof] = useState<SweepProof | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   async function run() {
     setBusy(true);
+    setError(null);
     try {
-      setProof(await verifySweepProof(getSepoliaClient() as never, SPONSORED_SWEEP_EVIDENCE));
+      const result = await verifySweepProof(getSepoliaClient() as never, SPONSORED_SWEEP_EVIDENCE);
+      setProof(result);
+      onResult?.(result.verified);
+    } catch (err) {
+      setError(
+        `Verification could not run: ${describeError(err)} Retry; if it persists, set ` +
+          'VITE_SEPOLIA_RPC_URL in .env to a provider you control.',
+      );
     } finally {
       setBusy(false);
       setTimeout(() => resultsRef.current?.focus(), 0);
@@ -50,6 +67,11 @@ export default function SweepProofPanel({ autoRun = false }: { autoRun?: boolean
       </button>
 
       <div aria-live="polite" aria-busy={busy} ref={resultsRef} tabIndex={-1}>
+      {error && (
+        <p className="error small" role="alert">
+          {error}
+        </p>
+      )}
       {proof && (
         <>
           <p className="small" style={{ marginBottom: '0.5rem' }}>

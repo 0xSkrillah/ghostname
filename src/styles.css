@@ -61,13 +61,14 @@ body {
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-code, .mono { font-family: var(--mono); }
+/* Addresses and record keys must wrap on narrow screens instead of pushing the page sideways. */
+code, .mono { font-family: var(--mono); overflow-wrap: anywhere; }
 
 nav.topnav {
   display: flex;
   align-items: center;
-  gap: 1.25rem;
-  padding: 0.8rem 1.5rem;
+  gap: 0.2rem 1.4rem;
+  padding: 0.5rem 1.5rem;
   border-bottom: 1px solid var(--border);
   background: var(--bg-raised);
   flex-wrap: wrap;
@@ -77,9 +78,25 @@ nav.topnav .brand {
   letter-spacing: 0.06em;
   color: var(--text);
   font-family: var(--mono);
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 nav.topnav .brand span { color: var(--accent); }
-nav.topnav a.navlink { color: var(--text-dim); font-size: 0.92rem; padding: 0.35rem 0; display: inline-block; }
+/* Each link is a 44px-tall, at least 44px-wide target. The negative horizontal
+   margin keeps the visual rhythm of the labels while the hit area grows. */
+nav.topnav a.navlink {
+  color: var(--text-dim);
+  font-size: 0.92rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.55rem 0.5rem;
+  margin: 0 -0.5rem;
+  border-radius: 6px;
+}
 nav.topnav a.navlink.active, nav.topnav a.navlink:hover { color: var(--accent); text-decoration: none; }
 
 main.page {
@@ -195,6 +212,10 @@ a.btn, a.btn:hover {
 }
 a.btn.secondary, a.btn.secondary:hover { background: transparent; color: var(--accent); border: 1px solid var(--accent-dim); }
 a.btn:hover { filter: brightness(1.1); }
+/* Narrow screens: call-to-action links stack full width so the primary one reads as primary. */
+@media (max-width: 480px) {
+  .row a.btn { flex: 1 1 100%; text-align: center; }
+}
 
 button {
   background: var(--accent);
@@ -221,6 +242,13 @@ button.ghost {
   border: 1px solid var(--border-strong);
   font-weight: 500;
 }
+/* The one destructive control: styled like danger, never like the primary action. */
+button.danger {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+button.danger:disabled { background: transparent; color: var(--text-dim); border-color: var(--border-strong); }
 
 .pill {
   display: inline-block;

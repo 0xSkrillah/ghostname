@@ -5,7 +5,13 @@ import { saveIdentity, useIdentity } from '../state/identity';
 import { parseIdentityBackup } from '../crypto/identityBackup';
 import { MIN_PASSPHRASE_LENGTH, assertTestnetOnly, decryptCapsule, encryptCapsule } from '../swarm/capsule';
 import { useWallet } from '../state/wallet';
-import { lookupResolver, publishStealthRecord } from '../ens/write';
+import {
+  checkStealthRecordWritable,
+  lookupResolver,
+  publishStealthRecord,
+  type TextSimulator,
+  type WritableCheck,
+} from '../ens/write';
 import { getMainnetClient, getSepoliaClient } from '../chain/clients';
 import {
   normalizeEnsName,
@@ -44,16 +50,25 @@ export default function Create() {
   const [restoring, setRestoring] = useState(false);
   const [preparing, setPreparing] = useState(false);
   const [prepared, setPrepared] = useState<Prepared | null>(null);
+  const [writable, setWritable] = useState<WritableCheck | null>(null);
+  const [checkingWritable, setCheckingWritable] = useState(false);
   const [overwriteAck, setOverwriteAck] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishTx, setPublishTx] = useState<{ hash: string; chainId: number } | null>(null);
   const [verified, setVerified] = useState<string | null>(null);
   const [mainnetConfirmed, setMainnetConfirmed] = useState(false);
   const [confirmToken, setConfirmToken] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+  /** Preflight problems sit under the name form; publish problems inside the sign card. */
+  const [checkError, setCheckError] = useState<string | null>(null);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [backupOpen, setBackupOpen] = useState(false);
+  const [discardOpen, setDiscardOpen] = useState(false);
+  const [discardAck, setDiscardAck] = useState(false);
   // Focus targets for controls that unmount themselves after activation.
   const recordRef = useRef<HTMLDivElement>(null);
   const walletStatusRef = useRef<HTMLParagraphElement>(null);
+  const generateRef = useRef<HTMLButtonElement>(null);
+  const backupRef = useRef<HTMLDivElement>(null);
 
   const onSepolia = wallet.chainId === SEPOLIA_CHAIN_ID;
   // Mainnet is a write target only when the build opted in; otherwise a wallet
@@ -70,12 +85,46 @@ export default function Create() {
   const alreadyPublished =
     existing?.status === 'ok' && identity !== null && existing.record === identity.stealthMetaAddress;
   const needsAck = existing !== null && existing.status !== 'none' && !alreadyPublished;
+  const writableBlocked = writable?.status === 'blocked';
   const canPublish =
     preparedValid &&
     wallet.onWritableNetwork &&
     (!onMainnet || mainnetConfirmed) &&
     !publishing &&
+    !checkingWritable &&
+    !writableBlocked &&
     (!needsAck || overwriteAck);
+
+  // Once a wallet is connected on the target network, simulate the exact
+  // setText from that account so a wallet that does not control the name
+  // learns it here, not as a reverted transaction.
+  useEffect(() => {
+    if (!preparedValid || !prepared || !identity || !wallet.account || !wallet.onWritableNetwork) {
+      setWritable(null);
+      setCheckingWritable(false);
+      return;
+    }
+    let cancelled = false;
+    setCheckingWritable(true);
+    setWritable(null);
+    void checkStealthRecordWritable({
+      publicClient: readClient as unknown as TextSimulator,
+      account: wallet.account,
+      resolver: prepared.resolver,
+      node: prepared.node,
+      stealthMetaAddress: identity.stealthMetaAddress,
+    })
+      .then((result) => {
+        if (!cancelled) setWritable(result);
+      })
+      .finally(() => {
+        if (!cancelled) setCheckingWritable(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preparedValid, prepared, wallet.account, wallet.onWritableNetwork, identity?.stealthMetaAddress]);
 
   function importIdentity() {
     setImportError(null);
@@ -127,7 +176,8 @@ export default function Create() {
   async function prepare() {
     if (!identity) return;
     setPreparing(true);
-    setError(null);
+    setCheckError(null);
+    setPublishError(null);
     setPrepared(null);
     setPublishTx(null);
     setVerified(null);
@@ -150,7 +200,7 @@ export default function Create() {
       const current = await resolveStealthMetaAddress(readClient, name);
       setPrepared({ name, chainId: targetChainId, resolver: lookup.address, node: namehash(name), existing: current });
     } catch (err) {
-      setError(describeError(err));
+      setCheckError(describeError(err));
     } finally {
       setPreparing(false);
     }
@@ -159,7 +209,7 @@ export default function Create() {
   async function publish() {
     if (!identity || !wallet.client || !wallet.account || !wallet.chain || !prepared) return;
     setPublishing(true);
-    setError(null);
+    setPublishError(null);
     setPublishTx(null);
     setVerified(null);
     try {
@@ -174,7 +224,7 @@ export default function Create() {
       });
       setPublishTx({ hash, chainId: wallet.chain.id });
     } catch (err) {
-      setError(describeError(err));
+      setPublishError(describeError(err));
     } finally {
       setPublishing(false);
       // Every attempt consumes the confirmation: retype for the next action.
@@ -186,7 +236,7 @@ export default function Create() {
 
   async function verify() {
     if (!prepared) return;
-    setError(null);
+    setPublishError(null);
     try {
       const result = await resolveStealthMetaAddress(readClient, prepared.name);
       setVerified(
@@ -195,7 +245,7 @@ export default function Create() {
           : `Record not readable yet (status: ${result.status}). New blocks take about 15 seconds; try again.`,
       );
     } catch (err) {
-      setError(describeError(err));
+      setPublishError(describeError(err));
     }
   }
 
@@ -229,6 +279,25 @@ export default function Create() {
     }
   }
 
+  function discard() {
+    clear();
+    setDiscardOpen(false);
+    setDiscardAck(false);
+    setBackupOpen(false);
+    setPrepared(null);
+    setPublishTx(null);
+    setVerified(null);
+    setTimeout(() => generateRef.current?.focus(), 0);
+  }
+
+  const capsuleTooShort = capsulePass.length > 0 && capsulePass.length < MIN_PASSPHRASE_LENGTH;
+  const capsuleHint =
+    capsulePass.length === 0
+      ? `At least ${MIN_PASSPHRASE_LENGTH} characters. Longer and less guessable is better.`
+      : capsuleTooShort
+        ? `${capsulePass.length} of ${MIN_PASSPHRASE_LENGTH} characters.`
+        : 'Long enough. A short dictionary phrase is still guessable offline.';
+
   return (
     <>
       <h1>Create a private receive identity</h1>
@@ -241,6 +310,7 @@ export default function Create() {
       {!identity && (
         <>
           <button
+            ref={generateRef}
             onClick={() => {
               create();
               setTimeout(() => recordRef.current?.focus(), 0);
@@ -346,66 +416,9 @@ export default function Create() {
             Publish this value under the text record key{' '}
             <code>{ENS_STEALTH_RECORD_KEY}</code> on any ENS name you own. Senders resolve
             it and derive fresh one-time addresses, with no interaction with you required.
+            The private keys stay in this browser; back them up below before you rely on this
+            identity.
           </p>
-          <CopyField label="Spending private key" value={identity.spendingPrivateKey} sensitive />
-          <CopyField label="Viewing private key" value={identity.viewingPrivateKey} sensitive />
-          <div className="row">
-            <button className="ghost" onClick={downloadBackup}>
-              Download backup (plaintext JSON)
-            </button>
-            <button
-              className="ghost"
-              onClick={() => {
-                if (confirm('Discard this identity? Funds at its stealth addresses become unrecoverable.')) {
-                  clear();
-                }
-              }}
-            >
-              Discard identity
-            </button>
-          </div>
-          <p className="small dim" style={{ marginTop: '0.3rem' }}>
-            The plaintext backup contains both private keys. Store it offline. Prefer the
-            encrypted capsule below for anything that leaves this device.
-          </p>
-
-          <div className="card inset">
-            <span className="label">Encrypted recovery capsule (Swarm-ready, testnet only)</span>
-            <p className="small dim" style={{ marginTop: 0 }}>
-              Encrypts this identity locally (AES-256-GCM, key derived with PBKDF2-SHA256 at
-              600,000 iterations) so it can be stored on Swarm without exposing keys. The
-              passphrase never leaves this device. {MIN_PASSPHRASE_LENGTH} characters is a floor,
-              not a strength guarantee: a short dictionary phrase is still guessable offline.
-              Restore it later with "Restore from an encrypted capsule".
-            </p>
-            <label className="label" htmlFor="capsule-pass">
-              Capsule passphrase, at least {MIN_PASSPHRASE_LENGTH} characters
-            </label>
-            <form
-              className="row"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (capsulePass.length >= MIN_PASSPHRASE_LENGTH) void downloadEncryptedCapsule();
-              }}
-            >
-              <input
-                id="capsule-pass"
-                type="password"
-                value={capsulePass}
-                onChange={(e) => setCapsulePass(e.target.value)}
-                placeholder={`passphrase (min ${MIN_PASSPHRASE_LENGTH} chars)`}
-                autoComplete="new-password"
-              />
-              <button type="submit" className="ghost" disabled={capsulePass.length < MIN_PASSPHRASE_LENGTH}>
-                Download encrypted capsule
-              </button>
-            </form>
-            {capsuleMsg && (
-              <p className="small dim" style={{ marginBottom: 0 }} role="status">
-                {capsuleMsg}
-              </p>
-            )}
-          </div>
 
           <h2>Publish to an ENS name</h2>
           <p className="small dim">
@@ -416,14 +429,22 @@ export default function Create() {
               : 'Mainnet writes are blocked in this build. The publish path hard-fails on any chain other than Sepolia.'}
           </p>
           {!wallet.account ? (
-            <button
-              className="secondary"
-              onClick={() => {
-                void wallet.connect().then(() => setTimeout(() => walletStatusRef.current?.focus(), 0));
-              }}
-            >
-              Connect wallet
-            </button>
+            <div className="row">
+              <button
+                className="secondary"
+                onClick={() => {
+                  void wallet.connect().then(() => setTimeout(() => walletStatusRef.current?.focus(), 0));
+                }}
+              >
+                Connect wallet
+              </button>
+              {!wallet.available && !wallet.error && (
+                <span className="small dim">
+                  No browser wallet detected. Install MetaMask or a similar wallet, switch it to{' '}
+                  {networkLabel}, then reload this page.
+                </span>
+              )}
+            </div>
           ) : (
             <p className="small" ref={walletStatusRef} tabIndex={-1}>
               <span className="pill">{wallet.account}</span>{' '}
@@ -450,7 +471,12 @@ export default function Create() {
               )}
             </p>
           )}
-          <label className="label" htmlFor="publish-name">
+          {wallet.error && (
+            <p className="error small" role="alert" style={{ margin: '0.4rem 0 0' }}>
+              {wallet.error}
+            </p>
+          )}
+          <label className="label" htmlFor="publish-name" style={{ marginTop: '0.8rem' }}>
             ENS name you control
           </label>
           <form
@@ -467,18 +493,26 @@ export default function Create() {
               onChange={(e) => {
                 setEnsName(e.target.value);
                 setPrepared(null);
+                setWritable(null);
                 setPublishTx(null);
                 setVerified(null);
+                setCheckError(null);
               }}
               placeholder={onMainnet ? 'your-name.eth (owned by this wallet)' : 'your-test-name.eth (Sepolia)'}
               autoComplete="off"
               spellCheck={false}
               autoCapitalize="none"
+              aria-invalid={checkError !== null}
             />
             <button type="submit" className="secondary" disabled={preparing || !ensName.trim()}>
               {preparing ? 'Checking…' : preparedValid ? 'Check again' : `Check name on ${networkLabel}`}
             </button>
           </form>
+          {checkError && (
+            <p className="error small" role="alert" style={{ margin: '0.4rem 0 0' }}>
+              {checkError}
+            </p>
+          )}
 
           <div aria-live="polite" aria-busy={preparing || publishing}>
             {preparedValid && prepared && (
@@ -541,6 +575,37 @@ export default function Create() {
                     </label>
                   </div>
                 )}
+                {wallet.account && wallet.onWritableNetwork && (
+                  <div style={{ marginTop: '0.6rem' }}>
+                    {checkingWritable && (
+                      <p className="small dim" style={{ margin: 0 }} role="status">
+                        Checking that this wallet can write to the resolver (simulated, nothing sent)…
+                      </p>
+                    )}
+                    {writable?.status === 'ok' && (
+                      <p className="small" style={{ margin: 0 }} role="status">
+                        <span className="pill ok">this wallet can write the record</span>{' '}
+                        <span className="dim">The resolver accepted a simulated setText from your wallet.</span>
+                      </p>
+                    )}
+                    {writable?.status === 'blocked' && (
+                      <div className="card danger" style={{ margin: 0 }} role="alert">
+                        <strong>This wallet cannot write to the resolver of {prepared.name}.</strong>
+                        <p className="small" style={{ margin: '0.3rem 0 0' }}>
+                          A simulated setText from {wallet.account} was rejected, which is what
+                          happens when the wallet does not own or manage the name. Connect the
+                          wallet that controls it. Nothing was sent.
+                        </p>
+                      </div>
+                    )}
+                    {writable?.status === 'unknown' && (
+                      <p className="small" style={{ margin: 0, color: 'var(--warn)' }} role="status">
+                        Could not confirm that this wallet can write the record ({writable.reason}).
+                        The transaction may revert; nothing is assumed either way.
+                      </p>
+                    )}
+                  </div>
+                )}
                 {onMainnet && (
                   <MainnetConfirm
                     action="record publish"
@@ -558,6 +623,11 @@ export default function Create() {
                     <span className="small error">Switch the wallet to a permitted network first.</span>
                   )}
                 </div>
+                {publishError && (
+                  <p className="error small" role="alert" style={{ margin: '0.5rem 0 0' }}>
+                    {publishError}
+                  </p>
+                )}
               </div>
             )}
             {publishTx && (
@@ -590,15 +660,121 @@ export default function Create() {
               </div>
             )}
           </div>
-          {wallet.error && (
-            <p className="error" role="alert">
-              {wallet.error}
-            </p>
+
+          <h2>Back up this identity</h2>
+          <p className="small dim">
+            Both private keys live only in this browser's local storage. Export them before you
+            rely on this identity. The encrypted capsule is the safe form for anything that
+            leaves this device.
+          </p>
+          <button
+            className="ghost"
+            onClick={() => {
+              setBackupOpen((o) => !o);
+              if (!backupOpen) setTimeout(() => backupRef.current?.focus(), 0);
+            }}
+            aria-expanded={backupOpen}
+            aria-controls="backup-panel"
+          >
+            {backupOpen ? 'Hide keys and backup options' : 'Show keys and backup options'}
+          </button>
+          {backupOpen && (
+            <div id="backup-panel" ref={backupRef} tabIndex={-1} style={{ marginTop: '0.6rem' }}>
+              <CopyField label="Spending private key" value={identity.spendingPrivateKey} sensitive />
+              <CopyField label="Viewing private key" value={identity.viewingPrivateKey} sensitive />
+              <div className="row">
+                <button className="ghost" onClick={downloadBackup}>
+                  Download backup (plaintext JSON)
+                </button>
+              </div>
+              <p className="small dim" style={{ marginTop: '0.3rem' }}>
+                The plaintext backup contains both private keys. Store it offline. Prefer the
+                encrypted capsule below for anything that leaves this device.
+              </p>
+
+              <div className="card inset">
+                <span className="label">Encrypted recovery capsule (Swarm-ready, testnet only)</span>
+                <p className="small dim" style={{ marginTop: 0 }}>
+                  Encrypts this identity locally (AES-256-GCM, key derived with PBKDF2-SHA256 at
+                  600,000 iterations) so it can be stored on Swarm without exposing keys. The
+                  passphrase never leaves this device. Restore it later with "Restore from an
+                  encrypted capsule".
+                </p>
+                <label className="label" htmlFor="capsule-pass">
+                  Capsule passphrase
+                </label>
+                <form
+                  className="row"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (capsulePass.length >= MIN_PASSPHRASE_LENGTH) void downloadEncryptedCapsule();
+                  }}
+                >
+                  <input
+                    id="capsule-pass"
+                    type="password"
+                    value={capsulePass}
+                    onChange={(e) => setCapsulePass(e.target.value)}
+                    placeholder={`passphrase (min ${MIN_PASSPHRASE_LENGTH} chars)`}
+                    autoComplete="new-password"
+                    aria-describedby="capsule-pass-hint"
+                    aria-invalid={capsuleTooShort || undefined}
+                  />
+                  <button type="submit" className="ghost" disabled={capsulePass.length < MIN_PASSPHRASE_LENGTH}>
+                    Download encrypted capsule
+                  </button>
+                </form>
+                <p id="capsule-pass-hint" className="small dim" style={{ margin: '0.3rem 0 0' }} role="status">
+                  {capsuleHint}
+                </p>
+                {capsuleMsg && (
+                  <p className="small dim" style={{ marginBottom: 0 }} role="status">
+                    {capsuleMsg}
+                  </p>
+                )}
+              </div>
+            </div>
           )}
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
+
+          <h2>Discard this identity</h2>
+          <p className="small dim">
+            Removes the keys from this browser. Anything already sent to this identity's stealth
+            addresses becomes unrecoverable unless you kept a backup.
+          </p>
+          {!discardOpen ? (
+            <button className="danger" onClick={() => setDiscardOpen(true)}>
+              Discard identity…
+            </button>
+          ) : (
+            <div className="card danger" role="group" aria-label="Discard identity confirmation">
+              <strong>Discard the keys stored in this browser?</strong>
+              <label
+                className="small"
+                style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.6rem' }}
+              >
+                <input
+                  type="checkbox"
+                  checked={discardAck}
+                  onChange={(e) => setDiscardAck(e.target.checked)}
+                />
+                I understand that funds at this identity's stealth addresses become unrecoverable
+                without a backup.
+              </label>
+              <div className="row" style={{ marginTop: '0.6rem' }}>
+                <button className="danger" disabled={!discardAck} onClick={discard}>
+                  Discard identity
+                </button>
+                <button
+                  className="ghost"
+                  onClick={() => {
+                    setDiscardOpen(false);
+                    setDiscardAck(false);
+                  }}
+                >
+                  Keep it
+                </button>
+              </div>
+            </div>
           )}
         </>
       )}
