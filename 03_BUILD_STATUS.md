@@ -49,9 +49,9 @@ Skipped tests are the network-gated live suites: `tests/live.ens.test.ts`
   published with `npm run deploy:pages`, which refuses a dirty tree or a
   mainnet-enabled build, rebuilds from `npm ci`, verifies the CSP, the embedded
   commit and the no-personal-name guard, then appends to gh-pages).
-  Current deployment: gh-pages commit `b618f54`, built from source commit
-  `a6f813f055fa` (`main` after PR #1, the AI-agent layer, on top of the
-  release audit and UI/UX fixes) with
+  Current deployment: gh-pages commit `35b6e80`, built from source commit
+  `74772682c5d4` (`main` after PR #6, the disconnect wallet button, on top of
+  the AI-agent layer, the release audit and the UI/UX fixes) with
   `VITE_DEMO_SEPOLIA_NAME=ghostname-3c7714.eth` and
   `VITE_SCAN_START_BLOCK=11612900`; the deploy script verified CSP, embedded
   commit and the no-personal-name guard before pushing.
