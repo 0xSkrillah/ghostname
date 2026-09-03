@@ -105,6 +105,12 @@ export async function auditEnsName(
       trustBoundaries: baseTrustBoundaries(),
       warnings: [describeError(err)],
       unknowns: ['Every property: the name could not be normalized.'],
+      diagnostics: {
+        nameInvalid: true,
+        addressResolutionFailed: false,
+        resolverReadFailed: false,
+        recordReadFailures: [],
+      },
     };
   }
 
@@ -151,6 +157,7 @@ export async function auditEnsName(
   // 3. Read every candidate record key, in precedence order.
   const plan = recordKeyPlan(options.chainId);
   const recordSources: RecordSource[] = [];
+  const recordReadFailures: string[] = [];
   for (const entry of plan) {
     let value: string | null = null;
     try {
@@ -159,6 +166,7 @@ export async function auditEnsName(
       unknowns.push(
         `Record ${entry.key} could not be read: ${describeError(err)}`,
       );
+      recordReadFailures.push(entry.key);
       recordSources.push({ ...entry, value: null, status: 'absent' });
       continue;
     }
@@ -329,5 +337,11 @@ export async function auditEnsName(
     trustBoundaries: baseTrustBoundaries(),
     warnings,
     unknowns,
+    diagnostics: {
+      nameInvalid: false,
+      addressResolutionFailed: resolutionFailed,
+      resolverReadFailed: !resolver.address,
+      recordReadFailures,
+    },
   };
 }

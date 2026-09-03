@@ -1,0 +1,37 @@
+# GhostName
+
+> The open privacy-assurance layer for ENS. Audit any ENS name against the
+> stealth-resolution convention, guide a human-signed upgrade, and verify public
+> evidence. Read-only for AI agents: no keys, no writes, no autonomous wallet.
+> Forward recipient-address privacy for compatible senders, not anonymity.
+
+Keep the ENS name. Break the payment graph.
+
+## For AI agents
+
+- [AGENTS.md](AGENTS.md): how to connect the local MCP server, the five read-only tools, the rules.
+- [AGENT_DEMO.md](AGENT_DEMO.md): the live demo sequence, audit to handoff to re-audit to proof.
+- [AGENT_DISCOVERY.md](AGENT_DISCOVERY.md): ENSIP-26 draft agent records and the preparation script.
+- [.claude/skills/ens-privacy-advisor/SKILL.md](.claude/skills/ens-privacy-advisor/SKILL.md): the Claude Agent Skill.
+- [server.json](server.json): MCP Registry descriptor.
+
+MCP tools: ghostname_audit_ens_privacy, ghostname_prepare_upgrade,
+ghostname_reaudit_ens_privacy, ghostname_verify_payment,
+ghostname_verify_sponsored_exit. Chains: 1 and 11155111 only.
+
+## Privacy model
+
+- [PRIVACY.md](PRIVACY.md): what is and is not protected, precisely.
+- [COMPETITIVE_MOAT.md](COMPETITIVE_MOAT.md): where GhostName sits in the stealth-payment stack.
+
+## Product and architecture
+
+- [README.md](README.md): problem, threat model, mechanism, live evidence.
+- [ARCHITECTURE.md](ARCHITECTURE.md): modules and assurance layers.
+- [RELAYERS.md](RELAYERS.md): sponsored EIP-7702 and EIP-3009 exits.
+- [03_BUILD_STATUS.md](03_BUILD_STATUS.md): verified build state.
+
+## Optional
+
+- [DEMO.md](DEMO.md), [SLIDES.md](SLIDES.md), [VIDEO_SCRIPT.md](VIDEO_SCRIPT.md): presentation material.
+- [SWARM.md](SWARM.md): Swarm deployment and encrypted testnet recovery capsule.
