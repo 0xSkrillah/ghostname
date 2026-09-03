@@ -98,7 +98,7 @@ upgrades and proves the identity you already own, and custodies nothing.
 
 **Every claim here is live on Sepolia, not mocked.**
 
-Real ENS name registered, record published, payment sent, scanned, recovered, and swept via a sponsored EIP-7702 transaction. Standards-correct ERC-5564, more than 220 deterministic tests, byte-identical to the reference implementation.
+Real ENS name registered, record published, payment sent, scanned, recovered, and swept via a sponsored EIP-7702 transaction. Standards-correct ERC-5564, more than 240 deterministic tests, byte-identical to the reference implementation.
 
 > Speaker: "None of this is slideware. Real transactions, standards-correct cryptography, and a scope we state honestly."
 

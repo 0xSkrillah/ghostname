@@ -3,8 +3,9 @@
 Single source of truth for build state. Every figure here was verified against
 the repository, not carried over from an earlier draft.
 
-Last reconciled: 2026-09-03, after the UI/UX audit and its fixes (see
-`UX_AUDIT.md`), on branch `claude/ui-ux-audit-f2419d`.
+Last reconciled: 2026-09-03, submission-copy pass on branch
+`claude/ghostname-hackathon-submission-aduy25`; the verified-command table was
+re-run from a clean `npm ci` on Node 22 with identical results.
 
 ## Product position
 
@@ -175,7 +176,8 @@ Resolver, so they work on both ENS v1 and v2.
 
 ## Next action
 
-Record the two-minute backup video from `#/demo` with a locally configured
-established mainnet name, and optionally deploy to Swarm with a booth postage
+Record the submission video from `VIDEO_SCRIPT.md` (two-minute cut, optional
+three-minute extended cut) with a locally configured established mainnet name,
+and paste `SUBMISSION.md` into the submission form. Then and optionally deploy to Swarm with a booth postage
 stamp (see SWARM.md). Accept only fixes for failed acceptance tests or
 presentation-breaking bugs before the submission deadline.

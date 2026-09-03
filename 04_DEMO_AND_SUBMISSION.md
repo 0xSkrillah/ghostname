@@ -67,12 +67,15 @@
 - [ ] No sensitive balance is shown by default.
 - [ ] Browser console contains no private key material.
 - [ ] Screen zoom is readable from a projector.
-- [ ] Two-minute backup video exists offline and online.
+- [ ] Two-minute backup video exists offline and online (script: `VIDEO_SCRIPT.md`).
 
 ## Repository/submission
 
-- [ ] Public accessible repository.
-- [ ] Project description.
+Paste-ready project description: `SUBMISSION.md`. Recording script with exact
+button labels and a per-feature checklist: `VIDEO_SCRIPT.md`.
+
+- [x] Public accessible repository.
+- [x] Project description (`SUBMISSION.md`).
 - [ ] Working application.
 - [ ] Working video.
 - [ ] In-person presenter.
