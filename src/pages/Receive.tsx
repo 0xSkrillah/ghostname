@@ -7,6 +7,8 @@ import SweepPanel from '../components/SweepPanel';
 import SweepProofPanel from '../components/SweepProofPanel';
 import PaymentProofPanel from '../components/PaymentProofPanel';
 import {
+  ScanRangeError,
+  assertScanStartSyntax,
   declaredEthAmount,
   fetchAnnouncements,
   groupAnnouncementsByAddress,
@@ -48,18 +50,37 @@ export default function Receive() {
   const [fromBlock, setFromBlock] = useState(SCAN_START_BLOCK?.toString() ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** A problem with the typed start block: shown under the field, never dressed as an RPC failure. */
+  const [fieldError, setFieldError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<ScanOutcome | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
 
   async function scan() {
     if (!identity) return;
-    setBusy(true);
     setError(null);
+    setFieldError(null);
+    // Syntax is checked before any network call so a typo never waits on an RPC.
+    try {
+      assertScanStartSyntax(fromBlock);
+    } catch (err) {
+      setFieldError(describeError(err));
+      return;
+    }
+    setBusy(true);
     setOutcome(null);
     try {
       const client = getSepoliaClient();
       const latest = await client.getBlockNumber();
-      const from = resolveScanStart(fromBlock, latest, DEFAULT_LOOKBACK);
+      let from: bigint;
+      try {
+        from = resolveScanStart(fromBlock, latest, DEFAULT_LOOKBACK);
+      } catch (err) {
+        if (err instanceof ScanRangeError) {
+          setFieldError(describeError(err));
+          return;
+        }
+        throw err;
+      }
       setProgress('Fetching announcements…');
       const announcements = await fetchAnnouncements(client, { fromBlock: from, toBlock: latest });
       const owned = await recogniseOwnedAnnouncementsAsync(
@@ -133,7 +154,7 @@ export default function Receive() {
   if (!identity) {
     return (
       <>
-        <h1>Receive</h1>
+        <h1>Discover your payments</h1>
         <p className="lead">
           No local identity found. <Link to="/create">Create or import one first</Link>. The
           scanner needs your viewing key, which never leaves this device.
@@ -146,11 +167,8 @@ export default function Receive() {
     <>
       <h1>Discover your payments</h1>
       <p className="lead">
-        Scans ERC-5564 announcements on Sepolia and recognises yours with the private
-        viewing key, locally. Observers (and other recipients) cannot do this. Scans are
-        bounded: set the start block to just before your payments. Balance reads ask your
-        RPC about the recognised addresses specifically; pin a trusted endpoint in .env if
-        that linkage matters to you.
+        Scans ERC-5564 announcements on Sepolia and recognises yours with your private viewing
+        key, locally. Observers and other recipients cannot do this.
       </p>
       <label className="label" htmlFor="scan-from-block">
         Start block for the announcement scan
@@ -167,14 +185,28 @@ export default function Receive() {
           type="text"
           inputMode="numeric"
           value={fromBlock}
-          onChange={(e) => setFromBlock(e.target.value)}
+          onChange={(e) => {
+            setFromBlock(e.target.value);
+            setFieldError(null);
+          }}
           placeholder={`start block (empty = latest minus ${DEFAULT_LOOKBACK.toString()})`}
           autoComplete="off"
+          aria-invalid={fieldError !== null}
+          aria-describedby="scan-from-block-hint"
         />
         <button type="submit" disabled={busy} aria-busy={busy}>
           {busy ? 'Scanning…' : 'Scan announcements'}
         </button>
       </form>
+      <p
+        id="scan-from-block-hint"
+        className={fieldError ? 'error small' : 'small dim'}
+        role={fieldError ? 'alert' : undefined}
+        style={{ margin: '0.4rem 0 0' }}
+      >
+        {fieldError ??
+          `Scans are bounded: set the start block to just before your payments (separators like 11,612,900 are fine; empty scans the latest ${DEFAULT_LOOKBACK.toLocaleString()} blocks). Balance reads ask your RPC about the recognised addresses specifically; pin a trusted endpoint in .env if that linkage matters to you.`}
+      </p>
       {error && (
         <p className="error" role="alert">
           {error}

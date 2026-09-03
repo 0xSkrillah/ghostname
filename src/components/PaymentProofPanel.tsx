@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { getSepoliaClient } from '../chain/clients';
 import { STEALTH_PAYMENT_EVIDENCE } from '../relay/evidence';
 import { verifyPaymentProof, type PaymentProof } from '../relay/paymentProof';
+import { describeError } from '../lib/describeError';
 
 const STATE_PILL: Record<string, string> = {
   pass: 'pill ok',
@@ -14,15 +15,29 @@ const STATE_PILL: Record<string, string> = {
  * Only transaction hashes are configured; every claim is re-derived, so stale
  * evidence fails a check rather than showing a false green.
  */
-export default function PaymentProofPanel() {
+export default function PaymentProofPanel({
+  onResult,
+}: {
+  /** Called after each run with whether every check passed. */
+  onResult?: (verified: boolean) => void;
+}) {
   const [proof, setProof] = useState<PaymentProof | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   async function run() {
     setBusy(true);
+    setError(null);
     try {
-      setProof(await verifyPaymentProof(getSepoliaClient() as never, STEALTH_PAYMENT_EVIDENCE));
+      const result = await verifyPaymentProof(getSepoliaClient() as never, STEALTH_PAYMENT_EVIDENCE);
+      setProof(result);
+      onResult?.(result.verified);
+    } catch (err) {
+      setError(
+        `Verification could not run: ${describeError(err)} Retry; if it persists, set ` +
+          'VITE_SEPOLIA_RPC_URL in .env to a provider you control.',
+      );
     } finally {
       setBusy(false);
       setTimeout(() => resultsRef.current?.focus(), 0);
@@ -43,6 +58,11 @@ export default function PaymentProofPanel() {
       </button>
 
       <div aria-live="polite" aria-busy={busy} ref={resultsRef} tabIndex={-1}>
+      {error && (
+        <p className="error small" role="alert">
+          {error}
+        </p>
+      )}
       {proof && (
         <>
           <p className="small" style={{ marginBottom: '0.5rem' }}>

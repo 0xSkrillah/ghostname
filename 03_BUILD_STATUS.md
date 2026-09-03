@@ -3,8 +3,8 @@
 Single source of truth for build state. Every figure here was verified against
 the repository, not carried over from an earlier draft.
 
-Last reconciled: 2026-09-02, after the final release audit (see
-`FINAL_AUDIT.md`), on branch `claude/ghostname-audit-release-bvi2yf`.
+Last reconciled: 2026-09-03, after the UI/UX audit and its fixes (see
+`UX_AUDIT.md`), on branch `claude/ui-ux-audit-f2419d`.
 
 ## Product position
 
@@ -22,8 +22,8 @@ Tagline unchanged: *Keep the ENS name. Break the payment graph.*
 |---|---|---|
 | `npm ci` | PASS | lockfile v3, Node 20+, `npm audit` reports 0 vulnerabilities |
 | `npm run typecheck` | PASS | no errors |
-| `npm test` | PASS | 237 passed, 11 skipped, 0 failed (25 files, 248 tests) |
-| `npm run build` | PASS | typecheck, vite build, then `scripts/check-bundle.mjs` (no personal name, credential pattern, private-key-shaped value or source map); app shell ~308 kB, viem ~334 kB, react ~49 kB, noble ~29 kB; CSP meta and build commit embedded |
+| `npm test` | PASS | 242 passed, 11 skipped, 0 failed (25 files, 253 tests) |
+| `npm run build` | PASS | typecheck, vite build, then `scripts/check-bundle.mjs` (no personal name, credential pattern, private-key-shaped value or source map); app shell ~316 kB, viem ~334 kB, react ~49 kB, noble ~29 kB; CSP meta and build commit embedded |
 | `npx vitest run tests/no-personal-name.test.ts tests/csp.test.ts` | PASS | release guards, including over `dist/` |
 | GitHub Actions `CI` (`.github/workflows/ci.yml`) | configured | runs the five rows above on Node 20 and 22 for every pull request, push to `main` and manual dispatch; read-only token, no secrets, `RUN_LIVE` never set |
 | `RUN_LIVE=1 npm run e2e:sepolia` | gated | needs `SEPOLIA_PRIVATE_KEY`; skipped otherwise |
@@ -115,11 +115,18 @@ Resolver, so they work on both ENS v1 and v2.
   claim about the published payment, announcement and sponsored exit from chain
   data, refusing look-alike events and foreign authorizations, with explicit
   not-proven lists.
-- **UI**: `/scan` audit with network selector, `/create` identity, backup,
-  encrypted capsule with restore, and publish preflight, `/pay` with the two
-  transactions shown before signing and a recovery path, `/receive` with
-  authoritative balances and the sweep package, `/privacy`, `/demo`.
-  Keyboard, screen-reader and 320 px layouts verified.
+- **UI**: `/scan` audit with network selector and a one-click retry on the
+  other network, `/create` with the record and publish path first, a
+  collapsed backup section (keys, plaintext export, encrypted capsule with
+  restore), a pre-sign simulation that blocks publishing from a wallet the
+  resolver rejects, and an inline discard confirmation, `/pay` with the two
+  transactions shown before signing, wallet errors beside the connect button
+  and a recovery path, `/receive` with field-level start-block validation
+  before any RPC call, authoritative balances and the sweep package,
+  `/privacy`, `/demo` with five counted steps, a completion card and the
+  boundary as a closing section. Keyboard, screen-reader, 375 px and 320 px
+  layouts verified, including with every proof panel rendered; nav targets
+  are 44 px. Full findings and their verification in `UX_AUDIT.md`.
 - **Secret handling**: no personal ENS name anywhere; error text scrubbed of
   URLs and key-shaped values; production CSP; no source maps; identity import
   validated; passphrase fields masked.
@@ -160,10 +167,17 @@ Resolver, so they work on both ENS v1 and v2.
   regression tests, plus the Low items an independent verification pass
   raised; docs reconciled with verified behaviour. Details, verification
   verdicts and residual risks in `FINAL_AUDIT.md`.
+- **UI/UX audit (done, 2026-09-03):** every route audited against the twenty
+  UX laws at desktop and 375 px with live chain reads; 2 High, 7 Medium,
+  8 Low and 1 Info findings, all fixed and re-verified on the dev server, with
+  tests for the new start-block parsing and the pre-sign write check.
+  Details in `UX_AUDIT.md`.
 
 ## Next action
 
-Record the two-minute backup video from `#/demo` with a locally configured
+Merge the UX audit branch, redeploy with `npm run deploy:pages` so the served
+bundle carries the fixes (the current gh-pages deployment predates them), then
+record the two-minute backup video from `#/demo` with a locally configured
 established mainnet name, and optionally deploy to Swarm with a booth postage
 stamp (see SWARM.md). Accept only fixes for failed acceptance tests or
 presentation-breaking bugs before the submission deadline.

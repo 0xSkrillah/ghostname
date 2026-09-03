@@ -30,6 +30,17 @@ function notify() {
   for (const listener of listeners) listener();
 }
 
+// Another tab of this origin created, imported or discarded the identity:
+// drop the cached copy so every mounted page re-reads storage.
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key === null || event.key === STORAGE_KEY) {
+      cache = undefined;
+      notify();
+    }
+  });
+}
+
 export function saveIdentity(keys: StealthKeys): void {
   cache = keys;
   try {
