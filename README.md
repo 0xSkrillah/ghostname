@@ -130,6 +130,8 @@ See [ARCHITECTURE.md](ARCHITECTURE.md). Summary:
 - `src/lib/`, `src/security/`: secret-free error text, strict amount
   parsing, and the production Content-Security-Policy.
 - `src/pages/`: Vite/React UI: `/scan /create /pay /receive /privacy /demo`.
+- `src/agent/`, `mcp/`, `cli/`: the read-only agent layer (section 11a). An
+  import-boundary test keeps it away from every signing and write path.
 
 **Key handling:** private keys are generated with a CSPRNG in the browser,
 used locally, and kept in `localStorage` for the demo scanner (a testnet
@@ -202,6 +204,10 @@ origin; never put a personal ENS name or an API key in a committed file.
 - `tests/identityBackup.test.ts`, `tests/capsule.test.ts`,
   `tests/describeError.test.ts`, `tests/mobula.test.ts`: untrusted input
   and secret handling.
+- `tests/agent.*.test.ts`, `tests/mcp.*.test.ts`, `tests/cli.test.ts`,
+  `tests/registry.test.ts`: the agent layer, including the import-boundary
+  rule that it can never reach a signing or write path, injection text in an
+  ENS record proven inert, and the five-parameter handoff.
 - `tests/no-personal-name.test.ts`, `tests/csp.test.ts`: release guards.
 - `tests/live.ens.test.ts`: gated (`RUN_LIVE=1`, `LIVE_MAINNET_ENS_NAME`)
   read-only checks.
@@ -278,6 +284,44 @@ was paid by the sponsor. The transaction the app verifies live is
 built entirely from the sweep package; an earlier run of the same mechanism is
 [`0x412cca80…efedc0`](https://sepolia.etherscan.io/tx/0x412cca80d621d5d58a38ef190c6a8c323d18adb1be3488f29868d1b4b2efedc0).
 Reproduce with `npm run sweep:sepolia`. Full design in [RELAYERS.md](RELAYERS.md).
+
+## 11a. AI agents: a local-first, read-only privacy adviser
+
+Ask your AI agent to audit any ENS name, explain its privacy leaks and guide
+you through a human-signed upgrade, without the agent ever seeing your keys.
+
+```bash
+npm run build:agent
+claude mcp add ghostname -- node ./dist-agent/ghostname-mcp.mjs
+```
+
+The local MCP server runs on your machine over stdio, uses your RPC, calls no
+GhostName API, collects nothing and keeps no history. It exposes five read-only
+tools (`ghostname_audit_ens_privacy`, `ghostname_prepare_upgrade`,
+`ghostname_reaudit_ens_privacy`, `ghostname_verify_payment`,
+`ghostname_verify_sponsored_exit`), five `ghostname://` resources, one prompt,
+and an inline MCP App view for hosts that support it. It has no wallet, no
+signing and no write capability, enforced by an import-boundary test
+(`tests/mcp.boundary.test.ts`) rather than by tool annotations. The upgrade
+itself happens in your browser through a secure handoff link to `/create` that
+carries only the name, chain id, report id and version; keys are generated
+there, the name is resolved again live, the wallet's write access is simulated
+before signing, and the record is written only after you approve it in your
+own wallet. The handoff never widens the network guards: the write network is
+still decided by the wallet and the build.
+
+Workflow: **audit, explain, prepare safe handoff, human wallet action, re-audit
+and prove.** A private-ready result means forward recipient-address privacy for
+compatible senders, never anonymity. The same functions are available as a CLI
+(`node dist-agent/ghostname.mjs audit name.eth --chain 1`).
+
+See [AGENTS.md](AGENTS.md) for Claude Code, Claude Desktop, Cursor, VS Code and
+MCP Inspector setup, the CLI, and the local versus remote privacy comparison;
+[AGENT_DEMO.md](AGENT_DEMO.md) for the live sequence;
+[AGENT_DISCOVERY.md](AGENT_DISCOVERY.md) for the draft ENSIP-26 agent records;
+[server.json](server.json) for the MCP Registry descriptor; and
+[.claude/skills/ens-privacy-advisor/SKILL.md](.claude/skills/ens-privacy-advisor/SKILL.md)
+for the Claude Agent Skill.
 
 ## 12. Known limitations
 

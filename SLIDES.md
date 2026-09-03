@@ -94,6 +94,18 @@ upgrades and proves the identity you already own, and custodies nothing.
 
 ---
 
+## Slide 7c. Agents get evidence, humans keep control (live in Claude Code)
+
+**Your AI agent can audit and guide the upgrade without ever seeing a key.**
+
+A local, read-only MCP server: five tools, no wallet, no signing, no writes.
+The agent gets stable findings and a secure link. You generate the keys in
+your browser and approve the transaction in your own wallet.
+
+> Speaker: "Ask Claude to audit a name. It calls a GhostName server running on my laptop, reads the chain, and names the exact leak with stable codes: static address exposed, stealth record missing. It hands me a link. The keys are generated in my browser, the transaction is signed by my wallet, and the agent never received either. Afterwards it re-audits and says what improved and what stays public. An import-boundary test guarantees the agent layer cannot sign or write, not a promise in a prompt."
+
+---
+
 ## Slide 8. Credibility
 
 **Every claim here is live on Sepolia, not mocked.**
@@ -120,8 +132,13 @@ Keep the ENS name. Break the payment graph.
 
 > "An ENS name ties your identity to one wallet forever. GhostName keeps the name but sends every future payment to a fresh one-time address that a passive observer cannot link to the name. Real ERC-5564 stealth addresses, resolved through ENS, proven live on Sepolia."
 
+Agent variant:
+
+> "Ask your AI agent to audit any ENS name, explain its privacy leaks and guide you through a human-signed upgrade, without the agent ever seeing your keys. GhostName gives agents evidence and gives humans control."
+
 ## Title-slide alternates
 
 - "Keep the ENS name. Break the payment graph." (default tagline)
 - "Your name is forever. Your payment history does not have to be."
 - "Forward privacy for the identity you already have."
+- "GhostName gives AI agents evidence and gives humans control."

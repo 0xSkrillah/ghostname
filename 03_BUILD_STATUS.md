@@ -3,9 +3,10 @@
 Single source of truth for build state. Every figure here was verified against
 the repository, not carried over from an earlier draft.
 
-Last reconciled: 2026-09-03, submission-copy pass on branch
-`claude/ghostname-hackathon-submission-aduy25`; the verified-command table was
-re-run from a clean `npm ci` on Node 22 with identical results.
+Last reconciled: 2026-09-03, after merging the AI-agent layer (PR #1) onto
+`main` with the release audit and UI/UX fixes, then the submission-copy pass on
+branch `claude/ghostname-hackathon-submission-aduy25`; every figure below was
+re-run from a clean `npm ci` on Node 22 on the merged tree.
 
 ## Product position
 
@@ -15,6 +16,10 @@ GhostName is the open privacy-assurance layer for ENS: **audit, upgrade, prove**
 - **Upgrade** an existing ENS identity in place, with no service-owned subdomain.
 - **Prove** the whole lifecycle, from local derivation to sponsored withdrawal.
 
+It is also readable by AI agents as a local-first, read-only privacy adviser
+(MCP server, CLI, Claude Agent Skill, secure web handoff). The agent gets
+evidence and a link; the human keeps the keys and the wallet.
+
 Tagline unchanged: *Keep the ENS name. Break the payment graph.*
 
 ## Verified commands
@@ -23,9 +28,11 @@ Tagline unchanged: *Keep the ENS name. Break the payment graph.*
 |---|---|---|
 | `npm ci` | PASS | lockfile v3, Node 20+, `npm audit` reports 0 vulnerabilities |
 | `npm run typecheck` | PASS | no errors |
-| `npm test` | PASS | 242 passed, 11 skipped, 0 failed (25 files, 253 tests) |
+| `npm test` | PASS | 316 passed, 11 skipped, 0 failed (35 files, 327 tests) |
 | `npm run build` | PASS | typecheck, vite build, then `scripts/check-bundle.mjs` (no personal name, credential pattern, private-key-shaped value or source map); app shell ~316 kB, viem ~334 kB, react ~49 kB, noble ~29 kB; CSP meta and build commit embedded |
 | `npx vitest run tests/no-personal-name.test.ts tests/csp.test.ts` | PASS | release guards, including over `dist/` |
+| `npm run build:agent` | PASS | esbuild bundles `dist-agent/ghostname-mcp.mjs` (stdio MCP), `ghostname-mcp-http.mjs` (optional remote profile), `ghostname.mjs` (CLI) and `ui/ghostname-audit.html` (MCP App view); `dist-agent/` is gitignored |
+| `npx vitest run tests/mcp.boundary.test.ts` | PASS | the agent, MCP and CLI import graph reaches no write, signing, wallet, key-custody or UI module and no `viem/accounts` or React package |
 | GitHub Actions `CI` (`.github/workflows/ci.yml`) | configured | runs the five rows above on Node 20 and 22 for every pull request, push to `main` and manual dispatch; read-only token, no secrets, `RUN_LIVE` never set |
 | `RUN_LIVE=1 npm run e2e:sepolia` | gated | needs `SEPOLIA_PRIVATE_KEY`; skipped otherwise |
 | `RUN_LIVE=1 npm run sweep:sepolia` | gated | needs `SEPOLIA_PRIVATE_KEY`; skipped otherwise |
@@ -48,7 +55,14 @@ Skipped tests are the network-gated live suites: `tests/live.ens.test.ts`
   `VITE_SCAN_START_BLOCK=11612900`.
 - Routes: `/` `/scan` `/create` `/pay` `/receive` `/privacy` `/demo` (hash router,
   so every route deep-links on a static host). The footer shows the commit the
-  served bundle was built from.
+  served bundle was built from. **The deployment predates the agent merge**, so
+  the `/create` agent handoff is not live until `npm run deploy:pages` is run
+  again from `main`.
+- Agent layer: `npm run build:agent && npm run mcp` (stdio MCP server),
+  `node dist-agent/ghostname.mjs audit <name> --chain <id> [--json]` (CLI),
+  `npm run mcp:http` (optional stateless Streamable HTTP profile, loopback by
+  default). Setup for Claude Code, Claude Desktop, Cursor and VS Code in
+  `AGENTS.md`; live sequence in `AGENT_DEMO.md`.
 
 ## Networks and keys
 
@@ -134,6 +148,30 @@ Resolver, so they work on both ENS v1 and v2.
 - **Mobula exposure panel** (opt-in per click, hardened parsing) and
   **encrypted testnet recovery capsule** (PBKDF2-SHA256 600k, AES-256-GCM,
   header-bound, in-app restore).
+- **Agent service layer** (`src/agent/`): transport-free adapter over GhostCheck
+  and the two evidence verifiers. Versioned `AgentPrivacyReport` with stable
+  finding codes, sanitised strings, no sample derivation addresses or record
+  values by default, a SHA-256 content-derived report id over canonical JSON,
+  and a secure handoff URL limited to five non-secret parameters. Any RPC
+  failure yields `unknown`, never a pass.
+- **Local MCP server** (`mcp/`): official TypeScript SDK v2 over stdio; five
+  read-only tools (`ghostname_audit_ens_privacy`, `ghostname_prepare_upgrade`,
+  `ghostname_reaudit_ens_privacy`, `ghostname_verify_payment`,
+  `ghostname_verify_sponsored_exit`) with strict zod input and output schemas,
+  five `ghostname://` resources, the `improve-ens-privacy` prompt, and an
+  inline MCP App view with a text and structured fallback. No tool accepts an
+  RPC URL or a key. Injection text in an ENS record is proven inert by test.
+- **CLI** (`cli/`) and **Claude Agent Skill**
+  (`.claude/skills/ens-privacy-advisor/`) over the same service functions.
+- **Secure web handoff** (`/create`): accepts only name, chainId, source,
+  reportId and version; states that key generation happens in the browser,
+  outside the agent; re-resolves the name live; keeps every network guard and
+  the pre-sign resolver check from the release audit (the handoff never
+  changes the write network); offers a re-audit instruction afterwards.
+- **Registry and discovery preparation**: `server.json`, `AGENTS.md`,
+  `llms.txt`, `AGENT_DISCOVERY.md`, and `scripts/prepare-agent-records.mjs`
+  (draft ENSIP-26 records, Sepolia only, behind a typed confirmation; refuses
+  the locally configured protected mainnet name).
 
 ## Known limitations, stated honestly
 
@@ -153,7 +191,11 @@ Resolver, so they work on both ENS v1 and v2.
 - Amounts, sender identity, timing and history remain public. GhostName is
   forward privacy only.
 - No DOM-level test runner: page wiring is verified by typecheck, reading and
-  headless rendering rather than unit tests.
+  headless rendering rather than unit tests. The `/create` handoff cards were
+  re-ported onto the audited page during the merge and verified by typecheck
+  and reading; re-check them in a browser before recording the agent cut.
+- The MCP registry descriptor names an npm package that is not published yet;
+  `agent-endpoint[mcp]` is withheld until an endpoint exists.
 
 ## Phase log
 
@@ -168,6 +210,12 @@ Resolver, so they work on both ENS v1 and v2.
   regression tests, plus the Low items an independent verification pass
   raised; docs reconciled with verified behaviour. Details, verification
   verdicts and residual risks in `FINAL_AUDIT.md`.
+- **AI-agent layer (merged 2026-09-03, PR #1):** read-only MCP server, CLI,
+  skill, secure handoff, remote profile and discovery preparation. Merged onto
+  the release-audited `main`: the personal ENS name the branch still carried
+  was scrubbed from every file, `hasHighS` moved into the signing-free
+  `sweepTypes` module so the import boundary holds, the handoff was re-ported
+  onto the audited `/create` page, and the lockfile was regenerated.
 - **UI/UX audit (done, 2026-09-03):** every route audited against the twenty
   UX laws at desktop and 375 px with live chain reads; 2 High, 7 Medium,
   8 Low and 1 Info findings, all fixed and re-verified on the dev server, with
@@ -176,8 +224,10 @@ Resolver, so they work on both ENS v1 and v2.
 
 ## Next action
 
-Record the submission video from `VIDEO_SCRIPT.md` (two-minute cut, optional
-three-minute extended cut) with a locally configured established mainnet name,
-and paste `SUBMISSION.md` into the submission form. Then and optionally deploy to Swarm with a booth postage
+Redeploy with `npm run deploy:pages` from `main` so the agent handoff is live,
+record the submission video from `VIDEO_SCRIPT.md` (two-minute cut, the agent
+cut, and optionally the three-minute extended cut) with a locally configured
+established mainnet name, and paste `SUBMISSION.md` into the submission form.
+Optionally deploy to Swarm with a booth postage
 stamp (see SWARM.md). Accept only fixes for failed acceptance tests or
 presentation-breaking bugs before the submission deadline.
