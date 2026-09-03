@@ -41,10 +41,10 @@ Skipped tests are the network-gated live suites: `tests/live.ens.test.ts`
   published with `npm run deploy:pages`, which refuses a dirty tree or a
   mainnet-enabled build, rebuilds from `npm ci`, verifies the CSP, the embedded
   commit and the no-personal-name guard, then appends to gh-pages).
-  Current deployment: gh-pages commit `d5c5a00`, built from source commit
-  `7765e3a` of this branch with `VITE_DEMO_SEPOLIA_NAME=ghostname-3c7714.eth`
-  and `VITE_SCAN_START_BLOCK=11612900`; later commits on the branch change
-  documentation only.
+  Current deployment: gh-pages commit `e6bc43e`, built from source commit
+  `9917939e63dd` (`main` after PR #3, the UI/UX audit fixes) with
+  `VITE_DEMO_SEPOLIA_NAME=ghostname-3c7714.eth` and
+  `VITE_SCAN_START_BLOCK=11612900`.
 - Routes: `/` `/scan` `/create` `/pay` `/receive` `/privacy` `/demo` (hash router,
   so every route deep-links on a static host). The footer shows the commit the
   served bundle was built from.
@@ -175,9 +175,7 @@ Resolver, so they work on both ENS v1 and v2.
 
 ## Next action
 
-Merge the UX audit branch, redeploy with `npm run deploy:pages` so the served
-bundle carries the fixes (the current gh-pages deployment predates them), then
-record the two-minute backup video from `#/demo` with a locally configured
+Record the two-minute backup video from `#/demo` with a locally configured
 established mainnet name, and optionally deploy to Swarm with a booth postage
 stamp (see SWARM.md). Accept only fixes for failed acceptance tests or
 presentation-breaking bugs before the submission deadline.
