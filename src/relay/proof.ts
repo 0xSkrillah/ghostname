@@ -22,7 +22,7 @@ import {
   SWEEP_DOMAIN_VERSION,
   SWEEP_TYPES,
   hasHighS,
-} from './sweep';
+} from './sweepTypes';
 import type { SweepEvidenceRef } from './evidence';
 import { describeError } from '../lib/describeError';
 
