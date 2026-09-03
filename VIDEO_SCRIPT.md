@@ -43,9 +43,9 @@ the recording from this page alone.
    `node dist-agent/ghostname.mjs audit name.eth --chain 1` (your locally
    configured established name) prints INCOMPLETE and that
    `... audit ghostname-3c7714.eth --chain 11155111` prints PRIVATE-READY. The
-   handoff link opens the deployed `#/create`, so redeploy from `main` first
-   (`npm run deploy:pages`) or point `GHOSTNAME_WEB_BASE_URL` at a local dev
-   server.
+   handoff link opens the deployed `#/create`, which carries the agent merge
+   (gh-pages `b618f54`); point `GHOSTNAME_WEB_BASE_URL` at a local dev server
+   only if you want to record against unpushed changes.
 
 ## What the app does, feature by feature
 
