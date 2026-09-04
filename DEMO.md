@@ -102,7 +102,8 @@ On stage:
 5. **The upgraded name.** "Audit ghostname-3c7714.eth on Sepolia." PRIVATE-READY
    for compatible senders; the static address warning remains, on purpose.
 6. **Prove.** Ask the agent to verify the real payment and announcement, then
-   the real sponsored exit. Both verify from chain data, eight checks each, and
+   the real sponsored exit. Both verify from chain data, eight checks for the
+   payment and nine for the exit, and
    both keep their not-proven list.
 7. **Close.** "GhostName gives AI agents evidence and gives humans control.
    Keep the ENS name. Break the payment graph."

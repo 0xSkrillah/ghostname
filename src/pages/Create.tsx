@@ -373,7 +373,7 @@ export default function Create() {
           <div className="card inset" data-testid="agent-handoff">
             <span className="label">Agent handoff</span>
             <p className="small" style={{ marginTop: 0 }}>
-              You arrived from an AI agent. It passed only a name, a chain id and a report id.{' '}
+              You arrived from an AI agent. It passed only a name, a chain id, a source tag, a report id and a version.{' '}
               <strong>Key generation happens here, in this browser, outside the agent.</strong> The
               agent has not received, and will not receive, any key, record value or transaction
               authority. Publishing needs your own wallet approval.
