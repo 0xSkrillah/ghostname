@@ -52,7 +52,7 @@ Full sequence with expected outputs in `AGENT_DEMO.md`; slide order in
 8. Ask: “Audit ghostname-3c7714.eth on Sepolia.” Show PRIVATE-READY for
    compatible senders.
 9. Ask the agent to verify the real payment and announcement: VERIFIED, 8 of 8.
-10. Ask the agent to verify the real sponsored exit: VERIFIED, 8 of 8, with
+10. Ask the agent to verify the real sponsored exit: VERIFIED, 9 of 9, with
     the not-proven list.
 11. Close: “GhostName gives AI agents evidence and gives humans control.
     Keep the ENS name. Break the payment graph.”
