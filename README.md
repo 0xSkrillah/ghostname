@@ -174,6 +174,8 @@ npm run build         # typecheck + production build with CSP and build commit
 
 The same commands (`npm ci`, typecheck, tests, build, release guards) run in
 GitHub Actions on every pull request; see `.github/workflows/ci.yml`.
+`.gitattributes` pins LF line endings, so a Windows clone (even with
+`core.autocrlf=true`) checks out the same bytes CI tests.
 
 Copy `.env.example` to `.env` to pin your own RPC endpoints and demo
 pre-fills (recommended for presentations). Every `VITE_*` value is inlined
