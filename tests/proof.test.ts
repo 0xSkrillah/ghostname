@@ -1,5 +1,5 @@
 /**
- * Phase 2: independent verification of the sponsored exit.
+ * Independent verification of the sponsored exit.
  *
  * The point of these tests is that the proof panel cannot show a green result
  * unless the chain data actually supports it, and that anything the RPC cannot

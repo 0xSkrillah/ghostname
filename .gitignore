@@ -10,3 +10,6 @@ dist-agent/
 coverage/
 # Testnet-only demo key material and run evidence — never commit.
 .demo/
+
+# Local-only working notes, specs and submission material. Never committed.
+private/

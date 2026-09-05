@@ -136,12 +136,9 @@ node dist-agent/ghostname.mjs verify-exit <sweepTx> --chain <id> [--executor <ad
 The CLI and the MCP tools call the same service functions and emit the same
 schema versions.
 
-## Changing GhostName as a coding agent
+## Contributing
 
-Read `CLAUDE.md`, then `02_GHOSTNAME_MASTER_SPEC.md`, `03_BUILD_STATUS.md` and
-`04_DEMO_AND_SUBMISSION.md`.
-
-Hard rules:
+Hard rules for any change:
 
 - The established mainnet name used as demo input is read-only. It is configured
   only in a local, uncommitted `.env` (`VITE_DEMO_MAINNET_NAME`) and must never
@@ -155,8 +152,8 @@ Hard rules:
 - Tool inputs stay strict. No RPC URL, key or secret parameter, ever.
 - No numeric privacy score. Findings are `observed`, `model` or `unknown`.
 - Never describe a successful audit as anonymity.
-- After every milestone: `npm run typecheck`, `npm test`, `npm run build`,
-  `npm run build:agent`, then update `03_BUILD_STATUS.md` with exact results.
+- Before every push: `npm run typecheck`, `npm test`, `npm run build`,
+  `npm run build:agent`. CI runs the same checks on every pull request.
 
 Layout:
 

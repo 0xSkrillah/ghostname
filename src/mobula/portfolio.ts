@@ -1,5 +1,5 @@
 /**
- * P2 — Mobula public-exposure panel.
+ * Mobula public-exposure panel.
  *
  * Demonstrates how much public financial information a STATIC ENS→wallet
  * mapping leaks. Uses Mobula's keyless demo endpoint by default so the panel

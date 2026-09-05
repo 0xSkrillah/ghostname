@@ -1,6 +1,6 @@
-# GhostName on Swarm (P3)
+# GhostName on Swarm
 
-Two independent P3 capabilities. Both keep to the spec's rule: **testnet only,
+Two independent capabilities. Both keep to one rule: **testnet only,
 and nothing sensitive is ever uploaded in plaintext.**
 
 ## 1. Encrypted recovery capsule (implemented + tested)

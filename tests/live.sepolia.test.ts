@@ -6,7 +6,7 @@
  *
  * The demo ENS name is registered once via `node scripts/register-v2-name.mjs`
  * (Sepolia runs the ENSv2 registrar; registration pays in freely-mintable
- * test USDC). This suite then proves P0 on-chain using the application's own
+ * test USDC). This suite then proves the core flow on-chain using the application's own
  * code paths:
  *   name resolves → publish stealth-meta-address[1] via the app write path
  *   → resolve → derive A/B (A≠B) → pay A → announce → scan → recognise
