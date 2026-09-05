@@ -109,7 +109,7 @@ import {
   SWEEP_DOMAIN_NAME,
   SWEEP_DOMAIN_VERSION,
   SWEEP_TYPES,
-} from './sweepTypes';
+} from './sweepTypes.ts';
 export { EXECUTOR_SWEEP_ABI, SWEEP_DOMAIN_NAME, SWEEP_DOMAIN_VERSION, SWEEP_TYPES, hasHighS };
 
 export interface NativeSweepPackageParams {

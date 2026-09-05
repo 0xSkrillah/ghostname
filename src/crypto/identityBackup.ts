@@ -13,8 +13,8 @@
  */
 import { secp256k1 } from '@noble/curves/secp256k1';
 import { bytesToHex, hexToBytes, isHex, type Hex } from 'viem';
-import { encodeStealthMetaAddress, parseStealthMetaAddress } from './metaAddress';
-import type { StealthKeys } from './stealth';
+import { encodeStealthMetaAddress, parseStealthMetaAddress } from './metaAddress.ts';
+import type { StealthKeys } from './stealth.ts';
 
 export class InvalidIdentityBackupError extends Error {
   constructor(message: string) {
