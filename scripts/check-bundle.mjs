@@ -17,6 +17,8 @@ if (!existsSync(join(DIST, 'index.html'))) {
 const FORBIDDEN_NAME_DIGESTS = new Set([
   '62bbfd493f99f44bbac4f353e1aba14cd8c3fd8fa13c6660503a49455441d98d',
 ]);
+// Controlled demo identities minted by scripts/register-v2-name.mjs: ghostname- plus six hex.
+const CONTROLLED_DEMO_NAME = /^ghostname-[0-9a-f]{6}\.eth$/;
 const ALLOWED_NAMES = new Set([
   'name.eth',
   'ghostname-3c7714.eth',
@@ -57,7 +59,7 @@ for (const file of walk(DIST)) {
     const name = m[1];
     if (FORBIDDEN_NAME_DIGESTS.has(createHash('sha256').update(name).digest('hex'))) {
       problems.push(`${file}: forbidden personal ENS name`);
-    } else if (!ALLOWED_NAMES.has(name) && !file.endsWith('.css')) {
+    } else if (!ALLOWED_NAMES.has(name) && !CONTROLLED_DEMO_NAME.test(name) && !file.endsWith('.css')) {
       problems.push(`${file}: non-allowlisted ENS name ${name}`);
     }
   }
