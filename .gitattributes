@@ -1,0 +1,9 @@
+# Check every text file out with LF line endings on every platform.
+#
+# Vite's SSR transform (used by vitest) only recognises a leading shebang when
+# the line ends in LF; a CRLF checkout (Windows core.autocrlf=true) leaves the
+# "#!" line in the middle of the transformed module and every test that
+# imports the script fails with "Invalid or unexpected token". Shell scripts
+# and lockfiles are just as sensitive. Pinning LF makes a Windows clone behave
+# exactly like CI (ubuntu-latest).
+* text=auto eol=lf
