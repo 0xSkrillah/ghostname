@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Bundle the agent entry points for Node with esbuild, plus the MCP App view.
  *
