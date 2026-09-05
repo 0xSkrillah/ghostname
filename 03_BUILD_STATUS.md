@@ -229,10 +229,11 @@ Resolver, so they work on both ENS v1 and v2.
 
 ## Next action
 
-Record the submission video from `VIDEO_SCRIPT.md` (two-minute cut, the agent
-cut, and optionally the three-minute extended cut) with a locally configured
-established mainnet name, open one agent handoff link on the deployed
-`#/create` first to check the re-ported cards in a browser, and paste
+Follow `VIDEO_SCRIPT.md`, now the complete recording guide for a fresh laptop
+(what to carry over, setup, pre-flight, the three cuts, assembly, fallbacks),
+resolve its remaining [CHECK] notes on the recording machine, open one agent
+handoff link on the deployed `#/create` first to check the re-ported cards in a
+browser, hand `SLIDES.md` to Claude Design for the deck, and paste
 `SUBMISSION.md` into the submission form.
 Optionally deploy to Swarm with a booth postage
 stamp (see SWARM.md). Accept only fixes for failed acceptance tests or

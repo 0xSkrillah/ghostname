@@ -304,7 +304,7 @@ and an inline MCP App view for hosts that support it. It has no wallet, no
 signing and no write capability, enforced by an import-boundary test
 (`tests/mcp.boundary.test.ts`) rather than by tool annotations. The upgrade
 itself happens in your browser through a secure handoff link to `/create` that
-carries only the name, chain id, report id and version; keys are generated
+carries only the name, chain id, source, report id and version; keys are generated
 there, the name is resolved again live, the wallet's write access is simulated
 before signing, and the record is written only after you approve it in your
 own wallet. The handoff never widens the network guards: the write network is

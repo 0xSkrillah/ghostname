@@ -153,7 +153,8 @@ needs the private viewing key, which the tool never asks for.
 `ghostname_verify_sponsored_exit` checks the EIP-7702 type, the sponsor paying
 gas, the delegation target, the calldata binding, the EIP-712 intent signature
 recovering to the stealth address, the Swept event and the current balance.
-Expected: VERIFIED, 8 of 8. Not proven, and said so: that the destination is
+Expected: VERIFIED, 9 of 9 (the ninth is a present-state check of the swept
+account's delegation, which the RPC must be able to read). Not proven, and said so: that the destination is
 unrelated to the recipient.
 
 ### 12. Close

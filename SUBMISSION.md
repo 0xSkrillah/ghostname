@@ -207,7 +207,7 @@ re-audit and prove.**
   `STEALTH_RECORD_MISSING`), with anything it could not establish marked
   unknown rather than guessed. Any RPC failure yields unknown, never a pass.
 - **Handoff.** The agent prepares an upgrade plan and a link to the web app
-  that carries only the name, chain id, report id and version. The page states
+  that carries only the name, chain id, source, report id and version. The page states
   that key generation happens in the browser, outside the agent, resolves the
   name again live, simulates the wallet's write access before signing, and
   writes the record only after the human approves it in their own wallet.
