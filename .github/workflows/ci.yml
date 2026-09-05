@@ -1,7 +1,7 @@
 # Continuous integration for GhostName.
 #
 # Runs the same commands a contributor runs locally (see README and
-# 03_BUILD_STATUS.md): install from the lockfile, typecheck, the offline test
+# the README): install from the lockfile, typecheck, the offline test
 # suite, the production build with its bundle guard, and the release guards
 # over dist/. Network-gated live suites stay skipped: RUN_LIVE is never set
 # here and no secrets are used, so CI can never spend testnet funds or touch

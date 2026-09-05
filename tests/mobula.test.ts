@@ -1,5 +1,5 @@
 /**
- * P2 — Mobula exposure parser. Uses a mocked fetch with a real demo-endpoint
+ * Mobula exposure parser. Uses a mocked fetch with a real demo-endpoint
  * response shape so the panel logic is covered without a network call.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';

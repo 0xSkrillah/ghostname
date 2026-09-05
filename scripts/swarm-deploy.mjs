@@ -1,5 +1,5 @@
 /**
- * P3 — deploy the built static app (dist/) to Swarm.
+ * Deploy the built static app (dist/) to Swarm.
  *
  * Swarm uploads require a running Bee node and a FUNDED postage stamp (xBZZ).
  * At the Common S3nse venue the booth provisions a gateway stamp; otherwise

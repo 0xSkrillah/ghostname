@@ -1,5 +1,5 @@
 /**
- * P2: verify the published stealth payment and announcement from chain data.
+ * Verify the published stealth payment and announcement from chain data.
  *
  * The load-bearing check is the binding one: the announcement must name the
  * same address the payment actually funded. A mismatch there means the

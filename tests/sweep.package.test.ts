@@ -1,5 +1,5 @@
 /**
- * Phase 0: the complete, destination-bound sweep package.
+ * The complete, destination-bound sweep package.
  *
  * The defect these tests lock down: shipping only the EIP-7702 delegation is
  * both non-executable and misleading, because the delegation binds

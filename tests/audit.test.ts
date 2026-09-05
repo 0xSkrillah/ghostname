@@ -1,5 +1,5 @@
 /**
- * Phase 1: GhostCheck ENS privacy conformance audit.
+ * GhostCheck ENS privacy conformance audit.
  *
  * The audit must be honest above all: precedence has to be correct, malformed
  * and conflicting records must be caught rather than silently ignored, unknown
