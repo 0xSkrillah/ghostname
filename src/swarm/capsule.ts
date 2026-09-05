@@ -1,5 +1,5 @@
 /**
- * P3 — client-side encrypted recovery capsule.
+ * Client-side encrypted recovery capsule.
  *
  * TESTNET ONLY. Encrypts a GhostName receive identity (viewing/spending keys)
  * locally with Web Crypto BEFORE it could ever be uploaded to Swarm, so no
@@ -227,7 +227,7 @@ export async function decryptCapsule<T = unknown>(
 
 /**
  * Guard: only permit identities flagged testnet. This keeps the feature within
- * the spec's TESTNET-ONLY boundary and prevents accidental mainnet key backup.
+ * the TESTNET-ONLY boundary and prevents accidental mainnet key backup.
  * Applied on capsule export and on capsule import.
  */
 export function assertTestnetOnly(meta: { network?: string }): void {

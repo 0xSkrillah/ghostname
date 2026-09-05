@@ -29,9 +29,8 @@ ghostname_verify_sponsored_exit. Chains: 1 and 11155111 only.
 - [README.md](README.md): problem, threat model, mechanism, live evidence.
 - [ARCHITECTURE.md](ARCHITECTURE.md): modules and assurance layers.
 - [RELAYERS.md](RELAYERS.md): sponsored EIP-7702 and EIP-3009 exits.
-- [03_BUILD_STATUS.md](03_BUILD_STATUS.md): verified build state.
 
 ## Optional
 
-- [DEMO.md](DEMO.md), [SLIDES.md](SLIDES.md), [VIDEO_SCRIPT.md](VIDEO_SCRIPT.md): presentation material.
+- [DEMO.md](DEMO.md): the demo runbook.
 - [SWARM.md](SWARM.md): Swarm deployment and encrypted testnet recovery capsule.
