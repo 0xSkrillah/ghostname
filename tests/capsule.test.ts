@@ -1,5 +1,5 @@
 /**
- * P3 — client-side encrypted recovery capsule. Proves round-trip integrity,
+ * Client-side encrypted recovery capsule. Proves round-trip integrity,
  * wrong-passphrase rejection, tamper detection, and that no plaintext key
  * material appears in the serialized capsule.
  */

@@ -121,8 +121,3 @@ On stage:
 - Claude Code unavailable → run the same sequence with the CLI in a terminal
   (commands at the end of AGENT_DEMO.md). Same service functions, same output.
 - Total network failure → play the backup video.
-
-## Freeze rule
-
-After the backup video is recorded (Friday night), only fixes for failed
-acceptance tests or presentation-breaking bugs. No new features.
