@@ -22,6 +22,8 @@ const sh = (cmd, opts = {}) => execSync(cmd, { stdio: 'inherit', ...opts });
 const FORBIDDEN_NAME_DIGESTS = new Set([
   '62bbfd493f99f44bbac4f353e1aba14cd8c3fd8fa13c6660503a49455441d98d',
 ]);
+// Controlled demo identities minted by scripts/register-v2-name.mjs: ghostname- plus six hex.
+const CONTROLLED_DEMO_NAME = /^ghostname-[0-9a-f]{6}\.eth$/;
 const ALLOWED_NAMES = new Set([
   'name.eth',
   'ghostname-3c7714.eth',
@@ -75,7 +77,7 @@ for (const file of files) {
   for (const m of text.toLowerCase().matchAll(/\b([a-z0-9-]+\.eth)\b/g)) {
     const name = m[1];
     const digest = createHash('sha256').update(name).digest('hex');
-    if (FORBIDDEN_NAME_DIGESTS.has(digest) || (!ALLOWED_NAMES.has(name) && !file.endsWith('.css'))) {
+    if (FORBIDDEN_NAME_DIGESTS.has(digest) || (!ALLOWED_NAMES.has(name) && !CONTROLLED_DEMO_NAME.test(name) && !file.endsWith('.css'))) {
       console.error(`Bundle contains a non-allowlisted ENS name in ${file}: ${name}; aborting.`);
       process.exit(1);
     }

@@ -22,12 +22,20 @@ const FORBIDDEN_NAME_DIGESTS = new Set([
  */
 const ALLOWED_IN_APP = new Set([
   'name.eth', // neutral placeholder
-  'ghostname-3c7714.eth', // controlled Sepolia demo identity
+  'ghostname-3c7714.eth', // the original controlled Sepolia demo identity
   'your-name.eth',
   'your-test-name.eth',
   'ghostname-enabled-name.eth',
   'st:eth',
 ]);
+
+/**
+ * Every controlled demo identity minted by scripts/register-v2-name.mjs is
+ * `ghostname-` plus the first six hex characters of the throwaway account, so a
+ * fresh demo identity registered on another machine is allowed without editing
+ * this guard. A personal name can never take this shape.
+ */
+const CONTROLLED_DEMO_NAME = /^ghostname-[0-9a-f]{6}\.eth$/;
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -72,7 +80,9 @@ describe('no personal ENS name ships', () => {
     for (const file of APP_FILES) {
       const names = ethNames(readFileSync(file, 'utf8'));
       for (const name of names) {
-        if (!ALLOWED_IN_APP.has(name)) offenders.push(`${relative(ROOT, file)}: ${name}`);
+        if (!ALLOWED_IN_APP.has(name) && !CONTROLLED_DEMO_NAME.test(name)) {
+          offenders.push(`${relative(ROOT, file)}: ${name}`);
+        }
       }
     }
     expect(offenders).toEqual([]);

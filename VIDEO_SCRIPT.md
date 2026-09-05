@@ -1,6 +1,6 @@
 # GhostName: Recording Guide and Video Script
 
-This guide is for the project author, recording the hackathon submission video on a new laptop. It assumes the laptop has nothing installed and holds nothing from the machine the project was built on. Section 1 tells you what to carry over. Section 2 sets the laptop up, command by command. Section 3 is the pre-flight check. Section 4 is the script, which you can drive line by line. Sections 5 to 7 cover assembly, submission, fallbacks and links.
+This guide is for the project author, recording the hackathon submission video on a new laptop. It assumes the laptop has nothing installed and holds nothing from the machine the project was built on. Section 1 tells you what to carry over, and 1b what to do when you cannot carry anything over. Section 2 sets the laptop up, command by command. Section 3 is the pre-flight check. Section 4 is the script, which you can drive line by line. Sections 5 to 7 cover assembly, submission, fallbacks and links.
 
 One sentence first: GhostName keeps your ENS name and gives every future payment from a compatible sender a fresh one-time address that an ordinary observer cannot link to the name. The video records that claim. Every step is live. Nothing is precomputed.
 
@@ -23,10 +23,10 @@ A fresh clone of https://github.com/0xSkrillah/ghostname contains the whole app,
 | Item | Where it is on the old machine | Why you need it | Cuts that need it | If you do not have it |
 |---|---|---|---|---|
 | Your established mainnet name | The value of `VITE_DEMO_MAINNET_NAME` in the old `.env`, or your memory | It is the read-only input for `#/scan`, `#/demo` step 1 and the agent audit. It is deliberately absent from every committed file, so the new laptop cannot recover it from the repository. | Two-minute cut, agent cut, extended cut | Any established mainnet name works as a read-only audit input, because the audit only reads public ENS records. Prefer a name you own. Never write to it. |
-| `SEPOLIA_PRIVATE_KEY` | The old `.env` | Throwaway testnet key. Its account registered `ghostname-3c7714.eth` and controls that name's resolver. Used only by the operator scripts under `scripts/` that call `loadTestnetKey` (`scripts/register-v2-name.mjs`, `scripts/relayer-sweep.mjs`, `scripts/prepare-agent-records.mjs`, `scripts/wait-and-run-e2e.mjs`, `scripts/try-register-variants.mjs`) and the live suites (`npm run e2e:sepolia`, `npm run sweep:sepolia`). Never used by the web app or the agent layer. | None. No cut writes with it. | Leave it empty. The stealth record on `ghostname-3c7714.eth` is already published and the proof panels verify existing chain data. Without it you cannot republish that record or put a fresh on-chain sweep on camera; both are optional. |
+| `SEPOLIA_PRIVATE_KEY` (see 1b if you cannot get it) | The old `.env` | Throwaway testnet key. Its account registered `ghostname-3c7714.eth` and controls that name's resolver. Used only by the operator scripts under `scripts/` that call `loadTestnetKey` (`scripts/register-v2-name.mjs`, `scripts/relayer-sweep.mjs`, `scripts/prepare-agent-records.mjs`, `scripts/wait-and-run-e2e.mjs`, `scripts/try-register-variants.mjs`) and the live suites (`npm run e2e:sepolia`, `npm run sweep:sepolia`). Never used by the web app or the agent layer. | None. No cut writes with it. | Leave it empty. The stealth record on `ghostname-3c7714.eth` is already published and the proof panels verify existing chain data. Without it you cannot republish that record or put a fresh on-chain sweep on camera; both are optional. |
 | `VITE_MAINNET_RPC_URL`, `VITE_SEPOLIA_RPC_URL`, `VITE_MAINNET_RPC_FALLBACKS`, `VITE_SEPOLIA_RPC_FALLBACKS` | The old `.env` | Optional pinned RPC endpoints for a local build. Only for reliability. | Only a local `npm run dev` build; the deployed app uses its own built-in endpoints | Leave them empty. Built-in public defaults are used: publicnode, drpc and 1rpc for both chains, each with a 10 second timeout and one retry of the whole list. |
 | `GHOSTNAME_MAINNET_RPC_URL`, `GHOSTNAME_SEPOLIA_RPC_URL` | The old `.env` or shell profile | Optional pinned RPC endpoints for the agent server and CLI. | Agent cut, only for reliability | Leave them empty. Same public endpoints as the web app (the agent layer keeps viem's default retry count, so it can wait longer than the web app when every endpoint is down). |
-| `.demo/identity.json` | `<old clone>/.demo/identity.json`, a 547-byte file with mode 600 in a mode 700 folder | The receive identity: spending and viewing private keys plus the meta-address, in the same JSON shape as a `ghostname-identity.json` backup. Its `stealth-meta-address[1]` record is what `ghostname-3c7714.eth` publishes. `#/receive` needs it to recognise the real prior payments and to build a sweep package. | Two-minute cut, segment "The recipient view". Extended cut, the scan after Insert B. | Without it `#/receive` shows only "No local identity found." with the link "Create or import one first". Every `#/demo` proof, `#/scan` and `#/privacy` still run, because `#/demo` step 4 generates its own recipient and stranger keys and the proof panels re-verify published chain data. Drop the Receive segment as described in section 6. Equivalent substitutes: a `ghostname-identity.json` exported from the old browser with "Download backup (plaintext JSON)", or a `ghostname-capsule.json` plus its passphrase exported with "Download encrypted capsule". If the old browser still holds the identity, open the old machine's `#/create`, click "Show keys and backup options" and export one of those now. |
+| `.demo/identity.json` (see 1b if you cannot get it) | `<old clone>/.demo/identity.json`, a 547-byte file with mode 600 in a mode 700 folder | The receive identity: spending and viewing private keys plus the meta-address, in the same JSON shape as a `ghostname-identity.json` backup. Its `stealth-meta-address[1]` record is what `ghostname-3c7714.eth` publishes. `#/receive` needs it to recognise the real prior payments and to build a sweep package. | Two-minute cut, segment "The recipient view". Extended cut, the scan after Insert B. | Without it `#/receive` shows only "No local identity found." with the link "Create or import one first". Every `#/demo` proof, `#/scan` and `#/privacy` still run, because `#/demo` step 4 generates its own recipient and stranger keys and the proof panels re-verify published chain data. Drop the Receive segment as described in section 6. Equivalent substitutes: a `ghostname-identity.json` exported from the old browser with "Download backup (plaintext JSON)", or a `ghostname-capsule.json` plus its passphrase exported with "Download encrypted capsule". If the old browser still holds the identity, open the old machine's `#/create`, click "Show keys and backup options" and export one of those now. |
 | `.demo/v2-registration.json` | `<old clone>/.demo/` | Idempotent state file of `scripts/register-v2-name.mjs`. Only read when that script is re-run. | None | Nothing to do. It is not present in the build machine's checkout either. |
 | Other `.demo/` files: `executor.json`, `sweep-state.json`, `sweep-evidence.json`, `e2e-evidence.json` | `<old clone>/.demo/` | Inputs and outputs of `npm run sweep:sepolia` and `npm run e2e:sepolia`. | None | Nothing to do. `executor.json` is regenerated by `node scripts/compile-executor.mjs` if ever needed. |
 | The presenter wallet: the MetaMask account holding Sepolia ETH, as its secret recovery phrase (seed phrase) or the account's private key | MetaMask on the old machine | Only for the extended cut: connecting a wallet on `#/create` (Insert A) and sending the live payment on `#/pay` (Insert B). | Extended cut only | Create a new wallet in MetaMask on the new laptop and fund it from a Sepolia faucet (section 2, step 7). Or skip the inserts. The two-minute cut and the agent cut need no wallet at all. |
@@ -35,7 +35,7 @@ A fresh clone of https://github.com/0xSkrillah/ghostname contains the whole app,
 
 ### Which cuts need which item, in one list
 
-- Two-minute cut: your established mainnet name, `.demo/identity.json` (for the Receive segment), nothing else. No wallet, no key.
+- Two-minute cut: your established mainnet name, `.demo/identity.json` (for the Receive segment), nothing else. No wallet, no key. If the old identity file is gone, section 1b creates a new one.
 - 45-second agent cut: your established mainnet name, a working Claude Code login, the local clone with `dist-agent/` built. No wallet, no key, no identity.
 - Three-minute extended cut: everything above plus the presenter wallet on Sepolia with test ETH.
 - Optional fresh on-chain sweep on camera: `SEPOLIA_PRIVATE_KEY`, `.demo/identity.json` and `.demo/executor.json`. Not recommended for the video; the published sweep already verifies live. macOS or Linux only (Section 2, step 6).
@@ -48,6 +48,131 @@ A fresh clone of https://github.com/0xSkrillah/ghostname contains the whole app,
 - After copying on the new laptop: put `identity.json` in `.demo/`, run `chmod 700 .demo` and `chmod 600 .demo/identity.json` (macOS or Git Bash), delete the archive and any loose copy from Downloads and the Desktop, and empty the Trash or Recycle Bin.
 - The import on the deployed `#/create` (section 2, step 8) is the integrity check: the page re-derives the meta-address from the private keys and rejects a file that does not match. If it imports, the transfer worked.
 - Leave the old machine as it is until the submission is accepted. Wipe or keep it afterwards as you choose; the key is testnet only, but treat it as a secret anyway.
+
+### 1b. Starting with nothing from the old machine: the fresh-start path
+
+Use this path when the old `.env` and `.demo/` folder are out of reach. It
+takes about an hour plus faucet waiting time and needs about 0.05 Sepolia ETH.
+The result is a second controlled demo identity that you hold, so every
+recipient-side step (the `#/receive` scan, the sweep package, the Pay insert)
+works again.
+
+What is lost and what is not. Without `.demo/identity.json`, nobody holds the
+keys behind the record on `ghostname-3c7714.eth`. That name still reads
+Private-ready, `#/demo` steps 1 to 5 still run, the payment and exit proof
+panels still verify the published evidence from chain data, and the agent cut
+is unaffected. What no longer works for that name is recognising or sweeping
+payments to it. Without the old `SEPOLIA_PRIVATE_KEY`, nobody can write to
+that name's resolver either, so it stays exactly as it is. Nothing you do below
+touches it.
+
+Windows note: the operator scripts refuse an identity file that other users can
+read, and Node reports every file as world-readable on NTFS, so on Windows run
+steps 5 to 7 inside WSL (Ubuntu), with the clone inside the WSL file system.
+The browser steps and the recording itself stay on Windows.
+
+1. Do section 2, steps 1 to 5 first: git, Node, clone, `npm ci`, `npm test`,
+   and `.env` copied from `.env.example`. Section 2 step 7 (browser profile
+   and MetaMask) is also needed before step 2 below.
+2. Create the throwaway Sepolia account. In MetaMask, in the recording profile,
+   add a new account and name it "GhostName throwaway". Export its private key
+   (account menu, account details, show private key, confirm with the MetaMask
+   password [CHECK the exact wording in your version]). Paste it into `.env`
+   as `SEPOLIA_PRIVATE_KEY=0x...` (0x plus 64 hex characters). This one
+   account is the registrant of the new name, the sponsor for the scripts and
+   the presenter wallet for `#/pay`. It is testnet only; never send real
+   assets to it. Close the MetaMask key view before anything is recorded.
+3. Fund it. Send Sepolia ETH from a faucet to that account, target 0.05 ETH:
+   registration is about seven transactions, the live payment suite three,
+   the optional fresh sweep three more. MetaMask shows the balance; the
+   scripts print it too. Do this the day before recording.
+4. Create the receive identity in the browser and save it as the demo identity
+   file. Open https://0xskrillah.github.io/ghostname/#/create in the recording
+   profile. Click "Generate keys locally", then "Show keys and backup options",
+   then "Download backup (plaintext JSON)". Move the downloaded
+   `ghostname-identity.json` into the clone:
+
+   ```bash
+   mkdir -p .demo && chmod 700 .demo
+   mv ~/Downloads/ghostname-identity.json .demo/identity.json
+   chmod 600 .demo/identity.json
+   ```
+
+   Keep the identity in the browser: do not click "Discard identity". The
+   browser copy is what `#/receive` will scan with; the file copy is what the
+   scripts publish. They are the same keys.
+5. Register the new name. From the repository root:
+
+   ```bash
+   node scripts/register-v2-name.mjs
+   ```
+
+   It prints the account and balance, then `target name: ghostname-xxxxxx.eth`
+   where `xxxxxx` is the first six hex characters of the account address in
+   lower case. It mints free test USDC, deploys a resolver, commits, waits
+   about a minute for the commitment age, registers the name for one year,
+   sets the address record and the `stealth-meta-address[1]` record from your
+   identity file, then re-reads them and prints `record matches identity:
+   true` and `DONE. state: {...}`. State is saved to
+   `.demo/v2-registration.json`, so the script can be re-run if it stops
+   halfway. Write the new name down; it is your demo name from here on.
+6. Make the first payment and prove recognition, using the app's own code
+   paths:
+
+   ```bash
+   RUN_LIVE=1 npm run e2e:sepolia
+   ```
+
+   (PowerShell would need `$env:RUN_LIVE='1'`, but run this in WSL or on macOS
+   as noted above.) The suite publishes the record through the app write path,
+   derives two destinations and checks they differ, pays 0.0005 ETH to the
+   first, announces it, scans, recognises it with your viewing key, runs the
+   negative control, recovers the spending key, and writes
+   `.demo/e2e-evidence.json` with the name, the payment and announcement
+   transaction hashes and `scanStartBlock`. Note that block number. The suite
+   skips itself if the account holds less than 0.01 ETH.
+7. Optional, a fresh sponsored sweep on chain (needs at least 0.003 ETH):
+
+   ```bash
+   node scripts/compile-executor.mjs
+   RUN_LIVE=1 npm run sweep:sepolia
+   ```
+
+   This deploys a new executor, funds a fresh stealth address of your identity
+   and sweeps it with a sponsored type-4 transaction, printing the hash. Not
+   required for the video: `#/demo` step 5 and the `#/receive` proof panel
+   verify the originally published sweep, which is valid chain data whoever
+   holds the keys. Skip it if time is short.
+8. Point the app at the new identity. In `.env` set
+   `VITE_DEMO_SEPOLIA_NAME=ghostname-xxxxxx.eth` (your new name) and
+   `VITE_SCAN_START_BLOCK=` to the `scanStartBlock` from step 6. This
+   pre-fills a local `npm run dev` build. The deployed app still pre-fills the
+   original name and block, so on the deployed app type the new name into
+   `#/demo` step 2 and `#/pay`, and the new start block into `#/receive`.
+   Or redeploy from this laptop so the pre-fills match:
+
+   ```bash
+   VITE_DEMO_SEPOLIA_NAME=ghostname-xxxxxx.eth VITE_SCAN_START_BLOCK=<block> npm run deploy:pages
+   ```
+
+   That needs git push rights to the repository and a clean tree. The release
+   guards accept any `ghostname-` plus six hex `.eth` name, so no code change
+   is needed; the footer then shows the new build commit.
+9. Check `#/receive` in the recording profile: start block set to your
+   `scanStartBlock`, click "Scan announcements". Expected: "1 recognised as
+   yours", a card labelled "Payment recognised" with "Balance now: 0.0005 ETH"
+   (unless step 7 swept it), "Live negative control" at 0, and "Spending-key
+   check: pass". That card is the one to build the sweep package on during
+   the recording.
+10. What changes in the rest of this guide. Wherever sections 3 and 4 say
+    `ghostname-3c7714.eth` for `#/demo` step 2, `#/pay` and `#/receive`, use
+    your new name; both names read Private-ready, but only the new one has an
+    identity you hold. The agent cut may keep `ghostname-3c7714.eth` or use the
+    new name. In the extended cut, Insert A "Path 1" now applies: your new name
+    is a Sepolia name with a resolver your wallet controls, so "Check name on
+    Sepolia" shows "this wallet can write the record" and, because the record
+    is already published for this identity, "This exact record is already
+    published". Publishing again is not needed; show the check and move on.
 
 ## 2. Set up the laptop
 
