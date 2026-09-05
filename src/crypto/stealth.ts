@@ -24,7 +24,7 @@ import {
   type Address,
   type Hex,
 } from 'viem';
-import { parseStealthMetaAddress } from './metaAddress';
+import { parseStealthMetaAddress } from './metaAddress.ts';
 
 const Point = secp256k1.ProjectivePoint;
 const CURVE_ORDER = secp256k1.CURVE.n;
